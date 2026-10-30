@@ -1,0 +1,73 @@
+{
+  "name": "ascandir-charactereditor",
+  "productName": "Ascandir - CharacterEditor",
+  "version": "0.1.0",
+  "description": "D&D 5e Character Editor with 5e.tools data and 3D designer",
+  "author": "Ascandir",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "vite build && electron .",
+    "test": "node --test tests/engine.test.mjs",
+    "dist": "vite build && electron-builder --win nsis --publish never"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "vite": "^5.4.21",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.170.0"
+  },
+  "build": {
+    "appId": "de.ascandir.charactereditor",
+    "productName": "Ascandir - CharacterEditor",
+    "copyright": "Ascandir",
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "Ascandir-CharacterEditor-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "multiLanguageInstaller": true,
+      "displayLanguageSelector": true,
+      "installerLanguages": [
+        "de_DE",
+        "en_US"
+      ],
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Ascandir - CharacterEditor",
+      "deleteAppDataOnUninstall": false,
+      "uninstallDisplayName": "Ascandir - CharacterEditor"
+    },
+    "publish": null
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ascandir/Ascandir---CharacterEditor.git"
+  }
+}
