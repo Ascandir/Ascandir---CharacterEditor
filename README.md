@@ -29,4 +29,4 @@ npm ci
 npm run dist   # erzeugt release/Ascandir-CharacterEditor-Setup-<version>.exe
 npm test       # Regel-Engine-Tests (brauchen lokale 5e.tools-Daten, siehe tests/)
 ```
-Ein Git-Tag `v*` baut den Installer automatisch über GitHub Actions und hängt ihn an das Release.
+Jeder Push auf `main` baut den Installer über GitHub Actions und veröffentlicht ihn als Release `v<version>` (Version aus package.json).
