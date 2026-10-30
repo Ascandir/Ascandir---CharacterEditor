@@ -97,3 +97,21 @@ test('equipment groups', () => {
   console.log(JSON.stringify(g).slice(0, 300));
   assert.ok(g.length);
 });
+
+test('chosen invocations disappear from later picks, prereqs readable', () => {
+  const ch = { base: { str: 8, dex: 14, con: 13, int: 10, wis: 12, cha: 15 }, raceUid: 'human|xphb', backgroundUid: 'sage|xphb',
+    levels: Array.from({ length: 5 }, () => ({ classUid: 'warlock|xphb' })), choices: {}, extras: [], inventory: [] };
+  let d = R.derive(db, S24, ch);
+  const ei = d.choices.filter(c => c.id.includes(':of:Eldritch Invocations'));
+  console.log(ei.map(c => c.id + ' x' + c.count + ' opts ' + c.options.length).join('; '));
+  const first = ei[0];
+  const ag = first.options.find(o => o.label === 'Agonizing Blast');
+  console.log('prereq', ag.prereq, '| unmet', ag.unmet);
+  ch.choices[first.id] = [first.options.find(o => o.label === 'Armor of Shadows').value];
+  d = R.derive(db, S24, ch);
+  const later = d.choices.filter(c => c.id.includes(':of:Eldritch Invocations') && c.id !== first.id);
+  for (const c of later) assert.ok(!c.options.some(o => o.label === 'Armor of Shadows'));
+  assert.equal(new Set(first.options.map(o => o.label)).size, first.options.length, 'no duplicates');
+  const lvl1 = d.choices.find(c => c.id === first.id);
+  assert.ok(lvl1.options.some(o => o.label === 'Armor of Shadows'));
+});

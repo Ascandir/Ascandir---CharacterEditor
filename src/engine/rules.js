@@ -373,7 +373,7 @@ export function derive(db, settings, ch) {
     for (const fp of cls.featProgression || []) {
       const cnt = fp.progression?.[n] || 0;
       if (!cnt) continue;
-      const v = addL({ id: lid + ':fp:' + fp.name, group: 'level', label: fp.name, kind: 'feat', count: cnt, required: true,
+      const v = addL({ id: lid + ':fp:' + fp.name, group: 'level', label: fp.name, kind: 'feat', count: cnt, required: true, pool: 'feat',
         options: featOptions(db, allowed, settings, fp.category) });
       (v || []).forEach(u => { const ft = db.byUid.feat.get(u); if (ft) feats.push({ feat: ft, ctx: lid + ':fp:' + u, origin: 'class' }); });
     }
@@ -383,9 +383,10 @@ export function derive(db, settings, ch) {
       const at = (lvl) => Array.isArray(op.progression) ? (op.progression[lvl - 1] || 0) : Object.entries(op.progression || {}).reduce((a, [k, v]) => (Number(k) <= lvl ? a + v : a), 0);
       const diff = at(n) - at(n - 1);
       if (diff <= 0) continue;
-      const opts = db.optionalfeatures.filter(o => allowed(o) && (o.featureType || []).some(ft => op.featureType.includes(ft)));
-      const v = addL({ id: lid + ':of:' + op.name, group: 'level', label: op.name, kind: 'pick', count: diff, required: true,
-        options: opts.map(o => ({ value: uidOf(o), label: o.name, src: o.source, entity: o, prereq: o.prerequisite ? stripTags(JSON.stringify(o.prerequisite).replace(/[{}\[\]"]/g, ' ')).slice(0, 80) : '' })) });
+      const opts = dedupeByName(db.optionalfeatures.filter(o => allowed(o) && (o.featureType || []).some(ft => op.featureType.includes(ft))), cls.source);
+      const pacts = pactNames(db, C);
+      const v = addL({ id: lid + ':of:' + op.name, group: 'level', label: op.name, kind: 'pick', count: diff, required: true, pool: 'of:' + op.name,
+        options: opts.map(o => ({ value: uidOf(o), label: o.name, src: o.source, entity: o, prereq: optPrereqText(o.prerequisite), unmet: !optPrereqMet(o.prerequisite, n, pacts) })).sort((x, y) => (x.unmet - y.unmet) || x.label.localeCompare(y.label)) });
       (v || []).forEach(u => { const o = db.byUid.optionalfeature.get(u); if (o) { const ff = { name: o.name, from: op.name, kind: 'optional', level: idx + 1, entries: o.entries }; features.push(ff); lo.newFeatures.push(ff); } });
     }
     // spells
@@ -457,6 +458,14 @@ export function derive(db, settings, ch) {
   out.armorProf = [...notes.armor].filter(Boolean); out.weaponProf = [...notes.weapons].filter(Boolean);
   // spellcasting summary
   out.spellcasting = spellSummary(db, ch, classInfo, mods, pb, C, levelOut);
+  // hide options already chosen in another decision of the same pool
+  const pools = {};
+  for (const c of choices) if (c.pool && Array.isArray(c.value)) for (const v of c.value) (pools[c.pool] = pools[c.pool] || []).push([c.id, v]);
+  for (const c of choices) {
+    if (!c.pool || !pools[c.pool]) continue;
+    const taken = new Set(pools[c.pool].filter(([id]) => id !== c.id).map(([, v]) => v));
+    c.options = c.options.filter(o => !taken.has(o.value) || o.entity?.repeatable);
+  }
   // open decisions
   out.open = choices.filter(c => c.required && !isComplete(c));
   out.summary = [race?.name, classInfo.map(c => c.cls.name + ' ' + c.level).join(' / ')].filter(Boolean).join(' · ');
@@ -555,6 +564,39 @@ function toolChoices(sets, group, add, notes) {
   }
 }
 
+export function optPrereqText(pr) {
+  const out = [];
+  for (const p of pr || []) {
+    if (p.level) out.push('Level ' + (typeof p.level === 'object' ? p.level.level : p.level));
+    if (p.pact) out.push('Pact of the ' + p.pact);
+    if (p.patron) out.push('Patron: ' + p.patron);
+    for (const s of p.spell || []) out.push(typeof s === 'string' ? s.split('#')[0].split('|')[0].replace(/\b\w/g, c => c.toUpperCase()) : (s.entry ? stripTags(s.entry) : 'Spell'));
+    for (const f of p.feature || []) out.push(String(f).split('|')[0]);
+    for (const f of p.optionalfeature || []) out.push(String(f).split('|')[0]);
+    if (p.item) out.push(p.item.map(String).join('/'));
+    if (p.other) out.push(stripTags(p.other));
+    if (p.otherSummary?.entry) out.push(stripTags(p.otherSummary.entry));
+  }
+  return [...new Set(out)].join(' · ');
+}
+function optPrereqMet(pr, classLevel, pacts) {
+  if (!pr || !pr.length) return true;
+  return pr.some(p => {
+    const lvl = typeof p.level === 'object' ? p.level?.level : p.level;
+    if (lvl && classLevel < lvl) return false;
+    if (p.pact && !pacts.has(lc(p.pact))) return false;
+    return true;
+  });
+}
+function pactNames(db, C) {
+  const s = new Set();
+  for (const [k, v] of Object.entries(C)) {
+    if (!k.includes(':of:') || !Array.isArray(v)) continue;
+    for (const u of v) { const m = /pact of the (\w+)/i.exec(u.split('|')[0]); if (m) s.add(lc(m[1])); }
+  }
+  return s;
+}
+
 function featOptions(db, allowed, settings, categories) {
   const catOk = (f) => {
     if (!categories) return true;
@@ -577,7 +619,7 @@ function spellChoicesForLevel(db, allowed, cls, info, n, lid, addL) {
   const can = host.cantripProgression;
   if (can) {
     const d = (can[n - 1] || 0) - (n > 1 ? can[n - 2] || 0 : 0);
-    if (d > 0) res.cantrips = addL({ id: lid + ':cantrips:' + info.uid, group: 'level', label: cls.name + ' – Cantrips', kind: 'pick', count: d, required: true, spell: true,
+    if (d > 0) res.cantrips = addL({ id: lid + ':cantrips:' + info.uid, group: 'level', label: cls.name + ' – Cantrips', kind: 'pick', count: d, required: true, spell: true, pool: 'spell:' + info.uid,
       options: list.filter(s => s.level === 0).map(s => ({ value: uidOf(s), label: s.name, src: s.source, entity: s, spellLevel: 0 })) });
   }
   const maxL = maxSpellLevelFor(prog, n);
@@ -586,7 +628,7 @@ function spellChoicesForLevel(db, allowed, cls, info, n, lid, addL) {
   if (known) d = (known[n - 1] || 0) - (n > 1 ? known[n - 2] || 0 : 0);
   else if (host.spellsKnownProgressionFixed) d = host.spellsKnownProgressionFixed[n - 1] || 0;
   if (d > 0 && maxL > 0) {
-    res.spells = addL({ id: lid + ':spells:' + info.uid, group: 'level', label: cls.name + ' – ' + (host.spellsKnownProgressionFixed ? 'Spellbook' : 'Spells'), kind: 'pick', count: d, required: true, spell: true,
+    res.spells = addL({ id: lid + ':spells:' + info.uid, group: 'level', label: cls.name + ' – ' + (host.spellsKnownProgressionFixed ? 'Spellbook' : 'Spells'), kind: 'pick', count: d, required: true, spell: true, pool: 'spell:' + info.uid,
       options: list.filter(s => s.level > 0 && s.level <= maxL).map(s => ({ value: uidOf(s), label: s.name, src: s.source, entity: s, spellLevel: s.level })) });
   }
   if (host.preparedSpells && !host.spellsKnownProgressionFixed) info.preparedFormula = host.preparedSpells;

@@ -81,7 +81,7 @@ function MultiPick({ c, onChange, t, lang, scores, totalLevel }) {
     const sel = val.includes(o.value);
     const prereq = o.prereq || (o.entity && c.kind === 'feat' ? featPrereqText(o.entity) : '');
     return (
-      <button key={o.value} className={'opt' + (sel ? ' sel' : '')} onClick={() => { toggle(o.value); if (o.entity) setOpen(o.value); }} aria-pressed={sel}>
+      <button key={o.value} className={'opt' + (sel ? ' sel' : '') + (o.unmet && !sel ? ' unmet' : '')} disabled={o.unmet && !sel} title={o.unmet ? prereq : undefined} onClick={() => { toggle(o.value); if (o.entity) setOpen(o.value); }} aria-pressed={sel}>
         <span style={{ fontWeight: 600 }}>{optLabel(c, o, lang)}</span>
         {(o.src || prereq) && <span className="s">{[o.src, prereq].filter(Boolean).join(' · ')}</span>}
       </button>
