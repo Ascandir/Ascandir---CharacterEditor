@@ -128,6 +128,26 @@ export default function App() {
     saveSettings({ ...settings, homebrew: [...list] });
   }, [settings, hb, saveSettings, showToast, t]);
 
+  const addHomebrewMany = useCallback(async (paths, on, onProgress) => {
+    if (!on) {
+      const rm = new Set(paths);
+      saveSettings({ ...settings, homebrew: (settings.homebrew || []).filter(p => !rm.has(p)) });
+      return;
+    }
+    const loaded = {}; let done = 0; let i = 0;
+    const worker = async () => {
+      while (i < paths.length) {
+        const p = paths[i++];
+        if (!hb[p]) { try { loaded[p] = await loadHomebrewFile(p); } catch (e) { console.warn('homebrew failed', p, e); } }
+        onProgress && onProgress(++done, paths.length);
+      }
+    };
+    await Promise.all(Array.from({ length: 6 }, worker));
+    setHb(h => ({ ...h, ...loaded }));
+    const ok = paths.filter(p => hb[p] || loaded[p]);
+    saveSettings({ ...settings, homebrew: [...new Set([...(settings.homebrew || []), ...ok])] });
+  }, [settings, hb, saveSettings]);
+
   const addOwnHomebrew = useCallback(async (name, json) => {
     const path = 'local/' + name;
     setHb(h => ({ ...h, [path]: json }));
@@ -181,7 +201,7 @@ export default function App() {
           {view === 'wizard' && <Wizard {...ctx} />}
           {view === 'levelup' && <LevelUp {...ctx} />}
           {view === 'designer' && <Designer {...ctx} />}
-          {view === 'sources' && <Sources {...ctx} addHomebrew={addHomebrew} addOwnHomebrew={addOwnHomebrew} reload={() => loadAll(true)} hbLoaded={hb} />}
+          {view === 'sources' && <Sources {...ctx} addHomebrew={addHomebrew} addHomebrewMany={addHomebrewMany} addOwnHomebrew={addOwnHomebrew} reload={() => loadAll(true)} hbLoaded={hb} />}
           {view === 'settings' && <Settings {...ctx} />}
         </main>
         {showChars && <CharList {...ctx} onClose={() => setShowChars(false)} current={ch} setCh={setCh} />}

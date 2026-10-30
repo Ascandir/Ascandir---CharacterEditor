@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useT } from '../i18n.js';
 import { api } from '../platform.js';
 import { loadHomebrewIndex, sourceGroup } from '../data/loader.js';
+import { Collapsible } from '../components/Shared.jsx';
 
-export default function Sources({ db, globalSettings: s, saveSettings, addHomebrew, addOwnHomebrew, reload, ch, update, showToast }) {
+export default function Sources({ db, globalSettings: s, saveSettings, addHomebrew, addHomebrewMany, addOwnHomebrew, reload, ch, update, showToast }) {
   const { t } = useT();
   const [hbIndex, setHbIndex] = useState(null);
   const [hbErr, setHbErr] = useState(null);
@@ -30,6 +31,20 @@ export default function Sources({ db, globalSettings: s, saveSettings, addHomebr
     const list = hbIndex.filter(h => !term || h.title.toLowerCase().includes(term));
     return [...list.filter(h => act.has(h.path)), ...list.filter(h => !act.has(h.path)).slice(0, 80)];
   }, [hbIndex, q, s.homebrew]);
+  const hbMatches = useMemo(() => {
+    if (!hbIndex) return [];
+    const term = q.trim().toLowerCase();
+    return hbIndex.filter(h => !term || h.title.toLowerCase().includes(term));
+  }, [hbIndex, q]);
+  const [progress, setProgress] = useState(null);
+  const activateAll = async () => {
+    const todo = hbMatches.map(h => h.path).filter(p => !(s.homebrew || []).includes(p));
+    if (!todo.length) return;
+    if (todo.length > 20 && !window.confirm(t.hbBulkWarn(todo.length))) return;
+    setProgress([0, todo.length]);
+    await addHomebrewMany(todo, true, (a, b) => setProgress([a, b]));
+    setProgress(null);
+  };
   const profiles = s.profiles || {};
   const saveProfile = () => {
     const name = window.prompt(t.srcProfile, s.activeProfile || 'Standard');
@@ -91,10 +106,8 @@ export default function Sources({ db, globalSettings: s, saveSettings, addHomebr
 
       <section className="col" style={{ flex: '999 1 560px', minWidth: 0 }}>
         {Object.entries(groups).map(([k, list]) => list.length > 0 && (
-          <div key={k} className="card">
+          <Collapsible key={k} title={label[k]} right={<span className="muted small">{t.activeOf(list.filter(x => !disabled.has(x.src)).length, list.length)}</span>}>
             <div className="row" style={{ marginBottom: 10 }}>
-              <h3 className="grow" style={{ margin: 0 }}>{label[k]}</h3>
-              <span className="muted small">{t.activeOf(list.filter(x => !disabled.has(x.src)).length, list.length)}</span>
               <button className="btn sm" onClick={() => setDisabled([...disabled].filter(x => !list.some(l => l.src === x)))}>{t.allOn}</button>
               <button className="btn sm" onClick={() => setDisabled([...disabled, ...list.map(l => l.src)])}>{t.allOff}</button>
             </div>
@@ -106,13 +119,17 @@ export default function Sources({ db, globalSettings: s, saveSettings, addHomebr
                 </label>
               ))}
             </div>
-          </div>
+          </Collapsible>
         ))}
-        <div className="card col">
+        <Collapsible title={t.srcHomebrew} right={<span className="muted small">{t.hbActive}: {(s.homebrew || []).length}</span>}>
+          <div className="col">
           <div className="row">
-            <h3 className="grow" style={{ margin: 0 }}>{t.srcHomebrew}</h3>
+            <button className="btn sm" disabled={!!progress || !hbMatches.length} onClick={activateAll}>{t.hbAllShown(hbMatches.length)}</button>
+            <button className="btn sm" disabled={!!progress || !(s.homebrew || []).length} onClick={() => addHomebrewMany([...(s.homebrew || [])], false)}>{t.hbNone}</button>
+            <div className="grow" />
             <button className="btn sm" onClick={loadOwn}>{t.loadOwnFile}</button>
           </div>
+          {progress && <div className="banner info" style={{ margin: 0 }}>{t.hbProgress(progress[0], progress[1])}</div>}
           <input placeholder={t.srcHomebrewSearch} value={q} onChange={e => setQ(e.target.value)} aria-label={t.srcHomebrewSearch} />
           {hbErr && <div className="muted small">{hbErr}</div>}
           {!hbIndex && !hbErr && <div className="muted small">{t.hbLoading}</div>}
@@ -131,7 +148,8 @@ export default function Sources({ db, globalSettings: s, saveSettings, addHomebr
               );
             })}
           </div>
-        </div>
+          </div>
+        </Collapsible>
       </section>
     </div>
   );

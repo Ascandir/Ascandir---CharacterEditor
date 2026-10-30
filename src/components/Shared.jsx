@@ -5,6 +5,18 @@ import { uidOf } from '../data/loader.js';
 import ChoicePicker from './ChoicePicker.jsx';
 import Entries, { spellMeta } from './Entries.jsx';
 
+export function Collapsible({ title, right, children, defaultOpen = true, style, className = 'card' }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className={className} style={style}>
+      <button className="collapse-head" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <h3 style={{ margin: 0 }}>{title}</h3><span className="grow" />{right}<span className="chev">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && <div style={{ marginTop: 12 }}>{children}</div>}
+    </div>
+  );
+}
+
 export function Choices({ list, update, d }) {
   return list.map(c => (
     <ChoicePicker key={c.id} c={c} scores={d?.scores} totalLevel={d?.totalLevel}
@@ -67,9 +79,8 @@ export function ExtrasEditor({ db, settings, ch, update }) {
     return x.name;
   };
   return (
-    <div className="card" style={{ borderStyle: 'dashed', borderColor: 'var(--line2)' }}>
+    <Collapsible title={t.freeTitle} right={(ch.extras || []).length ? <span className="tag free">{(ch.extras || []).length}</span> : null} style={{ borderStyle: 'dashed', borderColor: 'var(--line2)' }}>
       <div className="row">
-        <h3 style={{ margin: 0 }} className="grow">{t.freeTitle}</h3>
         <button className="btn sm" onClick={() => setMode('feat')}>{t.addFeat}</button>
         <button className="btn sm" onClick={() => setMode('feature')}>{t.addFeature}</button>
         <button className="btn sm" onClick={() => setMode('spell')}>{t.addSpell}</button>
@@ -124,7 +135,7 @@ export function ExtrasEditor({ db, settings, ch, update }) {
           </div>
         ))}
       </div>
-    </div>
+    </Collapsible>
   );
 }
 

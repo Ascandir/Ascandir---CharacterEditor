@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useT, ABILS, ABIL_NAMES, SKILLS, skillName } from '../i18n.js';
 import { fmtMod } from '../engine/rules.js';
-import { Choices, Feature, ExtrasEditor, Inventory } from '../components/Shared.jsx';
+import { Choices, Feature, ExtrasEditor, Inventory, Collapsible } from '../components/Shared.jsx';
 import { spellMeta } from '../components/Entries.jsx';
 import Entries from '../components/Entries.jsx';
 
@@ -50,9 +50,8 @@ export default function Sheet(props) {
               <button className="btn" onClick={() => setView('wizard')}>{t.edit}: {t.steps[1]}, {t.steps[2]} …</button>
             </div>
           </div>
-          <div className="card tight">
-            <div className="small muted">{t.proficiencies}</div>
-            <div className="small" style={{ marginTop: 6, lineHeight: 1.6 }}>
+          <Collapsible title={t.proficiencies} className="card tight">
+            <div className="small" style={{ lineHeight: 1.6 }}>
               {d.armorProf.length > 0 && <div><b>Armor:</b> {d.armorProf.join(', ')}</div>}
               {d.weaponProf.length > 0 && <div><b>Weapons:</b> {d.weaponProf.join(', ')}</div>}
               {d.tools.length > 0 && <div><b>Tools:</b> {d.tools.join(', ')}</div>}
@@ -60,7 +59,7 @@ export default function Sheet(props) {
               {d.resist.length > 0 && <div><b>{t.resist}:</b> {d.resist.join(', ')}</div>}
               {d.darkvision > 0 && <div><b>{t.darkvision}:</b> {d.darkvision} ft</div>}
             </div>
-          </div>
+          </Collapsible>
         </section>
 
         <section className="col" style={{ flex: '999 1 520px', minWidth: 0 }}>
@@ -81,8 +80,7 @@ export default function Sheet(props) {
               </div>
             ))}
           </div>
-          <div className="card">
-            <h3>{t.skills}</h3>
+          <Collapsible title={t.skills}>
             <div className="grid g3" style={{ columnGap: 20, rowGap: 0 }}>
               {Object.keys(SKILLS).sort((a, b) => skillName(a, lang).localeCompare(skillName(b, lang))).map(k => (
                 <div key={k} className="skillrow">
@@ -92,7 +90,7 @@ export default function Sheet(props) {
                 </div>
               ))}
             </div>
-          </div>
+          </Collapsible>
         </section>
 
         <section className="card" style={{ flex: '1 1 320px', maxWidth: 440, padding: 0, overflow: 'hidden' }}>

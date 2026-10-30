@@ -9,20 +9,35 @@ function optLabel(c, o, lang) {
   return o.label;
 }
 
+function summary(c, lang) {
+  const v = c.value;
+  if (Array.isArray(v)) return v.map(x => { const o = (c.options || []).find(o => o.value === x); return o ? optLabel(c, o, lang) : x; }).join(', ');
+  if (c.kind === 'text') return v || '';
+  if (c.kind === 'asiFeat' && v) {
+    if (v.mode === 'feat') return (c.featOptions || []).find(o => o.value === v.feat)?.label || '';
+    return (v.abil || []).filter(Boolean).map(a => ABIL_LONG[lang][a] + (v.mode === 'asi2' ? ' +2' : ' +1')).join(', ');
+  }
+  if ((c.kind === 'weighted' || c.kind === 'flexAsi') && v?.abil) return v.abil.filter(Boolean).map(a => ABIL_LONG[lang][a]).join(', ');
+  return '';
+}
+
 export default function ChoicePicker({ c, onChange, scores, totalLevel }) {
   const { t, lang } = useT();
   const done = isComplete(c);
+  const [open, setOpen] = useState(!done);
   return (
     <div className="card" style={{ borderColor: done ? 'var(--line)' : 'var(--warnline)' }}>
-      <div className="row" style={{ marginBottom: 10 }}>
+      <button className="collapse-head" onClick={() => setOpen(!open)} aria-expanded={open}>
         {!done && <span className="tag req">{t.required}</span>}
         {done && <span className="tag" style={{ background: 'var(--okbg)', color: '#b8e6c6' }}>✓ {t.chosen}</span>}
         <h3 style={{ margin: 0 }}>{c.label}</h3>
         {c.level && <span className="muted small">{t.level} {c.level}</span>}
-        <div className="grow" />
+        {!open && done && <span className="muted small" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%' }}>{summary(c, lang)}</span>}
+        <span className="grow" />
         {c.count > 1 && ['pick', 'skill', 'abil', 'feat', 'lang'].includes(c.kind) && <span className="muted small">{(c.value || []).length} / {c.count}</span>}
-      </div>
-      <Body c={c} onChange={onChange} scores={scores} totalLevel={totalLevel} t={t} lang={lang} />
+        <span className="chev">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && <div style={{ marginTop: 12 }}><Body c={c} onChange={onChange} scores={scores} totalLevel={totalLevel} t={t} lang={lang} /></div>}
     </div>
   );
 }

@@ -60,7 +60,7 @@ function d_open(c) {
 
 function finish({ ch, db, update }) {
   update(c => {
-    if (!c.equipApplied) {
+    if (!c.equipApplied && !c.equipSkip) {
       for (const [key, ent] of [['class', db.byUid.class.get(c.levels[0]?.classUid)], ['bg', db.byUid.background.get(c.backgroundUid)]]) {
         const groups = equipmentGroups(db, ent);
         groups.forEach((opts, gi) => {
@@ -214,15 +214,18 @@ function BgStep(props) {
 
 function Detail({ title, src, facts, entries }) {
   const [more, setMore] = useState(false);
+  const [open, setOpen] = useState(true);
   const { t } = useT();
   return (
     <div className="card">
-      <div className="row"><h1 className="serif" style={{ fontSize: 26 }}>{title}</h1><span className="muted">{src}</span></div>
-      {facts?.length > 0 && <div className="row" style={{ marginTop: 10, gap: 6 }}>{facts.map((f, i) => <span key={i} className="chip">{stripTags(f)}</span>)}</div>}
-      {entries && (
+      <button className="collapse-head" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <h1 className="serif" style={{ fontSize: 26 }}>{title}</h1><span className="muted">{src}</span><span className="grow" /><span className="chev">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && facts?.length > 0 && <div className="row" style={{ marginTop: 10, gap: 6 }}>{facts.map((f, i) => <span key={i} className="chip">{stripTags(f)}</span>)}</div>}
+      {open && entries && (
         <div style={{ marginTop: 12 }}>
-          <div style={{ maxHeight: more ? 'none' : 160, overflow: 'hidden' }}><Entries entries={entries} /></div>
-          <button className="btn sm ghost" onClick={() => setMore(!more)}>{more ? t.hideInfo : t.moreInfo}</button>
+          <div className={more ? '' : 'fadeclip'}><Entries entries={entries} /></div>
+          <button className="btn sm" style={{ marginTop: 10 }} onClick={() => setMore(!more)}>{more ? t.hideInfo : t.moreInfo}</button>
         </div>
       )}
     </div>
@@ -284,14 +287,14 @@ function AbilityStep({ ch, d, update }) {
               <Stepper label={t.diceCount} val={rule.n} dec={() => step('n', -1, 1, 8)} inc={() => step('n', 1, 1, 8)} />
               <Stepper label={t.dieType} val={(lang === 'de' ? 'W' : 'd') + rule.sides} dec={() => setGen(g => { g.rule.sides = sidesList[Math.max(0, sidesList.indexOf(g.rule.sides) - 1)]; })} inc={() => setGen(g => { g.rule.sides = sidesList[Math.min(sidesList.length - 1, sidesList.indexOf(g.rule.sides) + 1)]; })} />
               <Stepper label={t.dropLowest} val={rule.drop} dec={() => step('drop', -1, 0, 4)} inc={() => step('drop', 1, 0, 4)} />
-              <Stepper label={t.bonusPer} val={'+' + rule.bonus} dec={() => step('bonus', -1, 0, 10)} inc={() => step('bonus', 1, 0, 10)} />
+              <Stepper label={t.bonusPer} val={(rule.bonus >= 0 ? '+' : '') + rule.bonus} dec={() => step('bonus', -1, -10, 10)} inc={() => step('bonus', 1, -10, 10)} />
               <Stepper label={t.valueCount} val={rule.sets} dec={() => step('sets', -1, 6, 9)} inc={() => step('sets', 1, 6, 9)} />
             </div>
             <label className="row"><input type="checkbox" checked={!!rule.ones} onChange={() => setGen(g => { g.rule.ones = !g.rule.ones; })} />{t.rerollOnes}</label>
             <button className="btn primary" onClick={() => setGen(g => {
               const sets = rollSets(g.rule);
               g.lastRoll = sets; g.values = sets.map(s => s.total); g.assign = {}; ABILS.forEach((a, i) => { if (i < g.values.length) g.assign[a] = i; });
-              const desc = `${g.rule.n}${lang === 'de' ? 'W' : 'd'}${g.rule.sides}${g.rule.drop ? ' −' + g.rule.drop : ''}${g.rule.bonus ? ' +' + g.rule.bonus : ''}${g.rule.ones ? ' (1→)' : ''}: ${g.values.join(', ')}`;
+              const desc = `${g.rule.n}${lang === 'de' ? 'W' : 'd'}${g.rule.sides}${g.rule.drop ? ' −' + g.rule.drop : ''}${g.rule.bonus ? ' ' + (g.rule.bonus > 0 ? '+' : '') + g.rule.bonus : ''}${g.rule.ones ? ' (1→)' : ''}: ${g.values.join(', ')}`;
               g.log = [{ at: Date.now(), txt: desc }, ...(g.log || [])].slice(0, 20);
             })}>{t.roll}</button>
             {(gen.log || []).length > 0 && (
@@ -385,7 +388,11 @@ function EquipStep({ db, ch, update }) {
   return (
     <div className="page"><section className="col" style={{ flex: '1 1 100%' }}>
       {ch.equipApplied && <div className="banner info" style={{ margin: 0 }}>{t.startEquip} ✓ – {t.inventory}</div>}
-      {sets.map(([key, ent]) => ent && (
+      <label className="card row" style={{ cursor: 'pointer' }}>
+        <input type="checkbox" checked={!!ch.equipSkip} onChange={e => update(c => { c.equipSkip = e.target.checked; return c; })} />
+        <span className="col" style={{ gap: 2 }}><span className="bold">{t.skipEquip}</span><span className="muted small">{t.skipEquipSub}</span></span>
+      </label>
+      {!ch.equipSkip && sets.map(([key, ent]) => ent && (
         <div key={key} className="card col">
           <h3>{t.startEquip}: {ent.name}</h3>
           {equipmentGroups(db, ent).map((opts, gi) => {

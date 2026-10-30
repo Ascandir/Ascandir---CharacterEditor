@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useT } from '../i18n.js';
 import { makeFilter, multiclassReq, meetsReq, reqText, dedupeByName } from '../engine/rules.js';
 import { uidOf } from '../data/loader.js';
-import { Choices, Feature, ExtrasEditor } from '../components/Shared.jsx';
+import { Choices, Feature, ExtrasEditor, Collapsible } from '../components/Shared.jsx';
 
 const rnd = (sides) => { const a = new Uint32Array(1); crypto.getRandomValues(a); return 1 + (a[0] % sides); };
 
@@ -45,8 +45,7 @@ export default function LevelUp(props) {
       </aside>
 
       <section className="col" style={{ flex: '999 1 560px', minWidth: 0 }}>
-        <div className="card">
-          <h1 className="serif" style={{ fontSize: 24, marginBottom: 6 }}>{t.levelUp}: {t.level} {total} → {total + 1}</h1>
+        <Collapsible title={`${t.levelUp}: ${t.level} ${total} → ${total + 1}`}>
           <p className="muted" style={{ margin: '0 0 12px' }}>{t.whichClass}</p>
           <div className="optgrid">
             {classes.map(c => {
@@ -66,7 +65,7 @@ export default function LevelUp(props) {
               );
             })}
           </div>
-        </div>
+        </Collapsible>
 
         {lo && cls && (
           <>
