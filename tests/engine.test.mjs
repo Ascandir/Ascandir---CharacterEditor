@@ -115,3 +115,16 @@ test('chosen invocations disappear from later picks, prereqs readable', () => {
   const lvl1 = d.choices.find(c => c.id === first.id);
   assert.ok(lvl1.options.some(o => o.label === 'Armor of Shadows'));
 });
+
+test('tool choices are picks from official tools', () => {
+  const ch = { base: { str: 8, dex: 14, con: 13, int: 15, wis: 12, cha: 10 }, raceUid: 'human|xphb', backgroundUid: 'soldier|xphb',
+    levels: [{ classUid: 'artificer|efa' }], choices: { 'background:tool:0': 'Dice set' }, extras: [], inventory: [] };
+  let d = R.derive(db, S24, ch);
+  const tools = d.choices.filter(c => c.id.includes(':tool:'));
+  console.log(tools.map(c => c.id + ' ' + c.label + ' [' + c.options.map(o => o.label).slice(0, 4).join(', ') + '…] value=' + JSON.stringify(c.value)).join('\n'));
+  assert.ok(tools.every(c => c.kind === 'pick' && c.options.length > 1));
+  const gs = tools.find(c => c.id === 'background:tool:0');
+  ch.choices[gs.id] = ['Dice Set'];
+  d = R.derive(db, S24, ch);
+  assert.ok(d.tools.includes('Dice Set'));
+});

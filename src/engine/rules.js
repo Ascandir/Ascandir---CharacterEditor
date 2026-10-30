@@ -159,7 +159,11 @@ export function derive(db, settings, ch) {
   const C = ch.choices || {};
   const choices = [];
   const features = [];
-  const add = (c) => { c.value = C[c.id]; choices.push(c); return c.value; };
+  const add = (c) => {
+    let v = C[c.id];
+    if (typeof v === 'string' && ['pick', 'skill', 'abil', 'feat', 'lang'].includes(c.kind)) { const o = (c.options || []).find(o => lc(o.value) === lc(v).trim()); v = o ? [o.value] : undefined; } // migrate old free-text answers
+    c.value = v; choices.push(c); return v;
+  };
   const skillProf = new Set(); const expertise = new Set();
   const abilBonus = Object.fromEntries(ABILS.map(a => [a, 0]));
   const notes = { resist: new Set(), languages: new Set(), tools: new Set(), armor: new Set(), weapons: new Set() };
@@ -218,6 +222,7 @@ export function derive(db, settings, ch) {
     });
     // languages
     langChoices(race.languageProficiencies, 'race', add, notes);
+    toolChoices(race.toolProficiencies, 'race', add, notes);
     // resist
     for (const r of race.resist || []) {
       if (typeof r === 'string') notes.resist.add(r);
@@ -551,16 +556,32 @@ function langChoices(sets, group, add, notes) {
     } else if (v === true) notes.languages.add(k.replace(/\b\w/g, c => c.toUpperCase()));
   }
 }
+export const TOOLS = {
+  anyArtisansTool: ["Alchemist's Supplies", "Brewer's Supplies", "Calligrapher's Supplies", "Carpenter's Tools", "Cartographer's Tools", "Cobbler's Tools", "Cook's Utensils", "Glassblower's Tools", "Jeweler's Tools", "Leatherworker's Tools", "Mason's Tools", "Painter's Supplies", "Potter's Tools", "Smith's Tools", "Tinker's Tools", "Weaver's Tools", "Woodcarver's Tools"],
+  anyGamingSet: ['Dice Set', 'Dragonchess Set', 'Playing Card Set', 'Three-Dragon Ante Set'],
+  anyMusicalInstrument: ['Bagpipes', 'Drum', 'Dulcimer', 'Flute', 'Horn', 'Lute', 'Lyre', 'Pan Flute', 'Shawm', 'Viol'],
+  other: ['Disguise Kit', 'Forgery Kit', 'Herbalism Kit', "Navigator's Tools", "Poisoner's Kit", "Thieves' Tools", 'Vehicles (Land)', 'Vehicles (Water)'],
+};
+const TOOL_LABEL = { anyArtisansTool: "Artisan's Tools", anyGamingSet: 'Gaming Set', anyMusicalInstrument: 'Musical Instrument', any: 'Tool', anyTool: 'Tool' };
+const titleCase = (x) => String(x).replace(/\b\w/g, c => c.toUpperCase()).replace(/'S\b/g, "'s");
+function toolList(key) {
+  if (TOOLS[key]) return TOOLS[key];
+  if (key === 'any' || key === 'anyTool') return [...TOOLS.anyArtisansTool, ...TOOLS.anyGamingSet, ...TOOLS.anyMusicalInstrument, ...TOOLS.other];
+  return [titleCase(key)];
+}
 function toolChoices(sets, group, add, notes) {
   const set = (sets || [])[0];
   if (!set) return;
   let i = 0;
   for (const [k, v] of Object.entries(set)) {
-    if (v === true) notes.tools.add(k.replace(/\b\w/g, c => c.toUpperCase()));
-    else if (typeof v === 'number' || k === 'choose') {
-      const val = add({ id: group + ':tool:' + i++, group, label: 'Tool: ' + k.replace(/^any/, '').replace(/([A-Z])/g, ' $1').trim(), kind: 'text', required: true });
-      if (val) notes.tools.add(val);
-    }
+    if (v === true) { notes.tools.add(titleCase(k)); continue; }
+    let from; let count; let label;
+    if (k === 'choose') { from = [...new Set((v.from || []).flatMap(toolList))]; count = v.count || 1; label = 'Tool Proficiency'; }
+    else if (typeof v === 'number') { from = toolList(k); count = v; label = 'Tool Proficiency: ' + (TOOL_LABEL[k] || titleCase(k)); }
+    else continue;
+    const val = add({ id: group + ':tool:' + i++, group, label, kind: 'pick', count, required: true, options: from.map(x => ({ value: x, label: x })) });
+    if (Array.isArray(val)) val.forEach(x => notes.tools.add(x));
+    else if (typeof val === 'string' && val) notes.tools.add(val); // older saves (free text)
   }
 }
 
