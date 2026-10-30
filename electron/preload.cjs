@@ -15,4 +15,7 @@ contextBridge.exposeInMainWorld('ace', {
   openExternal: (u) => ipcRenderer.invoke('sys:openExternal', u),
   hardware: () => ipcRenderer.invoke('sys:hardware'),
   version: () => ipcRenderer.invoke('app:version'),
+  checkUpdate: () => ipcRenderer.invoke('update:check'),
+  installUpdate: (info) => ipcRenderer.invoke('update:install', info),
+  onUpdateProgress: (cb) => { const h = (_e, p) => cb(p); ipcRenderer.on('update:progress', h); return () => ipcRenderer.removeListener('update:progress', h); },
 });

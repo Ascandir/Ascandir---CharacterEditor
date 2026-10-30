@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useT } from '../i18n.js';
 import { api } from '../platform.js';
 import { assessGpu, AMD_DRIVER_URL } from '../hardware.js';
+import { useUpdater, UpdateBody } from '../components/Update.jsx';
 
 export default function Settings({ globalSettings: s, saveSettings, showToast }) {
   const { t } = useT();
@@ -9,6 +10,7 @@ export default function Settings({ globalSettings: s, saveSettings, showToast })
   const [ver, setVer] = useState('');
   useEffect(() => { api.hardware().then(setHw); api.version().then(setVer); }, []);
   const gpus = (hw?.gpus || []).map(assessGpu);
+  const u = useUpdater();
   return (
     <div className="page">
       <section className="col" style={{ flex: '1 1 340px', maxWidth: 460 }}>
@@ -43,7 +45,12 @@ export default function Settings({ globalSettings: s, saveSettings, showToast })
           <div className="banner info" style={{ margin: 0 }}>{t.aiSoon}</div>
         </div>
         <div className="card col">
-          <div className="row"><span className="bold grow">{t.version}</span><span className="muted">{ver}</span></div>
+          <div className="row"><span className="bold grow">{t.updates}</span><span className="muted">{t.version} {ver}</span></div>
+          <button className="btn" disabled={['checking', 'downloading', 'installing'].includes(u.state)} onClick={u.check}>{u.state === 'checking' ? '…' : t.checkUpdate}</button>
+          <UpdateBody u={u} />
+          <label className="row small"><input type="checkbox" checked={s.autoUpdate !== false} onChange={e => saveSettings({ ...s, autoUpdate: e.target.checked })} />{t.autoUpdateCheck}</label>
+        </div>
+        <div className="card col">
           <button className="btn" onClick={async () => { await api.clearCache(); showToast('OK'); }}>{t.cacheClear}</button>
         </div>
       </section>

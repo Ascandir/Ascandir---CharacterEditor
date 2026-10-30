@@ -162,6 +162,45 @@ function parseCimDate(d) {
 
 ipcMain.handle('app:version', () => app.getVersion());
 
+// ---------- self-update from GitHub releases ----------
+const REPO_API = 'https://api.github.com/repos/Ascandir/Ascandir---CharacterEditor/releases/latest';
+function newer(a, b) { // is a > b
+  const pa = String(a).replace(/^v/, '').split('.').map(Number); const pb = String(b).replace(/^v/, '').split('.').map(Number);
+  for (let i = 0; i < 3; i++) { if ((pa[i] || 0) > (pb[i] || 0)) return true; if ((pa[i] || 0) < (pb[i] || 0)) return false; }
+  return false;
+}
+ipcMain.handle('update:check', async () => {
+  const res = await fetch(REPO_API, { headers: { 'User-Agent': 'Ascandir-CharacterEditor', Accept: 'application/vnd.github+json' } });
+  if (!res.ok) throw new Error('GitHub HTTP ' + res.status);
+  const r = await res.json();
+  const asset = (r.assets || []).find(a => /^Ascandir-CharacterEditor-Setup-.*\.exe$/.test(a.name));
+  const version = String(r.tag_name || '').replace(/^v/, '');
+  return { current: app.getVersion(), version, available: !!asset && newer(version, app.getVersion()), notes: r.body || '', url: asset?.browser_download_url, size: asset?.size, name: asset?.name };
+});
+ipcMain.handle('update:install', async (e, { url, name }) => {
+  const u = new URL(url);
+  if (u.hostname !== 'github.com' || !/^Ascandir-CharacterEditor-Setup-[\d.]+\.exe$/.test(name)) throw new Error('invalid update source');
+  const res = await fetch(url, { headers: { 'User-Agent': 'Ascandir-CharacterEditor' } });
+  if (!res.ok || !res.body) throw new Error('Download HTTP ' + res.status);
+  const total = Number(res.headers.get('content-length')) || 0;
+  const file = path.join(require('os').tmpdir(), name);
+  const out = fs.createWriteStream(file);
+  let got = 0; let lastPct = -1;
+  for await (const chunk of res.body) {
+    out.write(chunk); got += chunk.length;
+    const pct = total ? Math.floor(got / total * 100) : 0;
+    if (pct !== lastPct) { lastPct = pct; e.sender.send('update:progress', pct); }
+  }
+  await new Promise((resolve, reject) => out.end(err => (err ? reject(err) : resolve())));
+  if (process.platform === 'win32') {
+    const { spawn } = require('child_process');
+    // silent install into the existing folder, then start the app again
+    spawn(file, ['/S', '--force-run'], { detached: true, stdio: 'ignore' }).unref();
+    setTimeout(() => app.quit(), 500);
+  }
+  return true;
+});
+
 app.whenReady().then(async () => {
   await ensureDirs();
   createWindow();

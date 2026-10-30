@@ -43,7 +43,10 @@ const browser = {
   },
   async openExternal(u) { window.open(u, '_blank'); return true; },
   async hardware() { return { platform: 'browser', gpus: [], ramGB: null }; },
-  async version() { return '0.1.0'; },
+  async version() { return 'dev'; },
+  async checkUpdate() { return { available: false, current: 'dev', version: 'dev' }; },
+  async installUpdate() { return false; },
+  onUpdateProgress() { return () => {}; },
 };
 
 export const api = (typeof window !== 'undefined' && window.ace) ? window.ace : browser;

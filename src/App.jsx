@@ -11,6 +11,7 @@ import Settings from './views/Settings.jsx';
 import Designer from './views/Designer.jsx';
 import CharList from './views/CharList.jsx';
 import { primaryGpu, AMD_DRIVER_URL } from './hardware.js';
+import { useUpdater, UpdateBody } from './components/Update.jsx';
 
 export const DEFAULT_SETTINGS = { lang: 'de', rules: '2024', disabledSources: [], homebrew: [], profiles: {}, activeProfile: 'Standard' };
 
@@ -66,6 +67,10 @@ export default function App() {
     }
   }, []);
   useEffect(() => { loadAll(); }, [loadAll]);
+  const upd = useUpdater();
+  const [updDismissed, setUpdDismissed] = useState(false);
+  const updChecked = useRef(false);
+  useEffect(() => { if (settings && !updChecked.current && settings.autoUpdate !== false) { updChecked.current = true; upd.check(); } }, [settings]); // eslint-disable-line
   const [driverWarn, setDriverWarn] = useState(null);
   useEffect(() => { api.hardware().then(info => { const g = primaryGpu(info); if (g?.status === 'old') setDriverWarn(g); }).catch(() => {}); }, []);
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
@@ -188,6 +193,12 @@ export default function App() {
           {ch && <span className="muted small">{savedAt ? t.autosaved + ' · ' + savedAt.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' }) : ''}</span>}
           {ch && <button className="btn primary" onClick={saveNow}>{t.save}</button>}
         </header>
+        {!updDismissed && ['available', 'downloading', 'installing'].includes(upd.state) && view !== 'settings' && (
+          <div className="banner" style={{ margin: '10px 22px 0' }}>
+            <div className="grow"><UpdateBody u={upd} compact /></div>
+            {upd.state === 'available' && <button className="btn sm ghost" onClick={() => setUpdDismissed(true)}>{t.later}</button>}
+          </div>
+        )}
         {driverWarn && (
           <div className="banner info" style={{ margin: '10px 22px 0' }}>
             <b>{t.driver}: {driverWarn.name}</b><span className="muted small">{driverWarn.driverDate?.slice(0, 10)} – {t.driverOld}. {t.driverNote}</span>
