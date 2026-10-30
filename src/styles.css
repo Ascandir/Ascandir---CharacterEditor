@@ -98,3 +98,9 @@ h1, h2, h3 { margin: 0; }
 .collapse-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 .chev { color: var(--muted); font-size: 16px; width: 18px; text-align: center; }
 .fadeclip { max-height: 170px; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent); mask-image: linear-gradient(to bottom, #000 70%, transparent); }
+
+.update-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--okbg); border-color: #3f8a5a; color: #c9f0d6; font-weight: 700; box-shadow: 0 0 0 3px rgba(95,179,122,.15); }
+.update-btn:hover:not(:disabled) { background: #1f3a29; }
+.update-btn:disabled { opacity: 1; cursor: progress; }
+.update-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }

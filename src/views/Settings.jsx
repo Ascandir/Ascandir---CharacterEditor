@@ -3,6 +3,9 @@ import { useT } from '../i18n.js';
 import { api } from '../platform.js';
 import { assessGpu, AMD_DRIVER_URL } from '../hardware.js';
 import { useUpdater, UpdateBody } from '../components/Update.jsx';
+import { Collapsible } from '../components/Shared.jsx';
+import Markdown from '../components/Markdown.jsx';
+import changelog from '../../CHANGELOG.md?raw';
 
 export default function Settings({ globalSettings: s, saveSettings, showToast }) {
   const { t } = useT();
@@ -50,6 +53,9 @@ export default function Settings({ globalSettings: s, saveSettings, showToast })
           <UpdateBody u={u} />
           <label className="row small"><input type="checkbox" checked={s.autoUpdate !== false} onChange={e => saveSettings({ ...s, autoUpdate: e.target.checked })} />{t.autoUpdateCheck}</label>
         </div>
+        <Collapsible title="Changelog" defaultOpen={false}>
+          <div className="scroll" style={{ maxHeight: 480 }}><Markdown text={changelog} /></div>
+        </Collapsible>
         <div className="card col">
           <button className="btn" onClick={async () => { await api.clearCache(); showToast('OK'); }}>{t.cacheClear}</button>
         </div>

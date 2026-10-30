@@ -25,9 +25,13 @@ jobs:
         id: ver
         shell: bash
         run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Release notes from CHANGELOG.md
+        shell: bash
+        run: node -e "const v=require('./package.json').version;const s=require('fs').readFileSync('CHANGELOG.md','utf8').split(/^## /m).find(x=>x.startsWith(v));require('fs').writeFileSync('notes.md',s?s.split(/\r?\n/).slice(1).join('\n').trim():'')"
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: notes.md
           tag_name: v${{ steps.ver.outputs.version }}
           name: Ascandir - CharacterEditor ${{ steps.ver.outputs.version }}
           target_commitish: ${{ github.sha }}

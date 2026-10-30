@@ -11,7 +11,7 @@ import Settings from './views/Settings.jsx';
 import Designer from './views/Designer.jsx';
 import CharList from './views/CharList.jsx';
 import { primaryGpu, AMD_DRIVER_URL } from './hardware.js';
-import { useUpdater, UpdateBody } from './components/Update.jsx';
+import { useUpdater, UpdateDialog } from './components/Update.jsx';
 
 export const DEFAULT_SETTINGS = { lang: 'de', rules: '2024', disabledSources: [], homebrew: [], profiles: {}, activeProfile: 'Standard' };
 
@@ -68,7 +68,7 @@ export default function App() {
   }, []);
   useEffect(() => { loadAll(); }, [loadAll]);
   const upd = useUpdater();
-  const [updDismissed, setUpdDismissed] = useState(false);
+  const [showUpd, setShowUpd] = useState(false);
   const updChecked = useRef(false);
   useEffect(() => { if (settings && !updChecked.current && settings.autoUpdate !== false) { updChecked.current = true; upd.check(); } }, [settings]); // eslint-disable-line
   const [driverWarn, setDriverWarn] = useState(null);
@@ -188,17 +188,20 @@ export default function App() {
             {tabs.map(([k, l]) => <button key={k} className={view === k || (k === 'sheet' && (view === 'wizard' || view === 'levelup')) ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}
           </nav>
           <div className="grow" />
+          {['available', 'downloading', 'installing'].includes(upd.state) && (
+            <button className="btn update-btn" onClick={() => setShowUpd(true)}
+              title={upd.info ? t.updateAvail(upd.info.version) : ''} aria-label={upd.info ? t.updateAvail(upd.info.version) : 'Update'}>
+              <span className="update-dot" />
+              {upd.state === 'available' && <>Update <span className="small" style={{ opacity: .8 }}>v{upd.info?.version}</span></>}
+              {upd.state === 'downloading' && <>Update {upd.pct} %</>}
+              {upd.state === 'installing' && <>{t.updateRestartShort}</>}
+            </button>
+          )}
           <span className="pill">{(ch?.rules || settings.rules) === '2014' ? 'D&D 2014' : 'D&D 2024'}</span>
           <button className="btn" onClick={() => setShowChars(true)}>{t.myChars}</button>
           {ch && <span className="muted small">{savedAt ? t.autosaved + ' · ' + savedAt.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' }) : ''}</span>}
           {ch && <button className="btn primary" onClick={saveNow}>{t.save}</button>}
         </header>
-        {!updDismissed && ['available', 'downloading', 'installing'].includes(upd.state) && view !== 'settings' && (
-          <div className="banner" style={{ margin: '10px 22px 0' }}>
-            <div className="grow"><UpdateBody u={upd} compact /></div>
-            {upd.state === 'available' && <button className="btn sm ghost" onClick={() => setUpdDismissed(true)}>{t.later}</button>}
-          </div>
-        )}
         {driverWarn && (
           <div className="banner info" style={{ margin: '10px 22px 0' }}>
             <b>{t.driver}: {driverWarn.name}</b><span className="muted small">{driverWarn.driverDate?.slice(0, 10)} – {t.driverOld}. {t.driverNote}</span>
@@ -215,6 +218,7 @@ export default function App() {
           {view === 'sources' && <Sources {...ctx} addHomebrew={addHomebrew} addHomebrewMany={addHomebrewMany} addOwnHomebrew={addOwnHomebrew} reload={() => loadAll(true)} hbLoaded={hb} />}
           {view === 'settings' && <Settings {...ctx} />}
         </main>
+        {showUpd && upd.info && <UpdateDialog u={upd} onClose={() => setShowUpd(false)} />}
         {showChars && <CharList {...ctx} onClose={() => setShowChars(false)} current={ch} setCh={setCh} />}
         {toast && <div className="toast">{toast}</div>}
       </div>

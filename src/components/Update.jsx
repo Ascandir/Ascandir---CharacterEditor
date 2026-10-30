@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
+import Markdown from './Markdown.jsx';
 
 export function useUpdater() {
   const [info, setInfo] = useState(null);
@@ -32,8 +33,10 @@ export function UpdateBody({ u, compact }) {
         <>
           <b style={{ color: 'var(--accent2)' }}>{t.updateAvail(u.info.version)}</b>
           {!compact && u.info.notes && (
-            <details><summary className="muted small" style={{ cursor: 'pointer' }}>{t.updateNotes}</summary>
-              <pre className="small muted" style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: '8px 0 0' }}>{u.info.notes}</pre></details>
+            <div className="col" style={{ gap: 6 }}>
+              <span className="bold small">{t.updateNotes}</span>
+              <div className="scroll" style={{ maxHeight: 340, padding: 12, borderRadius: 10, background: 'var(--panel2)' }}><Markdown text={u.info.notes} /></div>
+            </div>
           )}
           {u.state === 'available' && <button className="btn primary" onClick={u.install}>{t.updateInstall}{u.info.size ? ` (${Math.round(u.info.size / 1048576)} MB)` : ''}</button>}
           {u.state === 'downloading' && (
@@ -45,6 +48,19 @@ export function UpdateBody({ u, compact }) {
           {u.state === 'installing' && <span className="small">{t.updateRestart}</span>}
         </>
       )}
+    </div>
+  );
+}
+
+export function UpdateDialog({ u, onClose }) {
+  const { t } = useT();
+  return (
+    <div className="modal-bg" onClick={() => u.state === 'available' && onClose()}>
+      <div className="modal" style={{ maxWidth: 620 }} onClick={e => e.stopPropagation()} role="dialog" aria-label="Update">
+        <div className="row"><h2 className="serif grow">Update</h2>
+          {u.state === 'available' && <button className="btn ghost" onClick={onClose}>{t.later}</button>}</div>
+        <UpdateBody u={u} />
+      </div>
     </div>
   );
 }

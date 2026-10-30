@@ -175,7 +175,13 @@ ipcMain.handle('update:check', async () => {
   const r = await res.json();
   const asset = (r.assets || []).find(a => /^Ascandir-CharacterEditor-Setup-.*\.exe$/.test(a.name));
   const version = String(r.tag_name || '').replace(/^v/, '');
-  return { current: app.getVersion(), version, available: !!asset && newer(version, app.getVersion()), notes: r.body || '', url: asset?.browser_download_url, size: asset?.size, name: asset?.name };
+  let notes = r.body || '';
+  try { // all changelog sections newer than the installed version
+    const cl = await (await fetch('https://raw.githubusercontent.com/Ascandir/Ascandir---CharacterEditor/main/CHANGELOG.md', { headers: { 'User-Agent': 'Ascandir-CharacterEditor' } })).text();
+    const parts = cl.split(/^## /m).slice(1).filter(sec => { const v = sec.split(/\s/)[0]; return newer(v, app.getVersion()) && !newer(v, version); });
+    if (parts.length) notes = parts.map(p => '## ' + p.trim()).join('\n\n');
+  } catch { /* keep release body */ }
+  return { current: app.getVersion(), version, available: !!asset && newer(version, app.getVersion()), notes, url: asset?.browser_download_url, size: asset?.size, name: asset?.name };
 });
 ipcMain.handle('update:install', async (e, { url, name }) => {
   const u = new URL(url);
