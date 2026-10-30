@@ -12,6 +12,7 @@ import Designer from './views/Designer.jsx';
 import CharList from './views/CharList.jsx';
 import { primaryGpu, AMD_DRIVER_URL } from './hardware.js';
 import { useUpdater, UpdateDialog } from './components/Update.jsx';
+import { DialogHost } from './components/Dialog.jsx';
 
 export const DEFAULT_SETTINGS = { lang: 'de', rules: '2024', disabledSources: [], homebrew: [], profiles: {}, activeProfile: 'Standard' };
 
@@ -221,6 +222,7 @@ export default function App() {
         {showUpd && upd.info && <UpdateDialog u={upd} onClose={() => setShowUpd(false)} />}
         {showChars && <CharList {...ctx} onClose={() => setShowChars(false)} current={ch} setCh={setCh} />}
         {toast && <div className="toast">{toast}</div>}
+        <DialogHost />
       </div>
     </LangCtx.Provider>
   );

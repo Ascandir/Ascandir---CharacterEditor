@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
+import { confirmDialog } from '../components/Dialog.jsx';
 
 export default function CharList({ onClose, openChar, createChar, current, setCh, showToast, saveSettings, globalSettings }) {
   const { t, lang } = useT();
@@ -8,7 +9,7 @@ export default function CharList({ onClose, openChar, createChar, current, setCh
   const refresh = () => api.listChars().then(setList);
   useEffect(() => { refresh(); }, []);
   const del = async (id) => {
-    if (!window.confirm(t.confirmDelete)) return;
+    if (!(await confirmDialog(t.confirmDelete))) return;
     await api.deleteChar(id);
     if (current?.id === id) { setCh(null); saveSettings({ ...globalSettings, lastCharId: null }); }
     refresh();

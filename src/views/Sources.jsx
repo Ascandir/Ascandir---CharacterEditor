@@ -3,6 +3,7 @@ import { useT } from '../i18n.js';
 import { api } from '../platform.js';
 import { loadHomebrewIndex, sourceGroup } from '../data/loader.js';
 import { Collapsible } from '../components/Shared.jsx';
+import { confirmDialog, promptDialog } from '../components/Dialog.jsx';
 
 export default function Sources({ db, globalSettings: s, saveSettings, addHomebrew, addHomebrewMany, addOwnHomebrew, reload, ch, update, showToast }) {
   const { t } = useT();
@@ -40,14 +41,14 @@ export default function Sources({ db, globalSettings: s, saveSettings, addHomebr
   const activateAll = async () => {
     const todo = hbMatches.map(h => h.path).filter(p => !(s.homebrew || []).includes(p));
     if (!todo.length) return;
-    if (todo.length > 20 && !window.confirm(t.hbBulkWarn(todo.length))) return;
+    if (todo.length > 20 && !(await confirmDialog(t.hbBulkWarn(todo.length)))) return;
     setProgress([0, todo.length]);
     await addHomebrewMany(todo, true, (a, b) => setProgress([a, b]));
     setProgress(null);
   };
   const profiles = s.profiles || {};
-  const saveProfile = () => {
-    const name = window.prompt(t.srcProfile, s.activeProfile || 'Standard');
+  const saveProfile = async () => {
+    const name = await promptDialog(t.srcProfile, s.activeProfile || 'Standard');
     if (!name) return;
     saveSettings({ ...s, activeProfile: name, profiles: { ...profiles, [name]: { rules: s.rules, disabledSources: s.disabledSources || [], homebrew: s.homebrew || [] } } });
   };

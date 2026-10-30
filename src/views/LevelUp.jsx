@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useT } from '../i18n.js';
+import { confirmDialog } from '../components/Dialog.jsx';
 import { makeFilter, multiclassReq, meetsReq, reqText, dedupeByName } from '../engine/rules.js';
 import { uidOf } from '../data/loader.js';
 import { Choices, Feature, ExtrasEditor, Collapsible } from '../components/Shared.jsx';
@@ -73,7 +74,7 @@ export default function LevelUp(props) {
               <div className="row">
                 <h2 className="serif grow" style={{ fontSize: 20 }}>{t.level} {current + 1}: {cls.name} {lo.classLevel}</h2>
                 {current === total - 1 && total > 1 && <button className="btn sm danger" onClick={() => { update(c => { c.levels.pop(); return c; }); setSel(null); }}>{t.removeLevel}</button>}
-                {current < total - 1 && <button className="btn sm danger" onClick={() => { if (window.confirm(t.removeLevel + '?')) { update(c => { c.levels.splice(current, 1); return c; }); setSel(null); } }}>{t.removeLevel}</button>}
+                {current < total - 1 && <button className="btn sm danger" onClick={async () => { if (await confirmDialog(t.removeLevel + '?')) { update(c => { c.levels.splice(current, 1); return c; }); setSel(null); } }}>{t.removeLevel}</button>}
               </div>
               {current > 0 && (
                 <div className="row">

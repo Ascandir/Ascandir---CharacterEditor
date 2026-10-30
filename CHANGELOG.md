@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.5
+- Eigene Bestätigungs- und Eingabefenster statt der Windows-Systemfenster: Eingabefelder (z. B. der Charaktername) frieren danach nicht mehr ein
+- „Profil speichern“ unter Quellen & Regeln funktioniert jetzt (die Namensabfrage fehlte in der installierten Version)
+
 ## 0.1.4
 - Update-Hinweis als hervorgehobener „Update“-Knopf oben in der Leiste statt eines Hinweisbalkens
 - Klick auf „Update“ zeigt zuerst die Neuerungen, installiert wird erst nach Bestätigung
