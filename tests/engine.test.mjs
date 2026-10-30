@@ -128,3 +128,25 @@ test('tool choices are picks from official tools', () => {
   d = R.derive(db, S24, ch);
   assert.ok(d.tools.includes('Dice Set'));
 });
+
+test('foundry export', async () => {
+  const { buildFoundryActor } = await import('../src/export/foundry.js');
+  const ch = { name: 'Kael', base: { str: 15, dex: 10, con: 14, int: 8, wis: 12, cha: 13 }, raceUid: 'dragonborn|xphb', backgroundUid: 'soldier|xphb',
+    levels: Array.from({ length: 5 }, () => ({ classUid: 'paladin|xphb' })), choices: {}, extras: [], gold: 12.5,
+    inventory: [{ uid: 'chain mail|xphb', name: 'Chain Mail', qty: 1, equipped: true }, { uid: 'longsword|xphb', name: 'Longsword', qty: 1, equipped: true }, { uid: 'shield|xphb', name: 'Shield', qty: 1, equipped: true }] };
+  let d = R.derive(db, S24, ch);
+  ch.choices['race:version'] = [d.choices.find(c => c.id === 'race:version').options.find(o => o.label === 'Bronze').value];
+  const sub = R.derive(db, S24, ch).choices.find(c => c.id === 'sub:paladin|xphb');
+  ch.choices[sub.id] = [sub.options.find(o => /Devotion/.test(o.label)).value];
+  const sp = R.derive(db, S24, ch).choices.find(c => c.id === 'lvl0:spells:paladin|xphb');
+  ch.choices[sp.id] = sp.options.slice(0, 2).map(o => o.value);
+  ch.choices['background:tool:0'] = ['Dice Set'];
+  d = R.derive(db, S24, ch);
+  const a = buildFoundryActor(db, ch, d);
+  const types = a.items.reduce((m, i) => (m[i.type] = (m[i.type] || 0) + 1, m), {});
+  console.log('types', JSON.stringify(types), 'hp', a.system.attributes.hp.max, 'tools', JSON.stringify(a.system.tools), 'dr', a.system.traits.dr.value);
+  console.log(JSON.stringify(a.items.find(i => i.type === 'spell')).slice(0, 400));
+  console.log(JSON.stringify(a.items.find(i => i.type === 'weapon').system).slice(0, 300));
+  assert.equal(a.type, 'character');
+  assert.ok(types.class === 1 && types.subclass === 1 && types.spell >= 2 && types.weapon === 1 && types.equipment === 2);
+});

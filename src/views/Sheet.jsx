@@ -4,12 +4,15 @@ import { fmtMod } from '../engine/rules.js';
 import { Choices, Feature, ExtrasEditor, Inventory, Collapsible } from '../components/Shared.jsx';
 import { spellMeta } from '../components/Entries.jsx';
 import Entries from '../components/Entries.jsx';
+import { buildFoundryActor } from '../export/foundry.js';
+import { api } from '../platform.js';
 
 export default function Sheet(props) {
   const { db, ch, d, update, setView, createChar } = props;
   const { t, lang } = useT();
   const [tab, setTab] = useState('features');
   const [showDecisions, setShowDecisions] = useState(false);
+  const [showFoundry, setShowFoundry] = useState(false);
   if (!ch || !d) {
     return (
       <div className="loading">
@@ -48,6 +51,11 @@ export default function Sheet(props) {
               <div className="muted">{d.background?.name || ''}</div>
               <button className="btn primary" style={{ marginTop: 8 }} onClick={() => setView('levelup')}>{t.levelUp}</button>
               <button className="btn" onClick={() => setView('wizard')}>{t.edit}: {t.steps[1]}, {t.steps[2]} …</button>
+              <button className="btn" onClick={async () => {
+                const actor = buildFoundryActor(db, ch, d);
+                const path = await api.saveFile({ defaultName: (ch.name || 'character').replace(/[^\w-]+/g, '_') + '.foundry.json', filters: [{ name: 'JSON', extensions: ['json'] }], text: JSON.stringify(actor, null, 2) });
+                if (path) setShowFoundry(true);
+              }}>{t.foundryExport}</button>
             </div>
           </div>
           <Collapsible title={t.proficiencies} className="card tight">
@@ -108,6 +116,15 @@ export default function Sheet(props) {
           </div>
         </section>
       </div>
+      {showFoundry && (
+        <div className="modal-bg" onClick={() => setShowFoundry(false)}>
+          <div className="modal" style={{ maxWidth: 620 }} onClick={e => e.stopPropagation()} role="dialog" aria-label={t.foundryTitle}>
+            <div className="row"><h2 className="serif grow">{t.foundryTitle}</h2><button className="btn ghost" onClick={() => setShowFoundry(false)}>{t.close}</button></div>
+            <ol style={{ margin: 0, paddingLeft: 20, lineHeight: 1.7 }}>{t.foundrySteps.map((s, i) => <li key={i}>{s}</li>)}</ol>
+            <p className="muted small" style={{ margin: 0 }}>{t.foundryNote}</p>
+          </div>
+        </div>
+      )}
       {showDecisions && (
         <div className="modal-bg" onClick={() => setShowDecisions(false)}>
           <div className="modal" onClick={e => e.stopPropagation()} role="dialog" aria-label={t.decideNow}>

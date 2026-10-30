@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7
+- Foundry-Export: Charakterbogen → „Für Foundry exportieren“ erzeugt eine Datei für das dnd5e-System (in Foundry: Akteur anlegen → Rechtsklick → „Import Data“)
+- Übernommen werden Attribute, Rettungswürfe, Fertigkeiten, TP, Bewegung, Dunkelsicht, Sprachen, Resistenzen, Werkzeuge, Klassen und Unterklassen, Volk, Hintergrund, alle Merkmale und Feats, Zauber und das Inventar (Rüstung und Waffen mit Werten)
+
 ## 0.1.6
 - Werkzeug-Übungen (Handwerkszeug, Spielsets, Musikinstrumente, Kits) sind jetzt eine Auswahl aus den offiziellen Werkzeugen statt eines Textfelds
 - Werkzeug-Auswahlen von Völkern werden ebenfalls abgefragt
