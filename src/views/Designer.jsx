@@ -5,6 +5,7 @@ import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { useT } from '../i18n.js';
 import { api } from '../platform.js';
 import { buildFigure } from '../three/figure.js';
+import { RINGS, composeToken } from '../three/token.js';
 
 const STYLES = [['realistic', { de: 'Realistisch', en: 'Realistic' }], ['painted', { de: 'Gemalt', en: 'Painted' }], ['comic', { de: 'Comic', en: 'Comic' }], ['miniature', { de: 'Miniatur', en: 'Miniature' }]];
 const OPTS = {
@@ -23,9 +24,11 @@ function toBase64(buf) {
 export default function Designer({ ch, update, createChar }) {
   const { t, lang } = useT();
   const mount = useRef(null);
+  const tokenCanvas = useRef(null);
+  const tokRef = useRef({});
   const three = useRef(null);
   const [mode, setMode] = useState('kit');
-  const a = ch ? { height: 180, build: 45, muscle: 50, age: 30, skin: '#c99a76', hairStyle: 'short', hairColor: '#3b2a1e', head: 'human', armor: 'leather', weapon: 'sword', style: 'painted', primary: '#7a2e2e', ...(ch.appearance || {}) } : null;
+  const a = ch ? { tokenRing: 'gold', tokenColor: '#E3A74B', tokenBg: '#2a2e36', tokenZoom: 15, tokenTransparent: false, height: 180, build: 45, muscle: 50, age: 30, skin: '#c99a76', hairStyle: 'short', hairColor: '#3b2a1e', head: 'human', armor: 'leather', weapon: 'sword', style: 'painted', primary: '#7a2e2e', ...(ch.appearance || {}) } : null;
 
   useEffect(() => {
     if (!mount.current) return;
@@ -50,11 +53,35 @@ export default function Designer({ ch, update, createChar }) {
     };
     resize();
     const ro = new ResizeObserver(resize); ro.observe(el);
+    // token view: own camera that follows the main view's rotation, framed on the head
+    const TS = 512;
+    const tokenRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    tokenRenderer.setPixelRatio(1); tokenRenderer.setSize(TS, TS, false); tokenRenderer.setClearColor(0x000000, 0);
+    tokenRenderer.outputColorSpace = THREE.SRGBColorSpace;
+    const tokenCam = new THREE.PerspectiveCamera(30, 1, 0.02, 50);
+    const dir = new THREE.Vector3(); const tgt = new THREE.Vector3();
+    const placeTokenCam = () => {
+      const fig = three.current?.figure; if (!fig) return;
+      const H = fig.userData.height; const z = (tokRef.current.tokenZoom ?? 15) / 100;
+      tgt.set(0, (fig.userData.headY - 0.02 * H) * (1 - z) + 0.5 * H * z, 0);
+      dir.copy(camera.position).sub(controls.target).normalize();
+      tokenCam.position.copy(tgt).addScaledVector(dir, 0.55 * H + (3.4 * H - 0.55 * H) * z);
+      tokenCam.lookAt(tgt);
+    };
+    const drawToken = (ctx, size) => {
+      placeTokenCam();
+      tokenRenderer.render(scene, tokenCam);
+      const tk = tokRef.current;
+      composeToken(ctx, size, tokenRenderer.domElement, { ring: tk.tokenRing, color: tk.tokenColor, bg: tk.tokenBg, transparentBg: tk.tokenTransparent });
+    };
     let raf;
-    const loop = () => { raf = requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); };
+    const loop = () => {
+      raf = requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera);
+      const tc = tokenCanvas.current; if (tc) drawToken(tc.getContext('2d'), tc.width);
+    };
     loop();
-    three.current = { renderer, scene, camera, controls, figure: null };
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); controls.dispose(); renderer.dispose(); el.removeChild(renderer.domElement); three.current = null; };
+    three.current = { renderer, scene, camera, controls, figure: null, drawToken };
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); controls.dispose(); renderer.dispose(); tokenRenderer.dispose(); el.removeChild(renderer.domElement); three.current = null; };
   }, [!!ch]);
 
   // rebuild figure live on every change (style switch keeps all parameters)
@@ -65,6 +92,7 @@ export default function Designer({ ch, update, createChar }) {
     T.controls.target.set(0, T.figure.userData.height * 0.52, 0); T.controls.update();
   }, [JSON.stringify(a)]);
 
+  tokRef.current = a || {};
   if (!ch) return <div className="loading"><button className="btn primary" onClick={createChar}>{t.newChar}</button></div>;
   const set = (k, v) => update(c => { c.appearance = { ...c.appearance, [k]: v }; return c; });
 
@@ -84,13 +112,8 @@ export default function Designer({ ch, update, createChar }) {
     await api.saveFile({ defaultName: fname + '.png', filters: [{ name: 'PNG', extensions: ['png'] }], dataBase64: url.split(',')[1] });
   };
   const exportToken = async () => {
-    const url = renderAt(1024, 1024);
-    const img = new Image(); img.src = url; await img.decode();
-    const c = document.createElement('canvas'); c.width = c.height = 1024; const x = c.getContext('2d');
-    x.save(); x.beginPath(); x.arc(512, 512, 490, 0, Math.PI * 2); x.closePath(); x.clip();
-    x.fillStyle = '#2a2e36'; x.fillRect(0, 0, 1024, 1024);
-    x.drawImage(img, -180, -40, 1384, 1384); x.restore();
-    x.lineWidth = 34; x.strokeStyle = '#E3A74B'; x.beginPath(); x.arc(512, 512, 490, 0, Math.PI * 2); x.stroke();
+    const c = document.createElement('canvas'); c.width = c.height = 1024;
+    three.current.drawToken(c.getContext('2d'), 1024);
     await api.saveFile({ defaultName: fname + '-token.png', filters: [{ name: 'PNG', extensions: ['png'] }], dataBase64: c.toDataURL('image/png').split(',')[1] });
   };
   const exportGlb = async () => {
@@ -156,7 +179,28 @@ export default function Designer({ ch, update, createChar }) {
         <div className="pill" style={{ position: 'absolute', left: 14, top: 14, background: 'rgba(18,20,24,.85)' }}>{t.dragRotate}</div>
       </section>
 
-      <aside className="col" style={{ flex: '1 1 240px', maxWidth: 290 }}>
+      <aside className="col" style={{ flex: '1 1 280px', maxWidth: 320 }}>
+        <div className="card col">
+          <span className="bold">Token</span>
+          <div className="checker" style={{ borderRadius: 12, padding: 10, display: 'flex', justifyContent: 'center' }}>
+            <canvas ref={tokenCanvas} width={560} height={560} style={{ width: 260, height: 260 }} aria-label="Token" />
+          </div>
+          <span className="muted small">{t.tokenFollows}</span>
+          <div>
+            <div className="row" style={{ justifyContent: 'space-between' }}><label htmlFor="tk-zoom" className="bold small">{t.tokenFrame}</label></div>
+            <input id="tk-zoom" type="range" min={0} max={100} value={a.tokenZoom} onChange={e => set('tokenZoom', Number(e.target.value))} />
+            <div className="row muted small" style={{ justifyContent: 'space-between' }}><span>{t.tokenHead}</span><span>{t.tokenBody}</span></div>
+          </div>
+          <span className="bold small">{t.tokenRing}</span>
+          <div className="row" style={{ gap: 6 }}>
+            {RINGS.map(([k, l]) => <button key={k} className={'chip' + (a.tokenRing === k ? ' on' : '')} onClick={() => set('tokenRing', k)}>{l[lang]}</button>)}
+          </div>
+          <div className="row">
+            <label className="row small" style={{ gap: 6 }}><input type="color" value={a.tokenColor} onChange={e => set('tokenColor', e.target.value)} aria-label={t.tokenRingColor} style={{ width: 40, height: 30, padding: 2 }} />{t.tokenRingColor}</label>
+            <label className="row small" style={{ gap: 6 }}><input type="color" value={a.tokenBg} onChange={e => set('tokenBg', e.target.value)} aria-label={t.tokenBgColor} style={{ width: 40, height: 30, padding: 2 }} disabled={a.tokenTransparent} />{t.tokenBgColor}</label>
+          </div>
+          <label className="row small"><input type="checkbox" checked={!!a.tokenTransparent} onChange={e => set('tokenTransparent', e.target.checked)} />{t.tokenTransparent}</label>
+        </div>
         <div className="card col">
           <span className="bold">{t.export}</span>
           <button className="btn primary" onClick={exportPng}>{t.exportPng}</button>

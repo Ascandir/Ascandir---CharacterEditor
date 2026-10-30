@@ -145,5 +145,6 @@ export function buildFigure(a) {
     }
   }
   g.userData.height = H;
+  g.userData.headY = hipY + 0.03 * H + neckY + headR + 0.02 * H;
   return g;
 }
