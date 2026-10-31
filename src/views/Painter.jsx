@@ -145,6 +145,13 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         const neg = (p.style === 'custom' ? (p.customNegative || '') : '').trim();
         Object.assign(params, { model: 'qwen', negative: neg, cfg: neg ? 4 : 1, steps: p.qSteps || 30 });
         if (!multi && ['2k', '4k'].includes(p.res)) { const k = 2048 / Math.max(width, height); params.width = Math.round(width * k / 32) * 32; params.height = Math.round(height * k / 32) * 32; if (p.res === '2k') delete params.upscale; }
+        // GPU-friendly mode: Qwen paints at most ~1 MP; bigger sizes are reached with the upscaler (driver resets otherwise)
+        if (!multi && (st?.gpuMode || 'safe') === 'safe' && params.width * params.height > 1.15e6) {
+          const target = params.upscale || { width: params.width, height: params.height };
+          const k = Math.sqrt(1.0e6 / (params.width * params.height));
+          params.width = Math.round(params.width * k / 32) * 32; params.height = Math.round(params.height * k / 32) * 32;
+          if (hasUpscale) params.upscale = target; else delete params.upscale;
+        }
         if (mode === 'refine' && selImg) {
           params.refImages = [selImg]; params.editLatent = true;
           params.resolution = Math.round(Math.sqrt(params.width * params.height) / 32) * 32;

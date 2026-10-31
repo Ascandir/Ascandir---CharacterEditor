@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.6
+- Neuer **Grafikkarten-Modus** (Einstellungen → KI), Standard „Schonend“: ComfyUI lässt 2,5 GB Grafikspeicher für Windows und den Treiber frei, lagert mehr in den Arbeitsspeicher aus und rechnet die Aufmerksamkeit in kleineren Stücken. Verhindert Treiber-Abstürze bei großen Modellen wie Qwen Image 2.1
+- Im Modus „Schonend“ malt Qwen höchstens ca. 1 Megapixel. Höhere Auflösungen entstehen über den Hochskalierer
+- „Ausgewogen“ und „Schnell“ sind für mehr Tempo wählbar
+
 ## 0.6.5
 - **Ohne Internet bzw. ohne 5e.tools-Daten** startet das Programm jetzt trotzdem. Designer (KI-Maler, KI-Berater, 3D) und Einstellungen funktionieren, oben erscheint ein Hinweis mit „Erneut versuchen“. Nur Charakterbogen, Erstellung und Quellen warten auf die Daten
 - Einmal geladene Daten werden wie bisher gespeichert und funktionieren danach auch offline

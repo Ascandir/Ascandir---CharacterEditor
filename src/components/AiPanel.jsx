@@ -34,6 +34,11 @@ export default function AiPanel() {
             <div className="row small"><b className="grow">ComfyUI</b><span className="muted">{st.comfyVersion || t.aiInstalled}</span></div>
             {models.map(([id, m]) => <div key={id} className="row small"><b className="grow">{m.name}</b><span className="muted">{m.present ? t.aiInstalled + ' · v' + m.version : t.aiNotInstalled}</span></div>)}
           </div>
+          <label className="row small" title={t.gpuModeHint}>{t.gpuMode}
+            <select value={st.gpuMode || 'safe'} onChange={async e => { await api.ai.setGpuMode(e.target.value); refresh(); }}>
+              <option value="safe">{t.gpuSafe}</option><option value="balanced">{t.gpuBalanced}</option><option value="fast">{t.gpuFast}</option>
+            </select></label>
+          <span className="muted small">{t.gpuModeHint}</span>
           <label className="row small">{t.aiIdle}
             <select value={st.idleMinutes} onChange={async e => { await api.ai.setIdle(Number(e.target.value)); refresh(); }}>{[0, 5, 10, 30, 60].map(n => <option key={n} value={n}>{n}</option>)}</select></label>
           <div className="row">

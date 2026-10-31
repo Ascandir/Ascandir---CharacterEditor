@@ -106,7 +106,7 @@ async function status() {
     dir: cfg.dir || null, defaultDir: await suggestedDir() || path.join(app.getPath('userData'), 'ai'), programModelsDir: await suggestedDir(), gpu: cfg.gpu || null,
     comfyInstalled: !!root, comfyVersion: cfg.comfyVersion || null, models, running, starting: !!proc && !running,
     freeGB: cfg.dir ? await freeSpaceGB(cfg.dir) : await freeSpaceGB(app.getPath('userData')),
-    setupDone: !!cfg.setupDone, setupSkipped: !!cfg.setupSkipped, idleMinutes: cfg.idleMinutes ?? 10,
+    setupDone: !!cfg.setupDone, setupSkipped: !!cfg.setupSkipped, idleMinutes: cfg.idleMinutes ?? 10, gpuMode: cfg.gpuMode || 'safe',
   };
 }
 
@@ -247,7 +247,13 @@ async function launchArgs(root) {
     break;
   }
   args = args.filter(a => !['--listen', '--port'].includes(a));
-  return { env, args: [...args, '--disable-auto-launch', '--listen', '127.0.0.1', '--port', String(port)] };
+  // GPU-friendly mode (default on): keep VRAM headroom for Windows/driver, offload more, smaller attention peaks.
+  // Prevents driver resets (TDR) with big models such as Qwen Image on 16 GB cards.
+  const cfg = await readCfg();
+  const mode = cfg.gpuMode || 'safe';
+  const extra = mode === 'safe' ? ['--reserve-vram', '2.5', '--lowvram', '--use-split-cross-attention']
+    : mode === 'balanced' ? ['--reserve-vram', '1.5'] : [];
+  return { env, args: [...args, ...extra, '--disable-auto-launch', '--listen', '127.0.0.1', '--port', String(port)] };
 }
 
 async function start() {
@@ -475,6 +481,7 @@ function register(mainWindowGetter) {
   ipcMain.handle('ai:generate', async (_e, params) => { win = mainWindowGetter(); return generate(params); });
   ipcMain.handle('ai:log', () => procLog.slice(-120).join(''));
   ipcMain.handle('ai:skip', async () => { const c = await readCfg(); c.setupSkipped = true; await writeCfg(c); return true; });
+  ipcMain.handle('ai:setGpuMode', async (_e, mode) => { const c = await readCfg(); if (c.gpuMode !== mode) { c.gpuMode = mode; await writeCfg(c); await stop(); } return true; });
   ipcMain.handle('ai:setIdle', async (_e, mins) => { const c = await readCfg(); c.idleMinutes = mins; await writeCfg(c); return true; });
   ipcMain.handle('ai:chooseDir', async () => {
     const r = await dialog.showOpenDialog(mainWindowGetter(), { properties: ['openDirectory', 'createDirectory'] });
