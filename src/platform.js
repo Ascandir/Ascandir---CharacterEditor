@@ -34,6 +34,10 @@ const browser = {
     async generate() { throw new Error('Nur unter Windows'); }, async log() { return ''; }, async skip() {}, async setIdle() {}, async chooseDir() { return null; }, async openDir() {},
     on() { return () => {}; },
   },
+  strata: {
+    async info() { return { supported: false }; }, async presets() { return []; }, async start() { throw new Error('STRATA_NOT_FOUND'); }, async stop() { return false; },
+    async setIdle() {}, async log() { return ''; }, on() { return () => {}; },
+  },
   llm: {
     async models() { throw new Error('NO_SERVER'); }, async chat() { throw new Error('NO_SERVER'); }, async stop() {}, on() { return () => {}; },
   },
@@ -78,4 +82,5 @@ export const api = (typeof window !== 'undefined' && window.ace) ? window.ace : 
 // test hook: a mocked AI service can be injected for UI tests
 if (typeof window !== 'undefined' && window.__ACE_MOCK_AI) api.ai = window.__ACE_MOCK_AI;
 if (typeof window !== 'undefined' && window.__ACE_MOCK_LLM) api.llm = window.__ACE_MOCK_LLM;
+if (typeof window !== 'undefined' && window.__ACE_MOCK_STRATA) api.strata = window.__ACE_MOCK_STRATA;
 if (typeof window !== 'undefined' && window.__ACE_MOCK_TRELLIS) api.trellis = window.__ACE_MOCK_TRELLIS;

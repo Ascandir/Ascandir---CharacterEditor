@@ -126,6 +126,9 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   const generate = async (mode) => {
     setErr(null); setBusy({ mode, seconds: 0 });
     try {
+      // free the GPU: stop Strata if this app started it (setting in the AI advisor)
+      const lc = globalSettings?.llm || {};
+      if (lc.stopBeforePaint !== false) { try { await api.strata.stop({ cmd: lc.cmd }); } catch { /* not running */ } }
       const multi = mode === 'multi';
       const { width, height } = multi ? MULTI_SIZE : frameSize(p);
       const seed = Math.floor(Math.random() * 2 ** 31);

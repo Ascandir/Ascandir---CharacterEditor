@@ -47,8 +47,29 @@ export function extractBlocks(text) {
 
 export default function Advisor({ ch, d, update, globalSettings, saveSettings }) {
   const { t, lang } = useT();
-  const cfg = { url: DEFAULT_URL, key: '', reasoning: 'low', ...(globalSettings?.llm || {}) };
+  const cfg = { url: DEFAULT_URL, key: '', reasoning: 'low', autoStart: true, preset: '', idle: 10, stopBeforePaint: true, cmd: '', ...(globalSettings?.llm || {}) };
   const setCfg = (k, v) => saveSettings({ ...globalSettings, llm: { ...cfg, [k]: v } });
+  const [sInfo, setSInfo] = useState(null);
+  const [sPresets, setSPresets] = useState(null);
+  const [sProg, setSProg] = useState(null);
+  const loadStrata = async () => {
+    const i = await api.strata.info({ cmd: cfg.cmd, url: cfg.url, key: cfg.key }).catch(() => null); setSInfo(i);
+    if (i?.cmd) { const ps = await api.strata.presets({ cmd: cfg.cmd }).catch(() => []); setSPresets(ps); if (!cfg.preset && ps[0]) setCfg('preset', ps[0].name); }
+  };
+  useEffect(() => { loadStrata(); }, [cfg.cmd]);
+  useEffect(() => { api.strata.setIdle(cfg.idle || 0, { cmd: cfg.cmd }); }, [cfg.idle, cfg.cmd]);
+  useEffect(() => {
+    const o1 = api.strata.on('strata:progress', p => setSProg(p));
+    const o2 = api.strata.on('strata:state', () => { loadStrata(); check(); });
+    return () => { o1(); o2(); };
+  }, []);
+  const canAuto = !!(sInfo?.cmd && cfg.autoStart && cfg.preset);
+  const startStrata = async () => {
+    setErr(null); setSProg({ seconds: 0, line: '' });
+    try { await api.strata.start({ cmd: cfg.cmd, preset: cfg.preset, url: cfg.url, key: cfg.key }); await check(); }
+    catch (e) { const m = String(e.message || e); setErr(/STRATA_NOT_FOUND/.test(m) ? t.advStrataMissing : /STRATA_NO_PRESET/.test(m) ? t.advStrataNoPreset : m); }
+    setSProg(null);
+  };
   const msgs = ch.advisor?.messages || [];
   const [input, setInput] = useState('');
   const [conn, setConn] = useState(null); // null | {ok, model, err}
@@ -63,7 +84,7 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
 
   const check = async () => {
     setConn(null);
-    try { const m = await api.llm.models({ url: cfg.url, key: cfg.key }); setConn({ ok: true, model: m[0] || 'local' }); } catch (e) { setConn({ ok: false, err: String(e.message || e) }); }
+    try { const m = await api.llm.models({ url: cfg.url, key: cfg.key }); const c = { ok: true, model: m[0] || 'local' }; setConn(c); return c; } catch (e) { setConn({ ok: false, err: String(e.message || e) }); return null; }
   };
   useEffect(() => { check(); }, [cfg.url, cfg.key]);
   useEffect(() => api.llm.on('llm:chunk', c => { if (c.id === reqId.current) setLive(l => ({ ...(l || {}), ...(c.text != null ? { text: c.text } : {}), ...(c.think != null ? { think: c.think } : {}) })); }), []);
@@ -86,13 +107,16 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
     const id = ++reqId.current;
     setBusy(true); setLive({ text: '', think: '' });
     try {
-      const r = await api.llm.chat({ url: cfg.url, key: cfg.key, model: conn?.model, messages: apiMsgs, reasoning: cfg.reasoning, id });
+      let c = conn?.ok ? conn : await check();
+      if (!c && canAuto) { setSProg({ seconds: 0, line: '' }); await api.strata.start({ cmd: cfg.cmd, preset: cfg.preset, url: cfg.url, key: cfg.key }); setSProg(null); c = await check(); }
+      if (!c) throw new Error('NO_SERVER');
+      const r = await api.llm.chat({ url: cfg.url, key: cfg.key, model: c.model, messages: apiMsgs, reasoning: cfg.reasoning, id });
       if (r.text) setMsgs(m => [...m, { role: 'assistant', content: r.text }]);
     } catch (e) {
       const m = String(e.message || e);
-      setErr(/NO_SERVER/.test(m) ? t.advNoServer : m);
+      setErr(/NO_SERVER/.test(m) ? t.advNoServer : /STRATA_NOT_FOUND/.test(m) ? t.advStrataMissing : /STRATA_NO_PRESET/.test(m) ? t.advStrataNoPreset : m);
     }
-    setBusy(false); setLive(null);
+    setBusy(false); setLive(null); setSProg(null);
   };
 
   const takeOver = (block) => update(c => {
@@ -133,9 +157,36 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
             <label className="col small" style={{ gap: 4 }}><span className="muted">{t.advUrl}</span><input value={cfg.url} onChange={e => setCfg('url', e.target.value)} /></label>
             <label className="col small" style={{ gap: 4 }}><span className="muted">{t.advKey}</span><input type="password" value={cfg.key} onChange={e => setCfg('key', e.target.value)} /></label>
             <span className="muted small" style={{ gridColumn: '1 / -1' }}>{t.advHelp}</span>
+            <div className="col" style={{ gridColumn: '1 / -1', gap: 8, borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+              <span className="bold small">{t.advStrata}</span>
+              {sInfo && !sInfo.supported && <span className="muted small">{t.aiWinOnly}</span>}
+              {sInfo?.supported && !sInfo.cmd && <span className="small">{t.advStrataMissing}</span>}
+              {sInfo?.cmd && <>
+                <span className="muted small">{t.advStrataFound}: <code>{sInfo.cmd}</code></span>
+                <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={!!cfg.autoStart} onChange={e => setCfg('autoStart', e.target.checked)} />{t.advAutoStart}</label>
+                <label className="row small" style={{ gap: 8 }}>{t.advPreset}
+                  <select value={cfg.preset} onChange={e => setCfg('preset', e.target.value)}>
+                    {!cfg.preset && <option value="">—</option>}
+                    {(sPresets || []).map(p => <option key={p.name} value={p.name}>{p.name}{p.model ? ' · ' + p.model : ''}</option>)}
+                  </select>
+                  <button className="btn sm ghost" onClick={loadStrata}>↻</button>
+                </label>
+                {sPresets && !sPresets.length && <span className="small">{t.advStrataNoPreset}</span>}
+                <label className="row small" style={{ gap: 8 }}>{t.advIdle}
+                  <input type="number" min="0" max="240" value={cfg.idle} onChange={e => setCfg('idle', Math.max(0, Number(e.target.value) || 0))} style={{ width: 80 }} /></label>
+                <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={cfg.stopBeforePaint !== false} onChange={e => setCfg('stopBeforePaint', e.target.checked)} />{t.advStopBeforePaint}</label>
+                <div className="row" style={{ gap: 8 }}>
+                  <button className="btn sm" disabled={!!sProg || conn?.ok || !cfg.preset} onClick={startStrata}>{t.advStrataStart}</button>
+                  <button className="btn sm" disabled={!sInfo.startedByUs} onClick={() => api.strata.stop({ cmd: cfg.cmd }).then(() => setTimeout(check, 1500))}>{t.advStrataStop}</button>
+                </div>
+              </>}
+              <label className="col small" style={{ gap: 4 }}><span className="muted">{t.advStrataCmd}</span>
+                <input value={cfg.cmd} placeholder="…\\Strata\\terminal\\<version>\\bin\\strata.cmd" onChange={e => setCfg('cmd', e.target.value)} /></label>
+            </div>
           </div>
         )}
-        {conn && !conn.ok && <div className="banner info" style={{ margin: 0 }}><span className="small grow">{t.advNoServer}</span><button className="btn sm" onClick={check}>{t.t3Recheck}</button></div>}
+        {sProg && <div className="banner info" style={{ margin: 0 }}><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /><span className="small">{t.advStrataStarting} · {Math.floor(sProg.seconds / 60)}:{String(sProg.seconds % 60).padStart(2, '0')}<br /><span className="muted">{(sProg.line || '').slice(0, 120)}</span></span></div>}
+        {conn && !conn.ok && !sProg && <div className="banner info" style={{ margin: 0 }}><span className="small grow">{canAuto ? t.advAutoNote(cfg.preset) : t.advNoServer}</span>{canAuto && <button className="btn sm primary" onClick={startStrata}>{t.advStrataStart}</button>}<button className="btn sm" onClick={check}>{t.t3Recheck}</button></div>}
         <div ref={listRef} className="col chatlist" style={{ gap: 10, overflowY: 'auto', height: 'max(300px, calc(100vh - 380px))' }}>
           {msgs.length === 0 && !live && <div className="muted" style={{ margin: 'auto', maxWidth: 520, textAlign: 'center' }}>{t.advEmpty}</div>}
           {msgs.map(renderMsg)}
@@ -154,7 +205,7 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
           <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={withImage} disabled={!ch.selectedPainting} onChange={e => setWithImage(e.target.checked)} />{t.advWithImage}</label>
           <span className="grow" />
           {busy ? <button className="btn" onClick={() => api.llm.stop()}>{t.advStop}</button>
-            : <button className="btn primary" disabled={!input.trim() || (conn && !conn.ok)} onClick={send}>{t.advSend}</button>}
+            : <button className="btn primary" disabled={!input.trim() || (conn && !conn.ok && !canAuto)} onClick={send}>{t.advSend}</button>}
         </div>
       </section>
     </div>

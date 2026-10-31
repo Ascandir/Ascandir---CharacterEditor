@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.3
+- **Strata startet automatisch**: Wenn der KI-Berater das Textmodell braucht und Strata nicht läuft, startet das Programm es mit deinem gespeicherten Strata-Preset. Wird es eine einstellbare Zeit nicht genutzt (Standard 10 Minuten), beendet das Programm es wieder. Vor dem Malen wird es automatisch beendet, damit der Grafikspeicher frei ist. Ein Strata, das du selbst gestartet hast, wird nicht angefasst
+- Einstellungen dazu unter KI-Berater → Verbindung
+- Downloads (KI-Modelle, TRELLIS) laufen jetzt über den Netzwerk-Stack von Chromium und versuchen es bei Verbindungsabbrüchen oder Zeitüberschreitungen bis zu 5-mal erneut, mit Fortsetzung an der Abbruchstelle
+
 ## 0.6.2
 - Test-Version, um die neue Update-Funktion aus 0.6.1 auszuprobieren (keine weiteren Änderungen)
 

@@ -6,6 +6,7 @@ const fsp = require('fs/promises');
 const { execFile } = require('child_process');
 const trellis = require('./trellis.cjs');
 const llm = require('./llm.cjs');
+const strata = require('./strata.cjs');
 const ai = require('./ai.cjs');
 
 const isDev = !!process.env.VITE_DEV_SERVER_URL;
@@ -246,6 +247,7 @@ app.whenReady().then(async () => {
   ai.register(() => BrowserWindow.getAllWindows()[0]);
   trellis.register(() => BrowserWindow.getAllWindows()[0]);
   llm.register();
+  strata.register(() => BrowserWindow.getAllWindows()[0]);
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

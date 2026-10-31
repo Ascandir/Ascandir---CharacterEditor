@@ -15,6 +15,7 @@ async function models({ url, key }) {
 }
 
 async function chat(sender, { url, key, model, messages, reasoning, id }) {
+  try { require('./strata.cjs').touch(); } catch { /* optional */ }
   current?.abort();
   const ac = new AbortController(); current = ac;
   const body = { model: model || 'local', messages, stream: true, temperature: 0.7 };
@@ -49,6 +50,7 @@ async function chat(sender, { url, key, model, messages, reasoning, id }) {
     if (ac.signal.aborted) return { text: full, aborted: true };
     throw e;
   } finally { if (current === ac) current = null; }
+  try { require('./strata.cjs').touch(); } catch { /* optional */ }
   return { text: full, think };
 }
 

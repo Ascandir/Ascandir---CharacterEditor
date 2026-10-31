@@ -1,6 +1,9 @@
 // Local AI service: installs ComfyUI (portable, AMD ROCm or NVIDIA) + image models, starts/stops it and runs generations.
 // Never touches graphics drivers.
-const { app, ipcMain, dialog, shell } = require('electron');
+const electron = require('electron');
+const { app, ipcMain, dialog, shell } = electron;
+// Chromium's network stack (system proxy, IPv4/IPv6 fallback, longer connect timeouts); plain fetch in tests
+const netFetch = (url, opts) => (electron.net?.fetch && !process.env.ACE_AI_TEST ? electron.net.fetch(url, opts) : fetch(url, opts));
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
@@ -107,14 +110,25 @@ async function status() {
 }
 
 // ---------- downloads with resume ----------
+// download with resume and automatic retries (connection drops / timeouts happen on 20 GB files)
 async function download(url, dest, label, signal) {
+  for (let attempt = 1; ; attempt++) {
+    try { return await downloadOnce(url, dest, label, signal); } catch (e) {
+      if (signal?.aborted || /HTTP 4\d\d/.test(e.message) || attempt >= 6) throw e;
+      log(`${label}: ${e.message} - retry ${attempt}/5`);
+      send('ai:progress', { phase: 'download', label: label + ' (retry ' + attempt + ')', pct: 0 });
+      await new Promise(r => setTimeout(r, Math.min(30000, 3000 * attempt)));
+    }
+  }
+}
+async function downloadOnce(url, dest, label, signal) {
   await fsp.mkdir(path.dirname(dest), { recursive: true });
   const part = dest + '.part';
   let have = fs.existsSync(part) ? (await fsp.stat(part)).size : 0;
   const headers = { ...UA };
   if (have) headers.Range = `bytes=${have}-`;
   let res;
-  try { res = await fetch(url, { headers, signal, redirect: 'follow' }); } catch (e) { throw new Error(`${label}: no connection (${e.cause?.code || e.message})`); }
+  try { res = await netFetch(url, { headers, signal, redirect: 'follow' }); } catch (e) { throw new Error(`${label}: no connection (${e.cause?.code || e.message})`); }
   if (res.status === 416) { await fsp.rename(part, dest); return; }
   if (!res.ok && res.status !== 206) throw new Error(`Download ${label}: HTTP ${res.status}`);
   if (res.status === 200) have = 0; // server ignored range
