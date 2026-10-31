@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.5
+- **Ohne Internet bzw. ohne 5e.tools-Daten** startet das Programm jetzt trotzdem. Designer (KI-Maler, KI-Berater, 3D) und Einstellungen funktionieren, oben erscheint ein Hinweis mit „Erneut versuchen“. Nur Charakterbogen, Erstellung und Quellen warten auf die Daten
+- Einmal geladene Daten werden wie bisher gespeichert und funktionieren danach auch offline
+
 ## 0.6.4
 - Alle Internet-Abrufe (5e.tools-Daten, Homebrew, Updates, KI-Modelle, TRELLIS) laufen jetzt über den Netzwerk-Stack von Chromium statt über den von Node.js. Behebt „fetch failed“ und Zeitüberschreitungen auf Rechnern, auf denen der Browser problemlos ins Internet kommt (Proxy-Einstellungen, IPv6/DNS). Klappt das trotzdem nicht, wird automatisch der alte Weg probiert
 - Fehlermeldungen nennen jetzt den Server, der nicht erreichbar war

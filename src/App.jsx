@@ -54,6 +54,10 @@ export default function App() {
     try {
       const s = { ...DEFAULT_SETTINGS, ...(await api.getSettings()) };
       setSettings(s);
+      // the character is local: load it first, so designer & settings work even without the 5e.tools data
+      if (s.lastCharId) {
+        try { const c = await api.loadChar(s.lastCharId); if (c) setCh(prev => prev || c); } catch { /* ignore */ }
+      }
       const off = await loadOfficial(m => setStatus(st => ({ ...st, msg: m })), force);
       const hbData = {};
       for (const p of s.homebrew || []) {
@@ -62,7 +66,7 @@ export default function App() {
       setHb(hbData);
       setOfficial(off);
       if (s.lastCharId) {
-        try { const c = await api.loadChar(s.lastCharId); if (c) setCh(c); } catch { /* ignore */ }
+        try { const c = await api.loadChar(s.lastCharId); if (c) setCh(prev => prev || c); } catch { /* ignore */ }
       }
       setStatus({ loading: false, msg: '', error: null });
     } catch (e) {
@@ -116,8 +120,8 @@ export default function App() {
   const createChar = useCallback(() => {
     const c = newCharacter(settings);
     setCh(c); api.saveChar(c); saveSettings({ ...settings, lastCharId: c.id });
-    setView('wizard'); setShowChars(false);
-  }, [settings, saveSettings]);
+    setView(official ? 'wizard' : 'designer'); setShowChars(false);
+  }, [settings, saveSettings, official]);
 
   const saveNow = useCallback(async () => {
     if (!ch) return;
@@ -174,13 +178,19 @@ export default function App() {
       </LangCtx.Provider>
     );
   }
-  if (status.error || !db) {
-    return (
-      <LangCtx.Provider value={{ lang, t }}>
-        <div className="loading"><div className="bold">{t.dataError}</div><div className="muted small">{status.error}</div><button className="btn primary" onClick={() => loadAll()}>{t.retry}</button></div>
-      </LangCtx.Provider>
-    );
-  }
+  const offline = !db;
+  const needsData = (v) => ['sheet', 'wizard', 'levelup', 'sources'].includes(v);
+  const noData = (
+    <div className="page"><div className="card col" style={{ maxWidth: 640, margin: '40px auto', gap: 10, alignItems: 'flex-start' }}>
+      <h2 className="serif" style={{ margin: 0 }}>{t.dataError}</h2>
+      <span className="small">{t.offlineNeed}</span>
+      {status.error && <span className="muted small">{status.error}</span>}
+      <div className="row" style={{ gap: 8 }}>
+        <button className="btn primary" onClick={() => loadAll()}>{t.retry}</button>
+        <button className="btn" onClick={() => setView('designer')}>{t.tabDesigner}</button>
+      </div>
+    </div></div>
+  );
 
   const ctx = { db, settings: charSettings, globalSettings: settings, saveSettings, ch, d, update, setView, showToast, createChar, openChar };
   const tabs = [['sheet', t.tabSheet], ['designer', t.tabDesigner], ['sources', t.tabSources], ['settings', t.tabSettings]];
@@ -216,12 +226,19 @@ export default function App() {
             <button className="btn sm ghost" onClick={() => setDriverWarn(null)}>{t.close}</button>
           </div>
         )}
+        {offline && (
+          <div className="banner" style={{ margin: '10px 22px 0' }}>
+            <span className="small grow"><b>{t.offlineTitle}</b> · {t.offlineBanner}</span>
+            <button className="btn sm" onClick={() => loadAll()}>{t.retry}</button>
+          </div>
+        )}
         <main className="main">
-          {view === 'sheet' && <Sheet {...ctx} />}
-          {view === 'wizard' && <Wizard {...ctx} />}
-          {view === 'levelup' && <LevelUp {...ctx} />}
+          {offline && needsData(view) && noData}
+          {!offline && view === 'sheet' && <Sheet {...ctx} />}
+          {!offline && view === 'wizard' && <Wizard {...ctx} />}
+          {!offline && view === 'levelup' && <LevelUp {...ctx} />}
           {view === 'designer' && <Designer {...ctx} />}
-          {view === 'sources' && <Sources {...ctx} addHomebrew={addHomebrew} addHomebrewMany={addHomebrewMany} addOwnHomebrew={addOwnHomebrew} reload={() => loadAll(true)} hbLoaded={hb} />}
+          {!offline && view === 'sources' && <Sources {...ctx} addHomebrew={addHomebrew} addHomebrewMany={addHomebrewMany} addOwnHomebrew={addOwnHomebrew} reload={() => loadAll(true)} hbLoaded={hb} />}
           {view === 'settings' && <Settings {...ctx} />}
         </main>
         {aiFirstRun && !status.loading && (
