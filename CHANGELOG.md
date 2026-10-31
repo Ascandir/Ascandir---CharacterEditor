@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.8
+- Grafikkarten-Modus „Schonend“ deutlich vorsichtiger: Das neue „dynamische“ Laden von ComfyUI (Pinned Memory, asynchrone Auslagerung) ist abgeschaltet. Es lief bei dir trotz der Einstellung noch aktiv und ist der wahrscheinlichste Grund für die Treiber-Resets mit ROCm unter Windows. Außerdem läuft der VAE-Teil (Bild ↔ KI-Raum umrechnen) auf dem Prozessor, und Modelle werden nach Gebrauch aus der Grafikkarte entfernt
+- Kennt ComfyUI eine dieser Optionen nicht, startet es automatisch ohne sie
+- Das ComfyUI-Protokoll wird laufend in `comfyui.log` geschrieben, auch wenn ein Treiber-Absturz das Programm mitreißt
+
 ## 0.6.7
 - Absturzmeldungen von ComfyUI ohne Farbcodes (besser lesbar)
 

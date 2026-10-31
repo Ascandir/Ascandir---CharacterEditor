@@ -251,8 +251,10 @@ async function launchArgs(root) {
   // Prevents driver resets (TDR) with big models such as Qwen Image on 16 GB cards.
   const cfg = await readCfg();
   const mode = cfg.gpuMode || 'safe';
-  const extra = mode === 'safe' ? ['--reserve-vram', '2.5', '--lowvram', '--use-split-cross-attention']
-    : mode === 'balanced' ? ['--reserve-vram', '1.5'] : [];
+  // newer ComfyUI loads models "dynamically" (pinned RAM + async offload streams); with ROCm on Windows that
+  // combination reset the AMD driver for big models, so the gentle mode switches back to classic loading
+  const extra = mode === 'safe' ? ['--reserve-vram', '2.5', '--disable-dynamic-vram', '--lowvram', '--disable-pinned-memory', '--disable-async-offload', '--disable-smart-memory', '--use-split-cross-attention', '--cpu-vae']
+    : mode === 'balanced' ? ['--reserve-vram', '1.5', '--disable-pinned-memory', '--disable-async-offload'] : [];
   return { env, args: [...args, ...extra, '--disable-auto-launch', '--listen', '127.0.0.1', '--port', String(port)] };
 }
 
@@ -264,11 +266,27 @@ async function start() {
   const root = await findComfyRoot(cfg.dir);
   if (!root) throw new Error('ComfyUI is not installed');
   const { env, args } = await launchArgs(root);
+  try { return await spawnComfy(root, env, args); } catch (e) {
+    // an older ComfyUI may not know some flags: drop them and try once more
+    const m = /unrecognized arguments:\s*([^\n]+)/.exec(procLog.join(''));
+    if (!m) throw e;
+    const bad = new Set(m[1].trim().split(/\s+/));
+    const kept = []; for (let i = 0; i < args.length; i++) { if (bad.has(args[i])) { if (args[i] === '--reserve-vram') i++; continue; } kept.push(args[i]); }
+    log('retrying without ' + [...bad].join(' '));
+    return spawnComfy(root, env, kept);
+  }
+}
+let logFile = null;
+function spawnComfy(root, env, args) {
   procLog = [];
+  // the whole log is also written to a file while running (a driver reset can take the app down with it)
+  try { logFile = path.join(app.getPath('userData'), 'comfyui.log'); fs.writeFileSync(logFile, new Date().toISOString() + ' start: ' + args.join(' ') + '\n'); } catch { logFile = null; }
+  log('args: ' + args.join(' ') + '\n');
   proc = spawn(path.join(root, 'python_embeded', 'python.exe'), ['-s', path.join('ComfyUI', 'main.py'), ...args], { cwd: root, env, windowsHide: true });
-  proc.stdout.on('data', d => log(String(d)));
-  proc.stderr.on('data', d => log(String(d)));
-  proc.on('close', code => { log('ComfyUI exited ' + code); proc = null; send('ai:state', { running: false }); });
+  const w = d => { const t = String(d); log(t); if (logFile) fs.appendFile(logFile, t, () => {}); };
+  proc.stdout.on('data', w);
+  proc.stderr.on('data', w);
+  proc.on('close', code => { log('ComfyUI exited ' + code); if (logFile) fs.appendFile(logFile, '\nComfyUI exited ' + code + '\n', () => {}); proc = null; send('ai:state', { running: false }); });
   return waitReady();
 }
 async function waitReady(timeoutMs = 600000) {
