@@ -33,6 +33,25 @@
           "size": 335304388
         }
       ]
+    },
+    {
+      "id": "birefnet",
+      "name": "BiRefNet",
+      "version": "1",
+      "recommended": true,
+      "minVramGB": 2,
+      "kind": "background",
+      "note": {
+        "de": "Entfernt den Hintergrund sauber (erkennt die Figur, auch bei Verläufen)",
+        "en": "Removes the background cleanly (detects the figure, also with gradients)"
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Comfy-Org/BiRefNet/resolve/main/background_removal/birefnet.safetensors",
+          "dest": "models/background_removal/birefnet.safetensors",
+          "size": 444000000
+        }
+      ]
     }
   ]
 }

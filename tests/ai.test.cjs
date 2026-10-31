@@ -8,7 +8,7 @@ Module._load = function (r, ...a) {
   if (r === 'electron') return { app: { getPath: () => tmp, isPackaged: false, on() {} }, ipcMain: { handle() {} }, dialog: {}, shell: {} };
   return orig.call(this, r, ...a);
 };
-const KNOWN = new Set(['UNETLoader', 'CLIPLoader', 'VAELoader', 'ModelSamplingAuraFlow', 'CLIPTextEncode', 'ConditioningZeroOut', 'KSampler', 'VAEDecode', 'SaveImage', 'EmptySD3LatentImage', 'LoadImage', 'ImageScale', 'VAEEncode', 'RepeatLatentBatch']);
+const KNOWN = new Set(['UNETLoader', 'CLIPLoader', 'VAELoader', 'ModelSamplingAuraFlow', 'CLIPTextEncode', 'ConditioningZeroOut', 'KSampler', 'VAEDecode', 'SaveImage', 'EmptySD3LatentImage', 'LoadImage', 'ImageScale', 'VAEEncode', 'RepeatLatentBatch', 'LoadBackgroundRemovalModel', 'RemoveBackground', 'InvertMask', 'JoinImageWithAlpha']);
 const png = fs.readFileSync(path.join(__dirname, '..', 'build', 'icon.png'));
 let lastPrompt = null; let uploads = 0;
 const comfy = http.createServer((req, res) => {
@@ -56,6 +56,8 @@ const files = http.createServer((req, res) => {
   // 2) refine (img2img)
   r = await ai._test.generate({ prompt: 'test', seed: 6, width: 832, height: 1216, batch: 2, initImage: 'data:image/png;base64,' + png.toString('base64'), denoise: 0.45 });
   assert.equal(r.images.length, 2); assert.equal(uploads, 1); assert.equal(lastPrompt[3].inputs.denoise, 0.45); assert.equal(lastPrompt[13].class_type, 'VAEEncode');
+  r = await ai._test.generate({ prompt: 'x', seed: 7, batch: 1, removeBg: true });
+  assert.equal(lastPrompt[9].inputs.images[0], '53'); assert.equal(lastPrompt[50].inputs.bg_removal_name, 'birefnet.safetensors');
   console.log('generate ok');
   // 3) install: package (7z) + model files with resume after a broken download
   const sevenZ = require('7zip-bin').path7za;
@@ -66,7 +68,7 @@ const files = http.createServer((req, res) => {
   const base = `http://127.0.0.1:${files.address().port}/`;
   fs.writeFileSync(path.join(tmp, 'catalog.json'), '');
   ai.DEFAULT_CATALOG.comfy.amd = base + 'ComfyUI_windows_portable_amd.7z';
-  ai.DEFAULT_CATALOG.models[0].files = ai.DEFAULT_CATALOG.models[0].files.map(f => ({ ...f, url: base + path.basename(f.dest) }));
+  for (const m of ai.DEFAULT_CATALOG.models) m.files = m.files.map(f => ({ ...f, url: base + path.basename(f.dest) }));
   global.fetch = ((f) => (url, o) => (String(url).includes('ai-catalog.json') || String(url).includes('api.github.com') ? Promise.reject(new Error('offline')) : f(url, o)))(global.fetch);
   const dir = path.join(tmp, 'Ascandir-AI');
   let firstErr = null;
@@ -75,7 +77,8 @@ const files = http.createServer((req, res) => {
   await ai._test.install({ dir, gpu: 'amd', models: ['z-image-turbo'], comfy: false });
   const root = path.join(dir, 'ComfyUI_windows_portable_amd');
   assert.ok(fs.existsSync(path.join(root, 'ComfyUI', 'main.py')));
-  for (const f of ai.DEFAULT_CATALOG.models[0].files) {
+  await ai._test.install({ dir, gpu: 'amd', models: ['birefnet'], comfy: false });
+  for (const f of [...ai.DEFAULT_CATALOG.models[0].files, ...ai.DEFAULT_CATALOG.models[1].files]) {
     const p = path.join(root, 'ComfyUI', f.dest);
     assert.ok(fs.existsSync(p), 'missing ' + f.dest); assert.equal(fs.statSync(p).size, big.length, 'size ' + f.dest);
   }

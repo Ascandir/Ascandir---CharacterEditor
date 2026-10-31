@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+- Hintergrund-Entfernung mit dem KI-Modell **BiRefNet** (erkennt die Figur selbst, auch bei Verläufen und Schatten). Im KI-Maler erscheint ein Knopf zum Nachladen (ca. 0,4 GB)
+- Ohne BiRefNet: verbessertes Ersatzverfahren, das auch Hintergrund-Verläufe entfernt
+- Attraktivität: deutlich stärkere Skala – 0 ergibt eine wirklich hässliche, abgemagerte Gestalt, niedrige Werte zeigen grobe, unschöne Züge
+- Der gewünschte Ausschnitt (z. B. Ganzkörper) steht jetzt am Anfang der KI-Anweisung und wird besser eingehalten
+
 ## 0.2.0
 - **KI-Maler** im Designer: malt deinen Charakter mit lokaler KI (Z-Image Turbo über ComfyUI)
 - Übernimmt Volk (inkl. Unterart, z. B. Drachenfarbe), Klasse und angelegte Ausrüstung vom Charakterbogen

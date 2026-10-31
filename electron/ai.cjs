@@ -27,6 +27,13 @@ const DEFAULT_CATALOG = {
         { url: 'https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors', dest: 'models/vae/ae.safetensors', size: 335304388 },
       ],
     },
+    {
+      id: 'birefnet', name: 'BiRefNet', version: '1', recommended: true, minVramGB: 2, kind: 'background',
+      note: { de: 'Entfernt den Hintergrund sauber (erkennt die Figur, auch bei Verläufen)', en: 'Removes the background cleanly (detects the figure, also with gradients)' },
+      files: [
+        { url: 'https://huggingface.co/Comfy-Org/BiRefNet/resolve/main/background_removal/birefnet.safetensors', dest: 'models/background_removal/birefnet.safetensors', size: 444000000 },
+      ],
+    },
   ],
 };
 
@@ -238,7 +245,7 @@ async function touch() {
 }
 
 // ---------- workflows ----------
-function zImageWorkflow({ prompt, seed, width = 832, height = 1216, steps = 8, batch = 1, initImage = null, denoise = 1 }) {
+function zImageWorkflow({ prompt, seed, width = 832, height = 1216, steps = 8, batch = 1, initImage = null, denoise = 1, removeBg = false }) {
   const w = {
     28: { class_type: 'UNETLoader', inputs: { unet_name: 'z_image_turbo_bf16.safetensors', weight_dtype: 'default' } },
     30: { class_type: 'CLIPLoader', inputs: { clip_name: 'qwen_3_4b.safetensors', type: 'lumina2', device: 'default' } },
@@ -250,6 +257,13 @@ function zImageWorkflow({ prompt, seed, width = 832, height = 1216, steps = 8, b
     8: { class_type: 'VAEDecode', inputs: { samples: ['3', 0], vae: ['29', 0] } },
     9: { class_type: 'SaveImage', inputs: { images: ['8', 0], filename_prefix: 'ascandir/char' } },
   };
+  if (removeBg) { // BiRefNet (ComfyUI core nodes), same chain as the official template
+    w[50] = { class_type: 'LoadBackgroundRemovalModel', inputs: { bg_removal_name: 'birefnet.safetensors' } };
+    w[51] = { class_type: 'RemoveBackground', inputs: { bg_removal_model: ['50', 0], image: ['8', 0] } };
+    w[52] = { class_type: 'InvertMask', inputs: { mask: ['51', 0] } };
+    w[53] = { class_type: 'JoinImageWithAlpha', inputs: { image: ['8', 0], alpha: ['52', 0] } };
+    w[9].inputs.images = ['53', 0];
+  }
   if (initImage) {
     w[40] = { class_type: 'LoadImage', inputs: { image: initImage } };
     w[41] = { class_type: 'ImageScale', inputs: { image: ['40', 0], upscale_method: 'lanczos', width, height, crop: 'center' } };

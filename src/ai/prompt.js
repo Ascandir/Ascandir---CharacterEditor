@@ -8,12 +8,12 @@ const SPECIES = [
   ['tiefling', 170, () => 'a tiefling, a human-like fiendish person with large curved horns, a long thin tail and solid-colored eyes'],
   ['half-elf', 172, () => 'a half-elf with slightly pointed ears'],
   ['half-orc', 182, () => 'a half-orc with grey-green skin, a strong jaw and small tusks'],
-  ['elf', 170, () => 'an elf with long pointed ears, graceful and slender features'],
+  ['elf', 170, () => 'an elf with long pointed ears'],
   ['eladrin', 170, () => 'an eladrin fey elf with long pointed ears and seasonal colored hair'],
   ['drow', 165, () => 'a drow, a dark elf with obsidian dark skin, white hair and pointed ears'],
   ['dwarf', 135, () => 'a dwarf, short, stocky and broad-shouldered'],
   ['duergar', 130, () => 'a duergar, a grey-skinned bald deep dwarf, short and stocky'],
-  ['halfling', 95, () => 'a halfling, a small person about three feet tall with child-sized proportions but adult face'],
+  ['halfling', 95, () => 'a halfling, a small adult person about three feet tall with adult facial features'],
   ['gnome', 100, () => 'a gnome, a small person about three and a half feet tall with a large nose'],
   ['goliath', 225, () => 'a goliath, a towering giant-kin with grey stone-like skin and dark tribal markings'],
   ['orc', 188, () => 'an orc with green-grey skin and prominent tusks'],
@@ -92,21 +92,37 @@ export function typicalHeight(raceName) { return speciesOf(raceName).avg; }
 
 const pick = (v, table) => { for (const [max, txt] of table) if (v <= max) return txt; return table[table.length - 1][1]; };
 
+// Looks: the model tends to make everyone pretty, so the low end has to be very explicit.
+const LOOKS = [
+  [6, 'grotesquely ugly and hideous creature-like face, emaciated and gaunt, sunken cheeks, bulging watery eyes, crooked rotten teeth, sparse stringy hair, warts and blotchy sickly skin, hunched posture, repulsive'],
+  [15, 'very ugly face, misshapen crooked nose, uneven bulging eyes, bad teeth, pockmarked blotchy skin, warts, greasy unkempt hair, unpleasant appearance'],
+  [28, 'ugly face, coarse irregular features, big crooked nose, small uneven eyes, rough scarred skin, unkempt'],
+  [40, 'unattractive plain homely face, asymmetrical features, tired eyes, rough skin'],
+  [58, 'ordinary average-looking face, unremarkable features'],
+  [72, 'good-looking face, pleasant features'],
+  [86, 'very attractive face, charismatic, striking features'],
+  [100, 'stunningly beautiful face, captivating gaze, perfect features'],
+];
+
 export function buildPrompt(d, ch, p) {
   const sp = speciesOf(d?.race?.name || 'Human');
+  const fr = FRAMINGS.find(f => f[0] === p.framing) || FRAMINGS[0];
+  const st = STYLES.find(s => s[0] === p.style) || STYLES[0];
   const parts = [];
   const g = p.gender === 'female' ? 'woman' : p.gender === 'nonbinary' ? 'androgynous person' : 'man';
   const age = pick(p.age, [[25, 'young adult'], [40, 'adult'], [55, 'middle-aged'], [70, 'older, with grey streaks and wrinkles'], [100, 'elderly, white hair and deep wrinkles']]);
+  // framing first: the model weighs the beginning of the prompt most
+  parts.push(fr[2]);
   parts.push(`${age} ${g}, ${sp.text}`);
-  const h = p.height || sp.avg;
-  const rel = (h - sp.avg) / sp.avg;
-  parts.push(pick(rel, [[-0.15, `very short for their kind (${h} cm)`], [-0.06, `short for their kind (${h} cm)`], [0.06, `average height (${h} cm)`], [0.15, `tall for their kind (${h} cm)`], [9, `very tall for their kind (${h} cm)`]]));
+  parts.push(pick(p.attract, LOOKS));
   parts.push(pick(p.build, [[12, 'very thin, gaunt build'], [32, 'slim build'], [58, 'average build'], [74, 'stocky, slightly heavy build'], [89, 'heavyset, overweight with a round belly'], [100, 'very fat, obese body']]));
   const curvy = pick(p.curvy, [[18, 'straight angular figure'], [48, ''], [74, 'curvy figure'], [100, 'very curvy hourglass figure']]);
   if (curvy) parts.push(curvy);
   const mus = pick(p.muscle, [[18, 'frail with little muscle'], [52, ''], [78, 'muscular, athletic'], [100, 'extremely muscular, powerful physique']]);
   if (mus) parts.push(mus);
-  parts.push(pick(p.attract, [[18, 'plain, homely, rugged face'], [42, 'ordinary looking face'], [68, 'attractive face'], [88, 'very attractive, charismatic face'], [100, 'stunningly beautiful face with a captivating gaze']]));
+  const h = p.height || sp.avg;
+  const rel = (h - sp.avg) / sp.avg;
+  parts.push(pick(rel, [[-0.15, `very short for their kind (${h} cm)`], [-0.06, `short for their kind (${h} cm)`], [0.06, `average height (${h} cm)`], [0.15, `tall for their kind (${h} cm)`], [9, `very tall for their kind (${h} cm)`]]));
   if (p.hair) parts.push(p.hair + ' hair');
   if (p.skin) parts.push(p.skin + ' skin');
   if (p.eyes) parts.push(p.eyes + ' eyes');
@@ -121,12 +137,9 @@ export function buildPrompt(d, ch, p) {
   }
   if (p.clothing) gear.push(p.clothing);
   if (gear.length) parts.push('wearing ' + gear.join(', '));
-  parts.push('fully clothed, tasteful, safe for work');
+  parts.push('fully clothed, safe for work');
   if (p.extra) parts.push(p.extra);
-  const fr = FRAMINGS.find(f => f[0] === p.framing) || FRAMINGS[0];
-  parts.push(fr[2]);
-  parts.push(p.removeBg ? 'isolated on a plain flat light grey studio background, no scenery, no text' : 'atmospheric fantasy background, no text');
-  const st = STYLES.find(s => s[0] === p.style) || STYLES[0];
+  parts.push(p.removeBg ? 'plain simple studio background, no scenery, no text' : 'atmospheric fantasy background, no text');
   parts.push(st[2]);
   return parts.filter(Boolean).join(', ');
 }
@@ -136,29 +149,26 @@ export function frameSize(p) {
   return { width: fr[3], height: fr[4] };
 }
 
-// Remove a flat background by flood-filling from the borders (works for plain studio backgrounds)
-export async function removeBackground(dataUrl, tolerance = 34) {
+// Fallback background removal (when the BiRefNet model is not installed):
+// region growing from the borders that follows smooth gradients/vignettes.
+export async function removeBackground(dataUrl, localTol = 9, globalTol = 170) {
   const img = new Image(); img.src = dataUrl; await img.decode();
   const w = img.naturalWidth; const h = img.naturalHeight;
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0);
   const id = ctx.getImageData(0, 0, w, h); const px = id.data;
-  // reference color = median of border pixels
-  const border = [];
-  for (let x = 0; x < w; x += 4) { border.push(x, x + (h - 1) * w); }
-  for (let y = 0; y < h; y += 4) { border.push(y * w, y * w + w - 1); }
-  const ch = (k) => border.map(i => px[i * 4 + k]).sort((a, b) => a - b)[border.length >> 1];
-  const ref = [ch(0), ch(1), ch(2)];
-  const near = (i) => { const dr = px[i * 4] - ref[0]; const dg = px[i * 4 + 1] - ref[1]; const db = px[i * 4 + 2] - ref[2]; return Math.sqrt(dr * dr + dg * dg + db * db) < tolerance; };
-  const bg = new Uint8Array(w * h);
+  const dist = (a, b) => { const dr = px[a * 4] - px[b * 4]; const dg = px[a * 4 + 1] - px[b * 4 + 1]; const db = px[a * 4 + 2] - px[b * 4 + 2]; return Math.sqrt(dr * dr + dg * dg + db * db); };
+  const sat = (i) => { const r = px[i * 4], g = px[i * 4 + 1], b = px[i * 4 + 2]; return Math.max(r, g, b) - Math.min(r, g, b); };
+  const bg = new Uint8Array(w * h); const seed = new Int32Array(w * h).fill(-1);
   const stack = [];
-  for (const i of border) if (near(i)) { bg[i] = 1; stack.push(i); }
+  const push = (i, from) => { bg[i] = 1; seed[i] = from; stack.push(i); };
+  for (let x = 0; x < w; x++) { for (const i of [x, x + (h - 1) * w]) if (!bg[i] && sat(i) < 40) push(i, i); }
+  for (let y = 0; y < h; y++) { for (const i of [y * w, y * w + w - 1]) if (!bg[i] && sat(i) < 40) push(i, i); }
   while (stack.length) {
     const i = stack.pop(); const x = i % w; const y = (i / w) | 0;
     const nb = [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1];
-    for (const j of nb) if (j >= 0 && !bg[j] && near(j)) { bg[j] = 1; stack.push(j); }
+    for (const j of nb) if (j >= 0 && !bg[j] && dist(i, j) < localTol && dist(seed[i], j) < globalTol && sat(j) < 45) push(j, seed[i]);
   }
-  // soft edge: pixels next to background get partial alpha
   for (let i = 0; i < w * h; i++) {
     if (bg[i]) { px[i * 4 + 3] = 0; continue; }
     const x = i % w; const y = (i / w) | 0;

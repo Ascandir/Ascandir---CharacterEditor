@@ -68,19 +68,21 @@ export default function Painter({ ch, d, update }) {
     (async () => { const img = selImg ? await toImg(selImg) : null; drawCroppedToken(c.getContext('2d'), c.width, img, p.crop, tk); })();
   }, [selImg, JSON.stringify(p.crop), tk.tokenRing, tk.tokenColor, tk.tokenBg, tk.tokenTransparent]);
 
-  const ready = st?.supported && st.comfyInstalled && Object.values(st.models || {}).some(m => m.present);
+  const ready = st?.supported && st.comfyInstalled && !!st.models?.['z-image-turbo']?.present;
+  const hasBiRef = !!st?.models?.birefnet?.present;
+  const [bgInstall, setBgInstall] = useState(null);
 
   const generate = async (mode) => {
     setErr(null); setBusy({ mode, seconds: 0 });
     try {
       const { width, height } = frameSize(p);
       const seed = Math.floor(Math.random() * 2 ** 31);
-      const params = { prompt, seed, width, height, batch: mode === 'refine' ? Math.min(count, 2) : count };
+      const params = { prompt, seed, width, height, batch: mode === 'refine' ? Math.min(count, 2) : count, removeBg: p.removeBg && hasBiRef };
       if (mode === 'refine' && selImg) { params.initImage = await onGrey(selImg); params.denoise = Math.max(0.15, Math.min(0.9, p.strength / 100)); }
       const res = await api.ai.generate(params);
       const saved = [];
       for (const [i, raw] of res.images.entries()) {
-        const url = p.removeBg ? await removeBackground(raw) : raw;
+        const url = p.removeBg && !hasBiRef ? await removeBackground(raw) : raw;
         const name = await api.saveImage(ch.id, url);
         setCache(c => ({ ...c, [name]: url }));
         saved.push({ name, seed: seed + i, prompt, ts: Date.now(), seconds: res.seconds });
@@ -185,6 +187,17 @@ export default function Painter({ ch, d, update }) {
             <label htmlFor="pt-strength" className="muted">{t.pStrength}</label>
             <input id="pt-strength" type="range" min={15} max={90} value={p.strength} onChange={e => set('strength', Number(e.target.value))} style={{ maxWidth: 240 }} />
             <span className="muted">{p.strength} % – {p.strength < 40 ? t.pSmall : p.strength < 65 ? t.pMedium : t.pBig}</span>
+          </div>
+        )}
+        {ready && p.removeBg && !hasBiRef && (
+          <div className="banner" style={{ margin: 0 }}>
+            <span className="small grow">{t.pBgModel}</span>
+            <button className="btn sm primary" disabled={!!bgInstall} onClick={async () => {
+              setBgInstall('…'); setErr(null);
+              const off = api.ai.on('ai:progress', pr => setBgInstall((pr.pct ?? 0) + ' %'));
+              try { await api.ai.install({ dir: st.dir, gpu: st.gpu, models: ['birefnet'], comfy: false }); } catch (e) { setErr(String(e.message || e)); }
+              off(); setBgInstall(null); refresh();
+            }}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : t.pBgModelBtn}</button>
           </div>
         )}
         {busy && <div className="banner info" style={{ margin: 0 }}><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />{st?.running ? t.pPainting : t.aiStartingFirst} · {busy.seconds || 0} s</div>}
