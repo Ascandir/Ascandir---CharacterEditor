@@ -54,6 +54,35 @@
       ]
     },
     {
+      "id": "qwen-image-21",
+      "name": "Qwen Image 2.1",
+      "version": "1",
+      "recommended": false,
+      "minVramGB": 16,
+      "kind": "image",
+      "note": {
+        "de": "Großes Bildmodell (20 Mrd. Parameter): hält sich sehr genau an Beschreibungen, kann Bilder gezielt bearbeiten und Mehrfachansichten aus einer Vorlage malen. Deutlich langsamer.",
+        "en": "Large image model (20B): follows descriptions very closely, can edit pictures and paint multi-angle sheets from a reference. Much slower."
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_bf16.safetensors",
+          "dest": "models/diffusion_models/qwen_image_2.1_bf16.safetensors",
+          "size": 13250000000
+        },
+        {
+          "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_bf16.safetensors",
+          "dest": "models/text_encoders/qwen3vl_8b_bf16.safetensors",
+          "size": 16330000000
+        },
+        {
+          "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors",
+          "dest": "models/vae/qwen_image_2.1_vae_bf16.safetensors",
+          "size": 644200000
+        }
+      ]
+    },
+    {
       "id": "upscale",
       "name": "Real-ESRGAN x4",
       "version": "1",

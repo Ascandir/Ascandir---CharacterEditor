@@ -112,6 +112,8 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   const ready = st?.supported && st.comfyInstalled && !!st.models?.['z-image-turbo']?.present;
   const hasBiRef = !!st?.models?.birefnet?.present;
   const hasUpscale = !!st?.models?.upscale?.present;
+  const hasQwen = !!st?.models?.['qwen-image-21']?.present;
+  const useQwen = hasQwen && p.model === 'qwen';
   const installModel = async (id) => {
     setBgInstall('…'); setErr(null);
     const off = api.ai.on('ai:progress', pr => setBgInstall((pr.pct ?? 0) + ' %'));
@@ -134,22 +136,41 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
       const usedPrompt = multi ? multiPrompt : (mode === 'refine' && emphasis.length && p.promptOverride == null ? buildPrompt(d, ch, p, { emphasis }) : prompt);
       const params = { prompt: usedPrompt, seed, width, height, batch: multi ? 1 : mode === 'refine' ? Math.min(count, 2) : count, removeBg: (multi || p.removeBg) && hasBiRef };
       if (!multi && upscaleSize(p) && hasUpscale) params.upscale = upscaleSize(p);
+      if (useQwen) {
+        // Qwen Image 2.1: native up to 2K, edit/reference mode instead of img2img
+        const neg = (p.style === 'custom' ? (p.customNegative || '') : '').trim();
+        Object.assign(params, { model: 'qwen', negative: neg, cfg: neg ? 4 : 1, steps: p.qSteps || 40 });
+        if (!multi && ['2k', '4k'].includes(p.res)) { const k = 2048 / Math.max(width, height); params.width = Math.round(width * k / 32) * 32; params.height = Math.round(height * k / 32) * 32; if (p.res === '2k') delete params.upscale; }
+        if (mode === 'refine' && selImg) {
+          params.refImages = [selImg]; params.editLatent = true;
+          params.resolution = Math.round(Math.sqrt(params.width * params.height) / 32) * 32;
+          params.prompt = `Edit <image1>. ${(p.editText || '').trim() ? p.editText.trim() + '. ' : ''}${emphasis.length ? 'Most important change: ' + emphasis.join(', ') + '. ' : ''}The edited character must match this description: ${usedPrompt}. Keep the identity, face, pose, framing and art style of <image1> unless the description asks for something different.`;
+        }
+        if (multi) {
+          params.width = MULTI_SIZE.width; params.height = MULTI_SIZE.height;
+          if (selImg && p.multiFromSel !== false && selMeta?.kind !== 'multi') {
+            params.refImages = [selImg]; params.resolution = 1024;
+            params.prompt = `Use the character in <image1> as the exact reference: same face, body, proportions, outfit, colors and art style. Create ${multiPrompt}`;
+          }
+        }
+      } else {
       if (mode === 'refine' && selImg) { params.initImage = await onGrey(selImg); params.denoise = Math.max(shapeChanged ? 0.68 : 0.15, Math.min(0.9, p.strength / 100)); }
       if (multi && selImg && p.multiFromSel !== false && selMeta?.kind !== 'multi') { params.initImage = await multiInit(await onGrey(selImg)); params.denoise = Math.max(0.4, Math.min(0.95, (p.multiStrength ?? 78) / 100)); }
+      }
       const res = await api.ai.generate(params);
       const saved = [];
       for (const [i, raw] of res.images.entries()) {
         const url = (multi || p.removeBg) && !hasBiRef ? await removeBackground(raw) : raw;
         const name = await api.saveImage(ch.id, url);
         setCache(c => ({ ...c, [name]: url }));
-        saved.push({ name, seed: seed + i, prompt: usedPrompt, ts: Date.now(), seconds: res.seconds, params: JSON.parse(JSON.stringify(p)), ...(multi ? { kind: 'multi' } : {}) });
+        saved.push({ name, seed: seed + i, prompt: params.prompt, model: useQwen ? 'qwen' : 'zimage', ts: Date.now(), seconds: res.seconds, params: JSON.parse(JSON.stringify(p)), ...(multi ? { kind: 'multi' } : {}) });
       }
       update(c => {
         const all = [...saved, ...(c.paintings || [])];
         for (const old of all.slice(MAX_PAINTINGS)) api.deleteImage(c.id, old.name);
         c.paintings = all.slice(0, MAX_PAINTINGS); c.selectedPainting = saved[0]?.name; return c;
       });
-    } catch (e) { setErr(String(e.message || e)); }
+    } catch (e) { const m = String(e.message || e); setErr(/COMFY_TOO_OLD/.test(m) ? 'COMFY_TOO_OLD' : m); }
     setBusy(null); refresh();
   };
 
@@ -230,7 +251,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             {STYLES.filter(x => x[0] !== 'custom').map(([k, l]) => <button key={k} className={'chip' + (p.style === k ? ' on' : '')} onClick={() => set('style', k)}>{l[lang]}</button>)}
             {savedStyles.map(x => (
               <span key={x.id} className={'chip' + (p.style === 'custom' && p.savedStyleId === x.id ? ' on' : '')} style={{ display: 'inline-flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}
-                onClick={() => update(c => { c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), style: 'custom', customStyle: x.text, savedStyleId: x.id }; return c; })} title={x.text}>
+                onClick={() => update(c => { c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), style: 'custom', customStyle: x.text, customNegative: x.negative || '', savedStyleId: x.id }; return c; })} title={x.text}>
                 ★ {x.name}
                 <span role="button" aria-label={t.delete} style={{ opacity: .6 }} onClick={async e => { e.stopPropagation(); if (await confirmDialog(t.pStyleDelete(x.name))) saveSettings({ ...globalSettings, customStyles: savedStyles.filter(y => y.id !== x.id) }); }}>×</span>
               </span>
@@ -239,13 +260,14 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
           </div>
           {p.style === 'custom' && <>
             <textarea rows={3} value={p.customStyle || ''} aria-label={t.pCustomStyle} placeholder={t.pCustomStyleHint} onChange={e => set('customStyle', e.target.value)} />
+            <textarea rows={2} value={p.customNegative || ''} aria-label={t.pNegative} placeholder={t.pNegativeHint} onChange={e => set('customNegative', e.target.value)} />
             <div className="row" style={{ gap: 6 }}>
-              {curSaved && curSaved.text !== (p.customStyle || '') && <button className="btn sm" onClick={() => saveSettings({ ...globalSettings, customStyles: savedStyles.map(y => (y.id === curSaved.id ? { ...y, text: p.customStyle || '' } : y)) })}>{t.pStyleUpdate(curSaved.name)}</button>}
+              {curSaved && (curSaved.text !== (p.customStyle || '') || (curSaved.negative || '') !== (p.customNegative || '')) && <button className="btn sm" onClick={() => saveSettings({ ...globalSettings, customStyles: savedStyles.map(y => (y.id === curSaved.id ? { ...y, text: p.customStyle || '', negative: p.customNegative || '' } : y)) })}>{t.pStyleUpdate(curSaved.name)}</button>}
               <button className="btn sm" disabled={!(p.customStyle || '').trim()} onClick={async () => {
                 const name = await promptDialog(t.pStyleName, curSaved ? curSaved.name + ' 2' : '');
                 if (!name) return;
                 const id = 's' + Date.now().toString(36);
-                saveSettings({ ...globalSettings, customStyles: [...savedStyles, { id, name, text: p.customStyle || '' }] });
+                saveSettings({ ...globalSettings, customStyles: [...savedStyles, { id, name, text: p.customStyle || '', negative: p.customNegative || '' }] });
                 set('savedStyleId', id);
               }}>{t.pStyleSave}</button>
             </div>
@@ -294,14 +316,28 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         {ready && (
           <div className="row small wrap" style={{ gap: 10, padding: '0 4px' }}>
             <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={p.multiFromSel !== false} disabled={!selImg || selMeta?.kind === 'multi'} onChange={e => set('multiFromSel', e.target.checked)} />{t.pMultiFromSel}</label>
-            {p.multiFromSel !== false && selImg && selMeta?.kind !== 'multi' && <>
+            {!useQwen && p.multiFromSel !== false && selImg && selMeta?.kind !== 'multi' && <>
               <label htmlFor="pt-mstrength" className="muted">{t.pMultiStrength}</label>
               <input id="pt-mstrength" type="range" min={40} max={95} value={p.multiStrength ?? 78} onChange={e => set('multiStrength', Number(e.target.value))} style={{ maxWidth: 160 }} />
               <span className="muted">{p.multiStrength ?? 78} %</span>
             </>}
           </div>
         )}
-        {ready && selImg && (
+        {ready && (
+          <div className="row small wrap" style={{ gap: 10, padding: '0 4px' }}>
+            <span className="muted">{t.pModel}</span>
+            <div className="seg">
+              <button className={!useQwen ? 'on' : ''} onClick={() => set('model', 'zimage')}>Z-Image Turbo <span className="muted">· {t.pFast}</span></button>
+              <button className={useQwen ? 'on' : ''} disabled={!hasQwen} onClick={() => set('model', 'qwen')}>Qwen Image 2.1 <span className="muted">· {t.pBest}</span></button>
+            </div>
+            {!hasQwen && <button className="btn sm" disabled={!!bgInstall} onClick={() => installModel('qwen-image-21')}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : t.pQwenLoad}</button>}
+          </div>
+        )}
+        {ready && useQwen && selImg && (
+          <label className="col small" style={{ gap: 4, padding: '0 4px' }}><span className="muted">{t.pEditText}</span>
+            <input value={p.editText || ''} placeholder={t.pEditTextHint} onChange={e => set('editText', e.target.value)} /></label>
+        )}
+        {ready && selImg && !useQwen && (
           <div className="row small" style={{ gap: 10, padding: '0 4px' }}>
             <label htmlFor="pt-strength" className="muted">{t.pStrength}</label>
             <input id="pt-strength" type="range" min={15} max={90} value={p.strength} onChange={e => set('strength', Number(e.target.value))} style={{ maxWidth: 240 }} />
@@ -327,7 +363,8 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
           </div>
         )}
         {busy && <div className="banner info" style={{ margin: 0 }}><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />{st?.running ? t.pPainting : t.aiStartingFirst} · {busy.seconds || 0} s</div>}
-        {err && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small" style={{ whiteSpace: 'pre-wrap' }}>{err}</span></div>}
+        {err && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small grow" style={{ whiteSpace: 'pre-wrap' }}>{err === 'COMFY_TOO_OLD' ? t.pComfyOld : err}</span>
+          {err === 'COMFY_TOO_OLD' && <button className="btn sm primary" disabled={!!bgInstall} onClick={async () => { setBgInstall('…'); const off = api.ai.on('ai:progress', pr => setBgInstall((pr.pct ?? 0) + ' %')); try { await api.ai.install({ dir: st.dir, gpu: st.gpu, models: [], comfy: true }); setErr(null); } catch (e) { setErr(String(e.message || e)); } off(); setBgInstall(null); refresh(); }}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : t.pComfyUpdate}</button>}</div>}
         <div className="col" style={{ gap: 6 }} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); importImage(e.dataTransfer.files?.[0]); }}>
           <ZoomView src={selImg} empty={t.pEmptyImport} labels={{ fit: t.zoomFit, hint: t.zoomHint, resize: t.zoomResize }} />
         </div>

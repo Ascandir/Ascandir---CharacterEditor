@@ -35,6 +35,15 @@ const DEFAULT_CATALOG = {
       ],
     },
     {
+      id: 'qwen-image-21', name: 'Qwen Image 2.1', version: '1', recommended: false, minVramGB: 16, kind: 'image',
+      note: { de: 'Großes Bildmodell (20 Mrd. Parameter): hält sich sehr genau an Beschreibungen, kann Bilder gezielt bearbeiten und Mehrfachansichten aus einer Vorlage malen. Deutlich langsamer.', en: 'Large image model (20B): follows descriptions very closely, can edit pictures and paint multi-angle sheets from a reference. Much slower.' },
+      files: [
+        { url: 'https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_bf16.safetensors', dest: 'models/diffusion_models/qwen_image_2.1_bf16.safetensors', size: 13250000000 },
+        { url: 'https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_bf16.safetensors', dest: 'models/text_encoders/qwen3vl_8b_bf16.safetensors', size: 16330000000 },
+        { url: 'https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors', dest: 'models/vae/qwen_image_2.1_vae_bf16.safetensors', size: 644200000 },
+      ],
+    },
+    {
       id: 'upscale', name: 'Real-ESRGAN x4', version: '1', recommended: true, minVramGB: 2, kind: 'upscale',
       note: { de: 'Hochskalierer für 2K/4K-Bilder', en: 'Upscaler for 2K/4K pictures' },
       files: [
@@ -267,18 +276,7 @@ async function touch() {
 }
 
 // ---------- workflows ----------
-function zImageWorkflow({ prompt, seed, width = 832, height = 1216, steps = 8, batch = 1, initImage = null, denoise = 1, removeBg = false, upscale = null }) {
-  const w = {
-    28: { class_type: 'UNETLoader', inputs: { unet_name: 'z_image_turbo_bf16.safetensors', weight_dtype: 'default' } },
-    30: { class_type: 'CLIPLoader', inputs: { clip_name: 'qwen_3_4b.safetensors', type: 'lumina2', device: 'default' } },
-    29: { class_type: 'VAELoader', inputs: { vae_name: 'ae.safetensors' } },
-    11: { class_type: 'ModelSamplingAuraFlow', inputs: { model: ['28', 0], shift: 3 } },
-    27: { class_type: 'CLIPTextEncode', inputs: { text: prompt, clip: ['30', 0] } },
-    33: { class_type: 'ConditioningZeroOut', inputs: { conditioning: ['27', 0] } },
-    3: { class_type: 'KSampler', inputs: { model: ['11', 0], positive: ['27', 0], negative: ['33', 0], latent_image: ['13', 0], seed, steps, cfg: 1, sampler_name: 'res_multistep', scheduler: 'simple', denoise } },
-    8: { class_type: 'VAEDecode', inputs: { samples: ['3', 0], vae: ['29', 0] } },
-    9: { class_type: 'SaveImage', inputs: { images: ['8', 0], filename_prefix: 'ascandir/char' } },
-  };
+function addPost(w, { removeBg, upscale }) {
   let img = ['8', 0];
   if (upscale?.width && upscale?.height) { // 4x model upscale, then exact target size
     w[60] = { class_type: 'UpscaleModelLoader', inputs: { model_name: 'RealESRGAN_x4plus.pth' } };
@@ -293,6 +291,21 @@ function zImageWorkflow({ prompt, seed, width = 832, height = 1216, steps = 8, b
     w[53] = { class_type: 'JoinImageWithAlpha', inputs: { image: img, alpha: ['52', 0] } };
     w[9].inputs.images = ['53', 0];
   }
+}
+
+function zImageWorkflow({ prompt, seed, width = 832, height = 1216, steps = 8, batch = 1, initImage = null, denoise = 1, removeBg = false, upscale = null }) {
+  const w = {
+    28: { class_type: 'UNETLoader', inputs: { unet_name: 'z_image_turbo_bf16.safetensors', weight_dtype: 'default' } },
+    30: { class_type: 'CLIPLoader', inputs: { clip_name: 'qwen_3_4b.safetensors', type: 'lumina2', device: 'default' } },
+    29: { class_type: 'VAELoader', inputs: { vae_name: 'ae.safetensors' } },
+    11: { class_type: 'ModelSamplingAuraFlow', inputs: { model: ['28', 0], shift: 3 } },
+    27: { class_type: 'CLIPTextEncode', inputs: { text: prompt, clip: ['30', 0] } },
+    33: { class_type: 'ConditioningZeroOut', inputs: { conditioning: ['27', 0] } },
+    3: { class_type: 'KSampler', inputs: { model: ['11', 0], positive: ['27', 0], negative: ['33', 0], latent_image: ['13', 0], seed, steps, cfg: 1, sampler_name: 'res_multistep', scheduler: 'simple', denoise } },
+    8: { class_type: 'VAEDecode', inputs: { samples: ['3', 0], vae: ['29', 0] } },
+    9: { class_type: 'SaveImage', inputs: { images: ['8', 0], filename_prefix: 'ascandir/char' } },
+  };
+  addPost(w, { removeBg, upscale });
   if (initImage) {
     w[40] = { class_type: 'LoadImage', inputs: { image: initImage } };
     w[41] = { class_type: 'ImageScale', inputs: { image: ['40', 0], upscale_method: 'lanczos', width, height, crop: 'center' } };
@@ -301,6 +314,32 @@ function zImageWorkflow({ prompt, seed, width = 832, height = 1216, steps = 8, b
   } else {
     w[13] = { class_type: 'EmptySD3LatentImage', inputs: { width, height, batch_size: batch } };
   }
+  return w;
+}
+
+// Qwen Image 2.1 (ComfyUI core nodes): text-to-image, or edit / reference mode when refs are given
+function qwenWorkflow({ prompt, negative = '', seed, width = 1024, height = 1024, steps = 40, cfg = 1, batch = 1, refs = [], editLatent = false, resolution = 1024, removeBg = false, upscale = null }) {
+  const w = {
+    101: { class_type: 'UNETLoader', inputs: { unet_name: 'qwen_image_2.1_bf16.safetensors', weight_dtype: 'default' } },
+    102: { class_type: 'QwenImage21Cache', inputs: { model: ['101', 0], device: 'auto', dtype: 'default' } },
+    103: { class_type: 'CLIPLoader', inputs: { clip_name: 'qwen3vl_8b_bf16.safetensors', type: 'qwen_image', device: 'default' } },
+    104: { class_type: 'VAELoader', inputs: { vae_name: 'qwen_image_2.1_vae_bf16.safetensors' } },
+    105: { class_type: 'TextEncodeQwenImage21', inputs: { clip: ['103', 0], prompt, negative_prompt: negative || '', resolution } },
+    3: { class_type: 'KSampler', inputs: { model: ['102', 0], positive: ['105', 0], negative: ['105', 1], latent_image: null, seed, steps, cfg, sampler_name: 'euler', scheduler: 'simple', denoise: 1 } },
+    8: { class_type: 'VAEDecode', inputs: { samples: ['3', 0], vae: ['104', 0] } },
+    9: { class_type: 'SaveImage', inputs: { images: ['8', 0], filename_prefix: 'ascandir/char' } },
+  };
+  refs.forEach((name, i) => {
+    w[110 + i] = { class_type: 'LoadImage', inputs: { image: name } };
+    w[105].inputs['images.image_' + (i + 1)] = [String(110 + i), 0];
+  });
+  if (refs.length) w[105].inputs.vae = ['104', 0];
+  let lat;
+  if (refs.length && editLatent) lat = ['105', 2];
+  else { w[106] = { class_type: 'EmptyLatentImage', inputs: { width, height, batch_size: editLatent ? 1 : batch } }; lat = ['106', 0]; }
+  if (editLatent && batch > 1) { w[107] = { class_type: 'RepeatLatentBatch', inputs: { samples: lat, amount: batch } }; lat = ['107', 0]; }
+  w[3].inputs.latent_image = lat;
+  addPost(w, { removeBg, upscale });
   return w;
 }
 
@@ -336,12 +375,23 @@ async function generate(params) {
   await start();
   touch();
   const t0 = Date.now();
-  let initImage = null;
-  if (params.initImage) initImage = await uploadImage(params.initImage, 'ascandir_init.png');
-  const workflow = zImageWorkflow({ ...params, initImage });
+  let workflow;
+  if (params.model === 'qwen') {
+    const refs = [];
+    for (const [i, img] of (params.refImages || []).entries()) refs.push(await uploadImage(img, `ascandir_ref${i + 1}.png`));
+    workflow = qwenWorkflow({ ...params, refs });
+  } else {
+    let initImage = null;
+    if (params.initImage) initImage = await uploadImage(params.initImage, 'ascandir_init.png');
+    workflow = zImageWorkflow({ ...params, initImage });
+  }
   const r = await comfyFetch(`http://127.0.0.1:${port}/prompt`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: workflow, client_id: 'ascandir' }) }, 'prompt');
   const body = await r.json().catch(() => ({}));
-  if (!r.ok || !body.prompt_id) throw new Error('ComfyUI: ' + JSON.stringify(body.error || body.node_errors || body).slice(0, 500));
+  if (!r.ok || !body.prompt_id) {
+    const txt = JSON.stringify(body.error || body.node_errors || body);
+    if (/TextEncodeQwenImage21|QwenImage21Cache/.test(txt) && /not found|does not exist|invalid_prompt/i.test(txt)) throw new Error('COMFY_TOO_OLD');
+    throw new Error('ComfyUI: ' + txt.slice(0, 500));
+  }
   const id = body.prompt_id;
   for (;;) {
     await new Promise(res => setTimeout(res, 1000));
@@ -424,4 +474,4 @@ function register(mainWindowGetter) {
   app.on('before-quit', () => { stop(); });
 }
 
-module.exports = { register, zImageWorkflow, DEFAULT_CATALOG, download, extract, readAiCfg: readCfg, writeAiCfg: writeCfg, stopComfy: stop, _test: { install, generate, download, extract } };
+module.exports = { register, zImageWorkflow, qwenWorkflow, DEFAULT_CATALOG, download, extract, readAiCfg: readCfg, writeAiCfg: writeCfg, stopComfy: stop, _test: { install, generate, download, extract } };
