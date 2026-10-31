@@ -49,7 +49,7 @@ function Viewer({ data, t }) {
       T.controls.target.set(0, 0, 0); T.camera.position.set(0, 0.15, 2.2);
     }, e => console.error(e));
   }, [data]);
-  return <div ref={mount} className="checker" style={{ flex: 1, minHeight: 560, borderRadius: 14, border: '1px solid var(--line)', overflow: 'hidden', position: 'relative' }}>
+  return <div ref={mount} className="checker" style={{ flex: 'none', height: 'max(300px, calc(100vh - 230px))', borderRadius: 14, border: '1px solid var(--line)', overflow: 'hidden', position: 'relative' }}>
     {!data && <span className="muted" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>{t.t3Empty}</span>}
   </div>;
 }

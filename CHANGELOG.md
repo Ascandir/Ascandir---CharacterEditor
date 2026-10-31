@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2
+- KI-Maler: Die Bildvorschau passt ihre Höhe jetzt automatisch an die Fenstergröße an
+- Am unteren Rand der Vorschau gibt es einen Griff, mit dem du die Höhe selbst ziehen kannst. Die Höhe wird gemerkt, ein Doppelklick auf den Griff stellt wieder auf automatisch
+- Die 3D-Ansicht passt sich ebenfalls an die Fenstergröße an
+
 ## 0.3.1
 - TRELLIS wird jetzt **vom Programm selbst installiert**: Programmteil (Vulkan für AMD, CUDA für NVIDIA) und die TRELLIS.2-Modelle landen in deinem KI-Ordner. Modellgröße wählbar: F16 (16,5 GB), Q8 (9,5 GB), Q4 (6 GB). Abgebrochene Downloads werden fortgesetzt
 - Eigene Installation läuft auf einem eigenen Port und stört ein separat installiertes Trellis Studio nicht
