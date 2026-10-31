@@ -13,6 +13,7 @@ import CharList from './views/CharList.jsx';
 import { primaryGpu, AMD_DRIVER_URL } from './hardware.js';
 import { useUpdater, UpdateDialog } from './components/Update.jsx';
 import { DialogHost } from './components/Dialog.jsx';
+import { DbCtx, RefHost } from './components/Entries.jsx';
 import AiSetup from './components/AiSetup.jsx';
 
 export const DEFAULT_SETTINGS = { lang: 'de', rules: '2024', disabledSources: [], homebrew: [], profiles: {}, activeProfile: 'Standard' };
@@ -185,6 +186,7 @@ export default function App() {
   const tabs = [['sheet', t.tabSheet], ['designer', t.tabDesigner], ['sources', t.tabSources], ['settings', t.tabSettings]];
   return (
     <LangCtx.Provider value={{ lang, t }}>
+      <DbCtx.Provider value={db}>
       <div className="app">
         <header className="topbar">
           <div className="brand serif">{t.appName}</div>
@@ -234,7 +236,9 @@ export default function App() {
         {showChars && <CharList {...ctx} onClose={() => setShowChars(false)} current={ch} setCh={setCh} />}
         {toast && <div className="toast">{toast}</div>}
         <DialogHost />
+        <RefHost />
       </div>
+      </DbCtx.Provider>
     </LangCtx.Provider>
   );
 }

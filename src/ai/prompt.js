@@ -187,7 +187,15 @@ export const RESOLUTIONS = [
   ['std', { de: 'Standard', en: 'Standard' }, 1],
   ['high', { de: 'Hoch', en: 'High' }, 1.5],
   ['max', { de: 'Sehr hoch', en: 'Very high' }, 2.1],
+  // painted at "high", then enlarged with the Real-ESRGAN upscaler to the given long side
+  ['2k', { de: '2K', en: '2K' }, 1.5, 2560],
+  ['4k', { de: '4K', en: '4K' }, 1.5, 3840],
 ];
+export function upscaleSize(p) {
+  const r = RESOLUTIONS.find(x => x[0] === p.res); if (!r?.[3]) return null;
+  const { width, height } = frameSize(p); const k = r[3] / Math.max(width, height);
+  return { width: Math.round(width * k / 8) * 8, height: Math.round(height * k / 8) * 8 };
+}
 export function frameSize(p) {
   const fr = FRAMINGS.find(f => f[0] === p.framing) || FRAMINGS[0];
   const r = RESOLUTIONS.find(x => x[0] === p.res) || RESOLUTIONS[1];

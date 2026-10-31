@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ZoomView from '../components/ZoomView.jsx';
 import { splitViews } from '../ai/images.js';
+import { promptDialog, confirmDialog } from '../components/Dialog.jsx';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
-import { buildPrompt, frameSize, removeBackground, STYLES, FRAMINGS, DEFAULT_PAINTER, typicalHeight, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText } from '../ai/prompt.js';
+import { buildPrompt, frameSize, removeBackground, STYLES, FRAMINGS, DEFAULT_PAINTER, typicalHeight, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize } from '../ai/prompt.js';
 import { RINGS, composeToken } from '../three/token.js';
 import AiSetup from '../components/AiSetup.jsx';
 
@@ -46,7 +47,7 @@ async function multiInit(dataUrl) {
   return c.toDataURL('image/png');
 }
 
-export default function Painter({ ch, d, update }) {
+export default function Painter({ ch, d, update, globalSettings, saveSettings }) {
   const { t, lang } = useT();
   const p = { ...DEFAULT_PAINTER, ...(ch.painter || {}), crop: { ...DEFAULT_PAINTER.crop, ...(ch.painter?.crop || {}) } };
   const tk = { tokenRing: 'gold', tokenColor: '#E3A74B', tokenBg: '#2a2e36', tokenTransparent: false, ...(ch.appearance || {}) };
@@ -60,6 +61,8 @@ export default function Painter({ ch, d, update }) {
   const [showSetup, setShowSetup] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
   const [showBody, setShowBody] = useState(false);
+  const savedStyles = globalSettings?.customStyles || [];
+  const curSaved = p.style === 'custom' ? savedStyles.find(x => x.id === p.savedStyleId) : null;
   const tokenRef = useRef(null);
   const paintings = ch.paintings || [];
   const selName = ch.selectedPainting || paintings[0]?.name;
@@ -108,6 +111,13 @@ export default function Painter({ ch, d, update }) {
 
   const ready = st?.supported && st.comfyInstalled && !!st.models?.['z-image-turbo']?.present;
   const hasBiRef = !!st?.models?.birefnet?.present;
+  const hasUpscale = !!st?.models?.upscale?.present;
+  const installModel = async (id) => {
+    setBgInstall('…'); setErr(null);
+    const off = api.ai.on('ai:progress', pr => setBgInstall((pr.pct ?? 0) + ' %'));
+    try { await api.ai.install({ dir: st.dir, gpu: st.gpu, models: [id], comfy: false }); } catch (e) { setErr(String(e.message || e)); }
+    off(); setBgInstall(null); refresh();
+  };
   const [bgInstall, setBgInstall] = useState(null);
 
   const generate = async (mode) => {
@@ -123,6 +133,7 @@ export default function Painter({ ch, d, update }) {
       const emphasis = changed.length ? bodyText({ ...p, body: Object.fromEntries(changed.map(k => [k, p.body?.[k] ?? 50])) }, changed).filter(x => !/^exaggerated stylised/.test(x)) : [];
       const usedPrompt = multi ? multiPrompt : (mode === 'refine' && emphasis.length && p.promptOverride == null ? buildPrompt(d, ch, p, { emphasis }) : prompt);
       const params = { prompt: usedPrompt, seed, width, height, batch: multi ? 1 : mode === 'refine' ? Math.min(count, 2) : count, removeBg: (multi || p.removeBg) && hasBiRef };
+      if (!multi && upscaleSize(p) && hasUpscale) params.upscale = upscaleSize(p);
       if (mode === 'refine' && selImg) { params.initImage = await onGrey(selImg); params.denoise = Math.max(shapeChanged ? 0.68 : 0.15, Math.min(0.9, p.strength / 100)); }
       if (multi && selImg && p.multiFromSel !== false && selMeta?.kind !== 'multi') { params.initImage = await multiInit(await onGrey(selImg)); params.denoise = Math.max(0.4, Math.min(0.95, (p.multiStrength ?? 78) / 100)); }
       const res = await api.ai.generate(params);
@@ -215,16 +226,38 @@ export default function Painter({ ch, d, update }) {
         {text('clothing', t.pClothing, lang === 'de' ? 'z. B. long ragged leather coat' : 'e.g. long ragged leather coat')}
         <div className="col" style={{ gap: 6 }}>
           <span className="bold small">{t.style}</span>
-          <div className="row" style={{ gap: 6 }}>{STYLES.map(([k, l]) => <button key={k} className={'chip' + (p.style === k ? ' on' : '')} onClick={() => set('style', k)}>{l[lang]}</button>)}</div>
-          {p.style === 'custom' && <textarea rows={3} value={p.customStyle || ''} aria-label={t.pCustomStyle} placeholder={t.pCustomStyleHint} onChange={e => set('customStyle', e.target.value)} />}
+          <div className="row wrap" style={{ gap: 6 }}>
+            {STYLES.filter(x => x[0] !== 'custom').map(([k, l]) => <button key={k} className={'chip' + (p.style === k ? ' on' : '')} onClick={() => set('style', k)}>{l[lang]}</button>)}
+            {savedStyles.map(x => (
+              <span key={x.id} className={'chip' + (p.style === 'custom' && p.savedStyleId === x.id ? ' on' : '')} style={{ display: 'inline-flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}
+                onClick={() => update(c => { c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), style: 'custom', customStyle: x.text, savedStyleId: x.id }; return c; })} title={x.text}>
+                ★ {x.name}
+                <span role="button" aria-label={t.delete} style={{ opacity: .6 }} onClick={async e => { e.stopPropagation(); if (await confirmDialog(t.pStyleDelete(x.name))) saveSettings({ ...globalSettings, customStyles: savedStyles.filter(y => y.id !== x.id) }); }}>×</span>
+              </span>
+            ))}
+            <button className={'chip' + (p.style === 'custom' && !p.savedStyleId ? ' on' : '')} onClick={() => update(c => { c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), style: 'custom', savedStyleId: null }; return c; })}>+ {STYLES.find(x => x[0] === 'custom')[1][lang]}</button>
+          </div>
+          {p.style === 'custom' && <>
+            <textarea rows={3} value={p.customStyle || ''} aria-label={t.pCustomStyle} placeholder={t.pCustomStyleHint} onChange={e => set('customStyle', e.target.value)} />
+            <div className="row" style={{ gap: 6 }}>
+              {curSaved && curSaved.text !== (p.customStyle || '') && <button className="btn sm" onClick={() => saveSettings({ ...globalSettings, customStyles: savedStyles.map(y => (y.id === curSaved.id ? { ...y, text: p.customStyle || '' } : y)) })}>{t.pStyleUpdate(curSaved.name)}</button>}
+              <button className="btn sm" disabled={!(p.customStyle || '').trim()} onClick={async () => {
+                const name = await promptDialog(t.pStyleName, curSaved ? curSaved.name + ' 2' : '');
+                if (!name) return;
+                const id = 's' + Date.now().toString(36);
+                saveSettings({ ...globalSettings, customStyles: [...savedStyles, { id, name, text: p.customStyle || '' }] });
+                set('savedStyleId', id);
+              }}>{t.pStyleSave}</button>
+            </div>
+          </>}
         </div>
         <div className="col" style={{ gap: 6 }}>
           <span className="bold small">{t.pFraming}</span>
           <div className="seg">{FRAMINGS.map(([k, l]) => <button key={k} className={p.framing === k ? 'on' : ''} onClick={() => set('framing', k)}>{l[lang]}</button>)}</div>
         </div>
         <div className="col" style={{ gap: 6 }}>
-          <span className="bold small">{t.pRes} <span className="muted">· {frameSize(p).width} × {frameSize(p).height} px</span></span>
-          <div className="seg">{RESOLUTIONS.map(([k, l]) => <button key={k} className={(p.res || 'std') === k ? 'on' : ''} onClick={() => set('res', k)}>{l[lang]}</button>)}</div>
+          <span className="bold small">{t.pRes} <span className="muted">· {(upscaleSize(p) || frameSize(p)).width} × {(upscaleSize(p) || frameSize(p)).height} px{upscaleSize(p) ? ' (' + t.pUpscaled + ')' : ''}</span></span>
+          <div className="row wrap" style={{ gap: 6 }}>{RESOLUTIONS.map(([k, l]) => <button key={k} className={'chip' + ((p.res || 'std') === k ? ' on' : '')} onClick={() => set('res', k)}>{l[lang]}</button>)}</div>
           <span className="muted small">{t.pResHint}</span>
         </div>
         <label className="row small"><input type="checkbox" checked={p.removeBg} onChange={e => set('removeBg', e.target.checked)} />{t.pRemoveBg}</label>
@@ -276,6 +309,12 @@ export default function Painter({ ch, d, update }) {
           </div>
         )}
         {ready && p.promptOverride != null && <div className="banner" style={{ margin: 0 }}><span className="small grow">{t.pOverrideWarn}</span><button className="btn sm" onClick={() => set('promptOverride', null)}>{t.pPromptReset}</button></div>}
+        {ready && upscaleSize(p) && !hasUpscale && (
+          <div className="banner" style={{ margin: 0 }}>
+            <span className="small grow">{t.pUpModel}</span>
+            <button className="btn sm primary" disabled={!!bgInstall} onClick={() => installModel('upscale')}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : t.pUpModelBtn}</button>
+          </div>
+        )}
         {ready && p.removeBg && !hasBiRef && (
           <div className="banner" style={{ margin: 0 }}>
             <span className="small grow">{t.pBgModel}</span>

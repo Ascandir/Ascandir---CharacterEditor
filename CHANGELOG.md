@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+- **Klickbare Verweise**: Talente, Zauber, Gegenstände und optionale Merkmale in Beschreibungen (z. B. das Talent eines Hintergrunds) sind anklickbar und zeigen ihre Beschreibung
+- **Weapon Mastery** (2024) für Barbar, Kämpfer, Paladin, Waldläufer und Schurke als Auswahl, inklusive Beschreibung der Mastery-Eigenschaft. Die Anzahl steigt mit der Stufe
+- 2014-Waldläufer: Auswahl für Favored Enemy und Natural Explorer
+- KI-Maler: Auflösung **2K und 4K** (gemalt in „Hoch“, dann mit dem Real-ESRGAN-Hochskalierer vergrößert, ca. 0,07 GB Download)
+- KI-Maler: **eigene Stile speichern** mit Namen. Sie stehen dann neben den festen Stilen zur Auswahl und lassen sich ändern oder löschen
+
 ## 0.3.6
 - KI einrichten: Vorschlag, die KI im Ordner **„models“ im Programmordner** zu installieren. Dieser Ordner bleibt bei Updates erhalten
 - Wählst du selbst einen Ordner, wird darin ein Unterordner „models“ angelegt

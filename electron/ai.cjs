@@ -34,6 +34,13 @@ const DEFAULT_CATALOG = {
         { url: 'https://huggingface.co/Comfy-Org/BiRefNet/resolve/main/background_removal/birefnet.safetensors', dest: 'models/background_removal/birefnet.safetensors', size: 444000000 },
       ],
     },
+    {
+      id: 'upscale', name: 'Real-ESRGAN x4', version: '1', recommended: true, minVramGB: 2, kind: 'upscale',
+      note: { de: 'Hochskalierer für 2K/4K-Bilder', en: 'Upscaler for 2K/4K pictures' },
+      files: [
+        { url: 'https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth', dest: 'models/upscale_models/RealESRGAN_x4plus.pth', size: 67040989 },
+      ],
+    },
   ],
 };
 
@@ -260,7 +267,7 @@ async function touch() {
 }
 
 // ---------- workflows ----------
-function zImageWorkflow({ prompt, seed, width = 832, height = 1216, steps = 8, batch = 1, initImage = null, denoise = 1, removeBg = false }) {
+function zImageWorkflow({ prompt, seed, width = 832, height = 1216, steps = 8, batch = 1, initImage = null, denoise = 1, removeBg = false, upscale = null }) {
   const w = {
     28: { class_type: 'UNETLoader', inputs: { unet_name: 'z_image_turbo_bf16.safetensors', weight_dtype: 'default' } },
     30: { class_type: 'CLIPLoader', inputs: { clip_name: 'qwen_3_4b.safetensors', type: 'lumina2', device: 'default' } },
@@ -272,11 +279,18 @@ function zImageWorkflow({ prompt, seed, width = 832, height = 1216, steps = 8, b
     8: { class_type: 'VAEDecode', inputs: { samples: ['3', 0], vae: ['29', 0] } },
     9: { class_type: 'SaveImage', inputs: { images: ['8', 0], filename_prefix: 'ascandir/char' } },
   };
+  let img = ['8', 0];
+  if (upscale?.width && upscale?.height) { // 4x model upscale, then exact target size
+    w[60] = { class_type: 'UpscaleModelLoader', inputs: { model_name: 'RealESRGAN_x4plus.pth' } };
+    w[61] = { class_type: 'ImageUpscaleWithModel', inputs: { upscale_model: ['60', 0], image: ['8', 0] } };
+    w[62] = { class_type: 'ImageScale', inputs: { image: ['61', 0], upscale_method: 'lanczos', width: upscale.width, height: upscale.height, crop: 'disabled' } };
+    img = ['62', 0]; w[9].inputs.images = img;
+  }
   if (removeBg) { // BiRefNet (ComfyUI core nodes), same chain as the official template
     w[50] = { class_type: 'LoadBackgroundRemovalModel', inputs: { bg_removal_name: 'birefnet.safetensors' } };
-    w[51] = { class_type: 'RemoveBackground', inputs: { bg_removal_model: ['50', 0], image: ['8', 0] } };
+    w[51] = { class_type: 'RemoveBackground', inputs: { bg_removal_model: ['50', 0], image: img } };
     w[52] = { class_type: 'InvertMask', inputs: { mask: ['51', 0] } };
-    w[53] = { class_type: 'JoinImageWithAlpha', inputs: { image: ['8', 0], alpha: ['52', 0] } };
+    w[53] = { class_type: 'JoinImageWithAlpha', inputs: { image: img, alpha: ['52', 0] } };
     w[9].inputs.images = ['53', 0];
   }
   if (initImage) {

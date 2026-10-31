@@ -5,7 +5,7 @@ export const DATA_BASE = 'https://raw.githubusercontent.com/5etools-mirror-3/5et
 export const HB_BASE = 'https://raw.githubusercontent.com/TheGiddyLimit/homebrew/master/';
 
 const TYPES = ['race', 'subrace', 'background', 'feat', 'optionalfeature', 'baseitem', 'item', 'class', 'subclass',
-  'classFeature', 'subclassFeature', 'spell'];
+  'classFeature', 'subclassFeature', 'spell', 'itemMastery'];
 export const HB_PROPS = ['race', 'subrace', 'class', 'subclass', 'spell', 'feat', 'background', 'optionalfeature', 'item', 'baseitem'];
 
 export const lc = (s) => String(s ?? '').toLowerCase();
@@ -194,7 +194,7 @@ export async function loadHomebrewFile(path, force = false) {
 
 // Build the indexed database from official raw data + homebrew json objects
 export function buildDb(official, homebrewJsons = []) {
-  const raw = Object.fromEntries(TYPES.map(t => [t, official.raw[t].map(e => clone(e))]));
+  const raw = Object.fromEntries(TYPES.map(t => [t, (official.raw[t] || []).map(e => clone(e))]));
   const sourceMeta = { ...official.sourceMeta };
   for (const hb of homebrewJsons) {
     for (const s of hb.json?._meta?.sources || []) {
@@ -217,6 +217,7 @@ export function buildDb(official, homebrewJsons = []) {
   db.feats = raw.feat;
   db.optionalfeatures = raw.optionalfeature;
   db.items = [...raw.baseitem.map(i => ({ ...i, __base: true })), ...raw.item];
+  db.itemMasteries = raw.itemMastery || [];
   db.classes = raw.class.filter(c => !c.isSidekick && c.name !== 'Sidekick');
   db.subclasses = raw.subclass;
   db.spells = raw.spell;

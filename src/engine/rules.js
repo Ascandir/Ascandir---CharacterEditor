@@ -154,6 +154,29 @@ function featPrereqMet(f, ctx) {
 }
 
 // ---------- the big derive ----------
+// weapons with a mastery property that this class may pick
+export function masteryWeapons(db, allowed, cls) {
+  const name = lc(cls.name);
+  const list = db.items.filter(i => i.__base && i.mastery?.length && allowed(i) && (i.weaponCategory || i.weapon));
+  const filtered = list.filter(w => {
+    const props = (w.property || []).map(p => String(typeof p === 'string' ? p : p.uid || '').split('|')[0]);
+    const melee = String(w.type || '').split('|')[0] === 'M';
+    if (name === 'barbarian') return melee;
+    if (name === 'rogue') return w.weaponCategory === 'simple' || props.includes('F') || props.includes('L');
+    return true;
+  });
+  return dedupeByName(filtered, cls.source).sort((a, b) => a.name.localeCompare(b.name));
+}
+function masteryEntries(db, w) {
+  const out = [];
+  for (const m of w.mastery || []) {
+    const [nm, src] = String(m).split('|');
+    const def = (db.itemMasteries || []).find(x => lc(x.name) === lc(nm) && (!src || lc(x.source) === lc(src)));
+    if (def?.entries) out.push({ type: 'entries', name: nm, entries: def.entries });
+  }
+  return out;
+}
+
 export function derive(db, settings, ch) {
   const allowed = makeFilter(db, settings);
   const C = ch.choices || {};
@@ -381,6 +404,30 @@ export function derive(db, settings, ch) {
       const v = addL({ id: lid + ':fp:' + fp.name, group: 'level', label: fp.name, kind: 'feat', count: cnt, required: true, pool: 'feat',
         options: featOptions(db, allowed, settings, fp.category) });
       (v || []).forEach(u => { const ft = db.byUid.feat.get(u); if (ft) feats.push({ feat: ft, ctx: lid + ':fp:' + u, origin: 'class' }); });
+    }
+    // weapon mastery (2024): number of known masteries grows with the class level
+    const wmProg = cls.weaponMasteryProgression || cls.itemMasteriesProgression;
+    if (wmProg) {
+      const tot = (lvl) => Object.entries(wmProg).reduce((a, [k, v]) => (Number(k) <= lvl ? v : a), 0);
+      const diff = tot(n) - tot(n - 1);
+      if (diff > 0) {
+        const v = addL({ id: lid + ':wm', group: 'level', label: 'Weapon Mastery', kind: 'pick', count: diff, required: true, pool: 'wm:' + lc(cls.name),
+          options: masteryWeapons(db, allowed, cls).map(w => ({ value: uidOf(w), label: w.name, src: w.source, entity: w, prereq: (w.mastery || []).map(m => String(m).split('|')[0]).join(', ') })) });
+        (v || []).forEach(u => { const w = db.byUid.item?.get(u) || db.items.find(i => uidOf(i) === u); if (w) { const ff = { name: 'Weapon Mastery: ' + w.name + ' (' + (w.mastery || []).map(m => String(m).split('|')[0]).join(', ') + ')', from: cls.name + ' ' + n, kind: 'optional', level: idx + 1, entries: masteryEntries(db, w) }; features.push(ff); lo.newFeatures.push(ff); } });
+      }
+    }
+    // 2014 ranger: favored enemy / natural explorer are choices written only in the text
+    if (lc(cls.name) === 'ranger' && cls.source === 'PHB') {
+      if ([1, 6, 14].includes(n)) {
+        const types = ['Aberrations', 'Beasts', 'Celestials', 'Constructs', 'Dragons', 'Elementals', 'Fey', 'Fiends', 'Giants', 'Monstrosities', 'Oozes', 'Plants', 'Undead', 'Two humanoid races'];
+        const v = addL({ id: lid + ':fe', group: 'level', label: 'Favored Enemy', kind: 'pick', count: 1, required: true, pool: 'ranger:fe', options: types.map(x => ({ value: x, label: x })) });
+        (v || []).forEach(x => { const ff = { name: 'Favored Enemy: ' + x, from: cls.name + ' ' + n, kind: 'optional', level: idx + 1 }; features.push(ff); lo.newFeatures.push(ff); });
+      }
+      if ([1, 6, 10].includes(n)) {
+        const ter = ['Arctic', 'Coast', 'Desert', 'Forest', 'Grassland', 'Mountain', 'Swamp', 'Underdark'];
+        const v = addL({ id: lid + ':ne', group: 'level', label: 'Natural Explorer', kind: 'pick', count: 1, required: true, pool: 'ranger:ne', options: ter.map(x => ({ value: x, label: x })) });
+        (v || []).forEach(x => { const ff = { name: 'Favored Terrain: ' + x, from: cls.name + ' ' + n, kind: 'optional', level: idx + 1 }; features.push(ff); lo.newFeatures.push(ff); });
+      }
     }
     // optional features (invocations, fighting styles 2014, ...)
     const ofProgs = [...(cls.optionalfeatureProgression || []), ...((info.subclass?.optionalfeatureProgression) || [])];

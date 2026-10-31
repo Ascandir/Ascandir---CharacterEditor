@@ -52,6 +52,25 @@
           "size": 444000000
         }
       ]
+    },
+    {
+      "id": "upscale",
+      "name": "Real-ESRGAN x4",
+      "version": "1",
+      "recommended": true,
+      "minVramGB": 2,
+      "kind": "upscale",
+      "note": {
+        "de": "Hochskalierer für 2K/4K-Bilder",
+        "en": "Upscaler for 2K/4K pictures"
+      },
+      "files": [
+        {
+          "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth",
+          "dest": "models/upscale_models/RealESRGAN_x4plus.pth",
+          "size": 67040989
+        }
+      ]
     }
   ]
 }

@@ -150,3 +150,24 @@ test('foundry export', async () => {
   assert.equal(a.type, 'character');
   assert.ok(types.class === 1 && types.subclass === 1 && types.spell >= 2 && types.weapon === 1 && types.equipment === 2);
 });
+
+test('weapon mastery + 2014 ranger choices', () => {
+  const mk = (cls, n) => ({ base: { str: 10, dex: 15, con: 14, int: 8, wis: 13, cha: 10 }, raceUid: 'human|xphb', backgroundUid: 'soldier|xphb',
+    levels: Array.from({ length: n }, () => ({ classUid: cls })), choices: {}, extras: [], inventory: [] });
+  let ch = mk('ranger|xphb', 1);
+  let d = R.derive(db, S24, ch);
+  const wm = d.choices.find(c => /:wm$/.test(c.id));
+  assert.ok(wm, 'ranger has weapon mastery');
+  assert.equal(wm.count, 2);
+  assert.ok(wm.options.some(o => o.label === 'Longbow'));
+  ch.choices[wm.id] = [wm.options[0].value, wm.options[1].value];
+  d = R.derive(db, S24, ch);
+  assert.ok(d.features.some(f => /^Weapon Mastery: /.test(f.name) && f.entries?.length));
+  const fighter = R.derive(db, S24, mk('fighter|xphb', 4));
+  const fw = fighter.choices.filter(c => /:wm$/.test(c.id)).map(c => c.count);
+  assert.deepEqual(fw, [3, 1]);
+  const barb = R.derive(db, S24, mk('barbarian|xphb', 1)).choices.find(c => /:wm$/.test(c.id));
+  assert.ok(!barb.options.some(o => o.label === 'Longbow'), 'barbarian: melee only');
+  const r14 = R.derive(db, S14, { ...mk('ranger|phb', 1), raceUid: 'human|phb', backgroundUid: 'soldier|phb' });
+  assert.ok(r14.choices.some(c => /:fe$/.test(c.id)) && r14.choices.some(c => /:ne$/.test(c.id)));
+});
