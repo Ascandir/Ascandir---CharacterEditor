@@ -73,7 +73,7 @@ async function findFile(dir, name, depth = 3) {
 
 async function latestTag() {
   try {
-    const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { 'User-Agent': 'Ascandir-CharacterEditor' } });
+    const r = await require('./net.cjs').webFetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { 'User-Agent': 'Ascandir-CharacterEditor' } });
     if (r.ok) return (await r.json()).tag_name || null;
   } catch { /* offline */ }
   return null;

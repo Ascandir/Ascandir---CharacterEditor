@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const { execFile } = require('child_process');
+const { webFetch } = require('./net.cjs');
 const trellis = require('./trellis.cjs');
 const llm = require('./llm.cjs');
 const strata = require('./strata.cjs');
@@ -35,7 +36,7 @@ async function fetchCached(url, { force = false } = {}) {
     return { text: await fsp.readFile(file, 'utf8'), cached: true };
   }
   try {
-    const res = await fetch(url, { headers: { 'User-Agent': 'Ascandir-CharacterEditor' } });
+    const res = await webFetch(url, { headers: { 'User-Agent': 'Ascandir-CharacterEditor' } });
     if (!res.ok) throw new Error('HTTP ' + res.status + ' for ' + url);
     const text = await res.text();
     await fsp.writeFile(file, text, 'utf8');
@@ -192,14 +193,14 @@ function newer(a, b) { // is a > b
   return false;
 }
 ipcMain.handle('update:check', async () => {
-  const res = await fetch(REPO_API, { headers: { 'User-Agent': 'Ascandir-CharacterEditor', Accept: 'application/vnd.github+json' } });
+  const res = await webFetch(REPO_API, { headers: { 'User-Agent': 'Ascandir-CharacterEditor', Accept: 'application/vnd.github+json' } });
   if (!res.ok) throw new Error('GitHub HTTP ' + res.status);
   const r = await res.json();
   const asset = (r.assets || []).find(a => /^Ascandir-CharacterEditor-Setup-.*\.exe$/.test(a.name));
   const version = String(r.tag_name || '').replace(/^v/, '');
   let notes = r.body || '';
   try { // all changelog sections newer than the installed version
-    const cl = await (await fetch('https://raw.githubusercontent.com/Ascandir/Ascandir---CharacterEditor/main/CHANGELOG.md', { headers: { 'User-Agent': 'Ascandir-CharacterEditor' } })).text();
+    const cl = await (await webFetch('https://raw.githubusercontent.com/Ascandir/Ascandir---CharacterEditor/main/CHANGELOG.md', { headers: { 'User-Agent': 'Ascandir-CharacterEditor' } })).text();
     const parts = cl.split(/^## /m).slice(1).filter(sec => { const v = sec.split(/\s/)[0]; return newer(v, app.getVersion()) && !newer(v, version); });
     if (parts.length) notes = parts.map(p => '## ' + p.trim()).join('\n\n');
   } catch { /* keep release body */ }

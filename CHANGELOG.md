@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.4
+- Alle Internet-Abrufe (5e.tools-Daten, Homebrew, Updates, KI-Modelle, TRELLIS) laufen jetzt über den Netzwerk-Stack von Chromium statt über den von Node.js. Behebt „fetch failed“ und Zeitüberschreitungen auf Rechnern, auf denen der Browser problemlos ins Internet kommt (Proxy-Einstellungen, IPv6/DNS). Klappt das trotzdem nicht, wird automatisch der alte Weg probiert
+- Fehlermeldungen nennen jetzt den Server, der nicht erreichbar war
+
 ## 0.6.3
 - **Strata startet automatisch**: Wenn der KI-Berater das Textmodell braucht und Strata nicht läuft, startet das Programm es mit deinem gespeicherten Strata-Preset. Wird es eine einstellbare Zeit nicht genutzt (Standard 10 Minuten), beendet das Programm es wieder. Vor dem Malen wird es automatisch beendet, damit der Grafikspeicher frei ist. Ein Strata, das du selbst gestartet hast, wird nicht angefasst
 - Einstellungen dazu unter KI-Berater → Verbindung

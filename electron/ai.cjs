@@ -3,7 +3,8 @@
 const electron = require('electron');
 const { app, ipcMain, dialog, shell } = electron;
 // Chromium's network stack (system proxy, IPv4/IPv6 fallback, longer connect timeouts); plain fetch in tests
-const netFetch = (url, opts) => (electron.net?.fetch && !process.env.ACE_AI_TEST ? electron.net.fetch(url, opts) : fetch(url, opts));
+const { webFetch } = require('./net.cjs');
+const netFetch = webFetch;
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
@@ -72,7 +73,7 @@ const log = (line) => { procLog.push(line); if (procLog.length > 400) procLog = 
 
 async function getCatalog() {
   try {
-    const r = await fetch(CATALOG_URL, { headers: UA });
+    const r = await webFetch(CATALOG_URL, { headers: UA });
     if (r.ok) { const c = await r.json(); if (c && c.models && c.comfy) return c; }
   } catch { /* offline: built-in catalog */ }
   return DEFAULT_CATALOG;
@@ -206,7 +207,7 @@ async function install({ dir, gpu, models: modelIds, comfy: doComfy = true }) {
       await fsp.rm(archive, { force: true });
       root = await findComfyRoot(dir);
       if (!root) throw new Error('ComfyUI folder not found after extraction');
-      try { const r = await fetch(COMFY_RELEASE_API, { headers: UA }); if (r.ok) cfg.comfyVersion = (await r.json()).tag_name; } catch { /* ignore */ }
+      try { const r = await webFetch(COMFY_RELEASE_API, { headers: UA }); if (r.ok) cfg.comfyVersion = (await r.json()).tag_name; } catch { /* ignore */ }
       await writeCfg(cfg);
     }
     for (const id of modelIds || []) {
@@ -436,7 +437,7 @@ async function updates() {
   const catalog = await getCatalog();
   const out = { comfy: null, models: [] };
   try {
-    const r = await fetch(COMFY_RELEASE_API, { headers: UA });
+    const r = await webFetch(COMFY_RELEASE_API, { headers: UA });
     if (r.ok) { const tag = (await r.json()).tag_name; out.comfy = { installed: cfg.comfyVersion || null, latest: tag, update: !!cfg.comfyVersion && tag !== cfg.comfyVersion }; }
   } catch { /* offline */ }
   for (const m of catalog.models) {
