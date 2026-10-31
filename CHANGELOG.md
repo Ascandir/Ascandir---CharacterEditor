@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.1
+- **Update-Funktion neu gebaut**, mit dem Standard-Updater für Electron-Programme (electron-updater). Das Installationsprogramm wird jetzt im Update-Modus gestartet. Der fehlte bisher, deshalb blieb die alte Version beim Deinstallieren hängen oder es passierte gar nichts
+- Jeder Update-Schritt wird in `update.log` im Programmdaten-Ordner protokolliert
+- Im Update-Fenster gibt es zusätzlich „Stattdessen manuell herunterladen“
+
 ## 0.6.0
 - Neuer Tab **KI-Berater** im Designer: Chat mit deinem lokalen Textmodell (Strata oder jeder OpenAI-kompatible Server). Du beschreibst den Charakter, der Berater fragt nach und baut einen Bild-Prompt. „In KI-Maler übernehmen“ setzt ihn mit einem Klick ein. Optional gehen Infos aus dem Charakterbogen und das ausgewählte Bild mit
 - KI-Maler: **Prompt-Quelle** wählbar. „Regler“ ist der bisherige Weg, „Eigener Prompt“ nimmt ein großes Textfeld, in das der Berater-Prompt kommt

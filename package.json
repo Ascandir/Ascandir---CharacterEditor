@@ -1,7 +1,7 @@
 {
   "name": "ascandir-charactereditor",
   "productName": "Ascandir - CharacterEditor",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "D&D 5e Character Editor with 5e.tools data and 3D designer",
   "author": "Ascandir",
   "main": "electron/main.cjs",
@@ -65,7 +65,14 @@
       "uninstallDisplayName": "Ascandir - CharacterEditor",
       "include": "build/installer.nsh"
     },
-    "publish": null,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Ascandir",
+        "repo": "Ascandir---CharacterEditor",
+        "releaseType": "release"
+      }
+    ],
     "extraResources": [
       {
         "from": "node_modules/7zip-bin/win/x64/7za.exe",
@@ -76,5 +83,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/Ascandir/Ascandir---CharacterEditor.git"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
   }
 }

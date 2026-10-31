@@ -58,5 +58,6 @@ contextBridge.exposeInMainWorld('ace', {
     on: (ch, cb) => { const h = (_e, d) => cb(d); ipcRenderer.on(ch, h); return () => ipcRenderer.removeListener(ch, h); },
   },
   installUpdate: (info) => ipcRenderer.invoke('update:install', info),
+  openUpdatePage: () => ipcRenderer.invoke('update:openPage'),
   onUpdateProgress: (cb) => { const h = (_e, p) => cb(p); ipcRenderer.on('update:progress', h); return () => ipcRenderer.removeListener('update:progress', h); },
 });

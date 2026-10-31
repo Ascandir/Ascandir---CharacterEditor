@@ -70,6 +70,7 @@ const browser = {
   async version() { return 'dev'; },
   async checkUpdate() { return window.__ACE_MOCK_UPDATE || { available: false, current: 'dev', version: 'dev' }; },
   async installUpdate() { return false; },
+  async openUpdatePage() { window.open('https://github.com/Ascandir/Ascandir---CharacterEditor/releases/latest', '_blank'); },
   onUpdateProgress() { return () => {}; },
 };
 

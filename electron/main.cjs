@@ -204,59 +204,35 @@ ipcMain.handle('update:check', async () => {
   } catch { /* keep release body */ }
   return { current: app.getVersion(), version, available: !!asset && newer(version, app.getVersion()), notes, url: asset?.browser_download_url, size: asset?.size, name: asset?.name };
 });
+// Update via electron-updater: downloads the installer listed in latest.yml of the GitHub release and
+// starts it with --updated (the old uninstaller then runs in update mode instead of waiting for input).
 let updating = false;
-ipcMain.handle('update:install', async (e, { url, name }) => {
-  const u = new URL(url);
-  if (u.hostname !== 'github.com' || !/^Ascandir-CharacterEditor-Setup-[\d.]+\.exe$/.test(name)) throw new Error('invalid update source');
+ipcMain.handle('update:install', async (e) => {
   if (updating) throw new Error('update already running');
   updating = true;
   try {
-    const res = await fetch(url, { headers: { 'User-Agent': 'Ascandir-CharacterEditor' } });
-    if (!res.ok || !res.body) throw new Error('Download HTTP ' + res.status);
-    const total = Number(res.headers.get('content-length')) || 0;
-    // own folder + unique name, so a still running / locked old installer never blocks the download
-    const dir = path.join(require('os').tmpdir(), 'ascandir-update');
-    await fsp.mkdir(dir, { recursive: true });
-    for (const f of await fsp.readdir(dir).catch(() => [])) await fsp.unlink(path.join(dir, f)).catch(() => {});
-    const file = path.join(dir, name.replace(/\.exe$/, '-' + Date.now() + '.exe'));
-    const out = fs.createWriteStream(file);
-    const failed = new Promise((_, reject) => out.on('error', reject));
-    failed.catch(() => {});
-    let got = 0; let lastPct = -1;
-    for await (const chunk of res.body) {
-      if (!out.write(chunk)) await Promise.race([new Promise(r => out.once('drain', r)), failed]);
-      got += chunk.length;
-      const pct = total ? Math.floor(got / total * 100) : 0;
-      if (pct !== lastPct) { lastPct = pct; e.sender.send('update:progress', pct); }
-    }
-    await Promise.race([new Promise((resolve, reject) => out.end(err => (err ? reject(err) : resolve()))), failed]);
-    if (total && got !== total) throw new Error('download incomplete');
-    if (process.platform === 'win32') {
-      const { spawn } = require('child_process');
-      // stop everything we started (ComfyUI, TRELLIS), then let a small helper wait until this
-      // process is really gone before it opens the installer, so no file of the old version is locked
-      try { await ai.stopComfy(); } catch { /* not running */ }
-      try { trellis.stop(); } catch { /* not running */ }
-      const esc = s => s.replace(/'/g, "''");
-      const aiDir = (await ai.readAiCfg()).dir;
-      const logf = path.join(path.dirname(file), 'update.log');
-      // NOTE: a process started from a hidden PowerShell inherits the hidden window state unless
-      // -WindowStyle Normal is given; that made the installer invisible before (0.3.4 - 0.4.1).
-      const ps = `$log='${esc(logf)}'; "start $(Get-Date)" | Out-File $log; ` +
-        `Wait-Process -Id ${process.pid} -Timeout 30 -ErrorAction SilentlyContinue; "app closed" | Out-File $log -Append; ` +
-        `Get-Process | Where-Object { $_.Path -and ($_.Path.StartsWith('${esc(path.dirname(process.execPath))}')${aiDir ? ` -or $_.Path.StartsWith('${esc(aiDir)}')` : ''}) } | Stop-Process -Force -ErrorAction SilentlyContinue; ` +
-        `Start-Sleep -Seconds 1; try { Start-Process -FilePath '${esc(file)}' -WindowStyle Normal; "installer started" | Out-File $log -Append } catch { $_ | Out-File $log -Append; Start-Process explorer.exe -ArgumentList '/select,"${esc(file)}"' }`;
-      const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-Command', ps], { detached: true, stdio: 'ignore', windowsHide: true });
-      await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
-      child.unref();
-      setTimeout(() => app.exit(0), 300);
-    }
+    const { autoUpdater } = require('electron-updater');
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = false;
+    autoUpdater.logger = { info: (m) => ulog('info ' + m), warn: (m) => ulog('warn ' + m), error: (m) => ulog('error ' + m), debug: () => {} };
+    autoUpdater.removeAllListeners('download-progress');
+    autoUpdater.on('download-progress', p => { try { e.sender.send('update:progress', Math.floor(p.percent || 0)); } catch { /* window gone */ } });
+    const r = await autoUpdater.checkForUpdates();
+    if (!r?.updateInfo || !newer(r.updateInfo.version, app.getVersion())) throw new Error('no update found');
+    await autoUpdater.downloadUpdate();
+    try { await ai.stopComfy(); } catch { /* not running */ }
+    try { trellis.stop(); } catch { /* not running */ }
+    ulog('quitAndInstall ' + r.updateInfo.version);
+    setImmediate(() => autoUpdater.quitAndInstall(false, true));
     return true;
   } catch (err) {
     updating = false;
+    ulog('failed: ' + (err.stack || err.message || err));
     throw err;
   }
 });
+function ulog(line) { try { fs.appendFileSync(path.join(app.getPath('userData'), 'update.log'), new Date().toISOString() + ' ' + line + '\n'); } catch { /* ignore */ } }
+ipcMain.handle('update:openPage', () => shell.openExternal('https://github.com/Ascandir/Ascandir---CharacterEditor/releases/latest'));
 
 if (!app.requestSingleInstanceLock()) {
   app.exit(0);

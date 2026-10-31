@@ -48,6 +48,7 @@ export function UpdateBody({ u, compact }) {
           {u.state === 'installing' && <span className="small">{t.updateRestart}</span>}
         </>
       )}
+      {['available', 'error'].includes(u.state) && <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => api.openUpdatePage?.()}>{t.updateManual}</button>}
     </div>
   );
 }
