@@ -17,7 +17,7 @@ D&D-5e-Charaktereditor für Windows mit Daten aus 5e.tools (offizielle Bücher u
 - Deutsch / Englisch umschaltbar (Programm und Installer)
 - Treiberprüfung: Hinweis bei zu altem AMD-Treiber (aktualisiert nie selbst)
 
-**Geplant / Planned (0.2.0+)**: lokale KI (ComfyUI mit ROCm, TRELLIS), Modell-Downloads im Installer, Modell-Updates, KI-Text-Modus, KI-Stilvorschau, Foundry-Export.
+**Ab 0.2.0**: KI-Maler (lokale Bild-KI über ComfyUI mit AMD ROCm / NVIDIA, Modell Z-Image Turbo), automatische KI-Einrichtung beim ersten Start, Update-Suche für KI und Modelle. Empfehlungen für Modelle stehen in `ai-catalog.json` und werden vom Programm online gelesen.
 
 ## Hinweise
 - Die 5e.tools-Daten werden beim ersten Start heruntergeladen und lokal zwischengespeichert. Sie sind nicht Teil dieses Repos.

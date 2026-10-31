@@ -6,6 +6,7 @@ import { useT } from '../i18n.js';
 import { api } from '../platform.js';
 import { buildFigure } from '../three/figure.js';
 import { RINGS, composeToken } from '../three/token.js';
+import Painter from './Painter.jsx';
 
 const STYLES = [['realistic', { de: 'Realistisch', en: 'Realistic' }], ['painted', { de: 'Gemalt', en: 'Painted' }], ['comic', { de: 'Comic', en: 'Comic' }], ['miniature', { de: 'Miniatur', en: 'Miniature' }]];
 const OPTS = {
@@ -21,7 +22,7 @@ function toBase64(buf) {
   return btoa(s);
 }
 
-export default function Designer({ ch, update, createChar }) {
+function Kit3D({ ch, update, createChar }) {
   const { t, lang } = useT();
   const mount = useRef(null);
   const tokenCanvas = useRef(null);
@@ -136,12 +137,7 @@ export default function Designer({ ch, update, createChar }) {
   return (
     <div className="page" style={{ alignItems: 'stretch' }}>
       <section className="card col" style={{ flex: '1 1 300px', maxWidth: 360 }}>
-        <div className="seg">
-          <button className={mode === 'kit' ? 'on' : ''} onClick={() => setMode('kit')}>{t.designerKit}</button>
-          <button className={mode === 'ai' ? 'on' : ''} onClick={() => setMode('ai')}>{t.designerAi}</button>
-        </div>
-        {mode === 'ai' && <div className="banner info" style={{ margin: 0 }}>{t.aiTextSoon}</div>}
-        {mode === 'kit' && (
+        {true && (
           <>
             {slider({k: "height", label: t.height, min: 90, max: 250, unit: " cm", lo: t.small, hi: t.tall,})}
             {slider({k: "build", label: t.build, min: 0, max: 100, unit: " %", lo: t.slim, hi: t.heavy,})}
@@ -210,5 +206,23 @@ export default function Designer({ ch, update, createChar }) {
         </div>
       </aside>
     </div>
+  );
+}
+
+export default function Designer(props) {
+  const { t } = useT();
+  const { ch, update, createChar } = props;
+  if (!ch) return <div className="loading"><button className="btn primary" onClick={createChar}>{t.newChar}</button></div>;
+  const mode = ch.designerMode || 'painter';
+  return (
+    <>
+      <div className="row" style={{ padding: '14px 22px 0' }}>
+        <div className="seg" style={{ minWidth: 320 }}>
+          <button className={mode === 'painter' ? 'on' : ''} onClick={() => update(c => { c.designerMode = 'painter'; return c; })}>{t.designerPainter}</button>
+          <button className={mode === 'kit' ? 'on' : ''} onClick={() => update(c => { c.designerMode = 'kit'; return c; })}>{t.designer3d}</button>
+        </div>
+      </div>
+      {mode === 'painter' ? <Painter {...props} /> : <Kit3D {...props} />}
+    </>
   );
 }

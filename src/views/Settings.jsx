@@ -5,6 +5,7 @@ import { assessGpu, AMD_DRIVER_URL } from '../hardware.js';
 import { useUpdater, UpdateBody } from '../components/Update.jsx';
 import { Collapsible } from '../components/Shared.jsx';
 import Markdown from '../components/Markdown.jsx';
+import AiPanel from '../components/AiPanel.jsx';
 import changelog from '../../CHANGELOG.md?raw';
 
 export default function Settings({ globalSettings: s, saveSettings, showToast }) {
@@ -45,7 +46,7 @@ export default function Settings({ globalSettings: s, saveSettings, showToast })
       <section className="col" style={{ flex: '999 1 480px', minWidth: 0 }}>
         <div className="card col">
           <span className="bold">{t.aiModels}</span>
-          <div className="banner info" style={{ margin: 0 }}>{t.aiSoon}</div>
+          <AiPanel />
         </div>
         <div className="card col">
           <div className="row"><span className="bold grow">{t.updates}</span><span className="muted">{t.version} {ver}</span></div>

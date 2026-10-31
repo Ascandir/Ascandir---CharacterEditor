@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const { execFile } = require('child_process');
+const ai = require('./ai.cjs');
 
 const isDev = !!process.env.VITE_DEV_SERVER_URL;
 const userDir = () => app.getPath('userData');
@@ -99,6 +100,17 @@ ipcMain.handle('chars:delete', async (_e, id) => {
   await fsp.rm(path.join(charDir(), safeName(id) + '.json'), { force: true });
   return true;
 });
+
+// generated pictures per character
+const imgDir = (charId) => path.join(userDir(), 'images', safeName(charId));
+ipcMain.handle('img:save', async (_e, charId, dataUrl) => {
+  await fsp.mkdir(imgDir(charId), { recursive: true });
+  const name = Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + '.png';
+  await fsp.writeFile(path.join(imgDir(charId), name), Buffer.from(String(dataUrl).split(',')[1], 'base64'));
+  return name;
+});
+ipcMain.handle('img:load', async (_e, charId, name) => 'data:image/png;base64,' + (await fsp.readFile(path.join(imgDir(charId), safeName(name)))).toString('base64'));
+ipcMain.handle('img:delete', async (_e, charId, name) => { await fsp.rm(path.join(imgDir(charId), safeName(name)), { force: true }); return true; });
 
 ipcMain.handle('settings:get', async () => {
   try { return JSON.parse(await fsp.readFile(settingsFile(), 'utf8')); } catch { return {}; }
@@ -210,6 +222,7 @@ ipcMain.handle('update:install', async (e, { url, name }) => {
 app.whenReady().then(async () => {
   await ensureDirs();
   createWindow();
+  ai.register(() => BrowserWindow.getAllWindows()[0]);
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

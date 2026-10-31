@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "comfy": {
+    "amd": "https://github.com/comfyanonymous/ComfyUI/releases/latest/download/ComfyUI_windows_portable_amd.7z",
+    "nvidia": "https://github.com/comfyanonymous/ComfyUI/releases/latest/download/ComfyUI_windows_portable_nvidia.7z"
+  },
+  "models": [
+    {
+      "id": "z-image-turbo",
+      "name": "Z-Image Turbo",
+      "version": "1",
+      "recommended": true,
+      "minVramGB": 12,
+      "kind": "image",
+      "note": {
+        "de": "Schnelles, sehr realistisches Bildmodell (6 Mrd. Parameter, Apache 2.0)",
+        "en": "Fast, very realistic image model (6B parameters, Apache 2.0)"
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors",
+          "dest": "models/diffusion_models/z_image_turbo_bf16.safetensors",
+          "size": 12309866400
+        },
+        {
+          "url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors",
+          "dest": "models/text_encoders/qwen_3_4b.safetensors",
+          "size": 8044982048
+        },
+        {
+          "url": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors",
+          "dest": "models/vae/ae.safetensors",
+          "size": 335304388
+        }
+      ]
+    }
+  ]
+}

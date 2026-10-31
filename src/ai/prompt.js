@@ -1,0 +1,171 @@
+// Builds the image prompt from the character sheet + painter sliders.
+// Always adult, always clothed (safe for work).
+import { lc } from '../data/loader.js';
+
+// typical height (cm) and look per species; matched by name prefix
+const SPECIES = [
+  ['dragonborn', 190, (c) => `a dragonborn, a tall humanoid dragon person with ${c || 'metallic'} scales, a reptilian dragon head with a snout and small horns, clawed hands, no tail, no wings`],
+  ['tiefling', 170, () => 'a tiefling, a human-like fiendish person with large curved horns, a long thin tail and solid-colored eyes'],
+  ['half-elf', 172, () => 'a half-elf with slightly pointed ears'],
+  ['half-orc', 182, () => 'a half-orc with grey-green skin, a strong jaw and small tusks'],
+  ['elf', 170, () => 'an elf with long pointed ears, graceful and slender features'],
+  ['eladrin', 170, () => 'an eladrin fey elf with long pointed ears and seasonal colored hair'],
+  ['drow', 165, () => 'a drow, a dark elf with obsidian dark skin, white hair and pointed ears'],
+  ['dwarf', 135, () => 'a dwarf, short, stocky and broad-shouldered'],
+  ['duergar', 130, () => 'a duergar, a grey-skinned bald deep dwarf, short and stocky'],
+  ['halfling', 95, () => 'a halfling, a small person about three feet tall with child-sized proportions but adult face'],
+  ['gnome', 100, () => 'a gnome, a small person about three and a half feet tall with a large nose'],
+  ['goliath', 225, () => 'a goliath, a towering giant-kin with grey stone-like skin and dark tribal markings'],
+  ['orc', 188, () => 'an orc with green-grey skin and prominent tusks'],
+  ['aasimar', 172, () => 'an aasimar with a celestial aura, faintly glowing eyes and luminous skin'],
+  ['tabaxi', 178, () => 'a tabaxi, a feline humanoid with a cat head, fur covered body and a tail'],
+  ['aarakocra', 155, () => 'an aarakocra, a bird humanoid with feathers, a beak, wings and talons'],
+  ['firbolg', 225, () => 'a firbolg, a large gentle giant-kin with blue-grey skin, a bovine nose and long ears'],
+  ['goblin', 105, () => 'a goblin, a small humanoid with green skin, big pointed ears and sharp teeth'],
+  ['hobgoblin', 178, () => 'a hobgoblin with orange-red skin and a militaristic bearing'],
+  ['bugbear', 205, () => 'a bugbear, a tall hairy goblinoid with long arms'],
+  ['kobold', 90, () => 'a kobold, a small reptilian dragon-like humanoid with scales and a tail'],
+  ['lizardfolk', 185, () => 'a lizardfolk, a reptilian humanoid with scales, a lizard head and a tail'],
+  ['tortle', 180, () => 'a tortle, a turtle humanoid with a large shell'],
+  ['triton', 170, () => 'a triton, a sea-dwelling humanoid with blue-green skin and fin-like ears'],
+  ['warforged', 185, () => 'a warforged, a living construct made of wood plates and metal'],
+  ['changeling', 170, () => 'a changeling with pale grey skin, colorless eyes and white hair'],
+  ['kenku', 155, () => 'a kenku, a raven-like bird humanoid with black feathers'],
+  ['harengon', 165, () => 'a harengon, a rabbit-folk humanoid with long rabbit ears'],
+  ['owlin', 170, () => 'an owlin, an owl humanoid with feathers and large eyes'],
+  ['satyr', 170, () => 'a satyr with goat legs and small horns'],
+  ['centaur', 210, () => 'a centaur with a human upper body and a horse body'],
+  ['minotaur', 210, () => 'a minotaur with a bull head and horns'],
+  ['genasi', 172, (c) => `a ${c ? c.toLowerCase() + ' ' : ''}genasi, an elemental-touched humanoid`],
+  ['yuan-ti', 172, () => 'a yuan-ti, a snake-blooded humanoid with scaly patches and serpent eyes'],
+  ['human', 172, () => 'a human'],
+];
+
+const CLASS_GEAR = {
+  artificer: 'leather apron, goggles and tinkering gadgets',
+  barbarian: 'fur and hide clothing, tribal ornaments',
+  bard: 'colorful fine traveling clothes with a musical instrument',
+  cleric: 'religious vestments over chainmail with a holy symbol',
+  druid: 'natural robes adorned with leaves and bone, wooden staff',
+  fighter: 'practical battle-worn armor',
+  monk: 'simple martial-arts robes and wraps',
+  paladin: 'polished plate armor with a tabard and a holy emblem',
+  ranger: 'hooded cloak, leather armor and a quiver of arrows',
+  rogue: 'dark leather armor, hood and belts with daggers',
+  sorcerer: 'elegant robes with arcane markings',
+  warlock: 'dark mysterious clothing with eldritch symbols',
+  wizard: 'scholarly robes, a spellbook and a staff',
+};
+
+export const STYLES = [
+  ['painted', { de: 'Gemalt', en: 'Painted' }, 'detailed fantasy digital painting, character concept art, painterly brushwork, dramatic lighting, highly detailed'],
+  ['realistic', { de: 'Realistisch', en: 'Realistic' }, 'photorealistic cinematic fantasy character, realistic skin and materials, highly detailed'],
+  ['game', { de: '3D-Spiel', en: '3D game' }, 'high-quality 3D render of a fantasy role-playing video game character, PBR materials, soft studio lighting'],
+  ['comic', { de: 'Comic', en: 'Comic' }, 'comic book illustration, bold ink outlines, flat vibrant colors'],
+  ['ink', { de: 'Tusche', en: 'Ink' }, 'pen and ink drawing, cross-hatching, sepia tones, old fantasy book illustration'],
+  ['watercolor', { de: 'Aquarell', en: 'Watercolor' }, 'watercolor painting, soft washes, delicate lines'],
+  ['anime', { de: 'Anime', en: 'Anime' }, 'anime style illustration, cel shading, clean lines'],
+];
+
+export const FRAMINGS = [
+  ['full', { de: 'Ganzkörper', en: 'Full body' }, 'full body shot, the entire figure is visible from head to feet, standing pose, centered', 832, 1216],
+  ['three', { de: 'Dreiviertel', en: 'Three-quarter' }, 'three-quarter shot from head to knees, centered', 896, 1152],
+  ['portrait', { de: 'Portrait', en: 'Portrait' }, 'head and shoulders portrait, looking at the viewer, centered', 1024, 1024],
+];
+
+export const DEFAULT_PAINTER = {
+  gender: 'male', height: null, build: 40, curvy: 30, muscle: 50, attract: 55, age: 35,
+  hair: '', skin: '', eyes: '', features: '', clothing: '', useGear: true, extra: '',
+  style: 'painted', framing: 'full', removeBg: true, strength: 45, promptOverride: null,
+  crop: { size: 42, x: 50, y: 16 },
+};
+
+function speciesOf(raceName) {
+  const n = lc(raceName || 'human');
+  const color = /\(([^)]+)\)/.exec(raceName || '')?.[1];
+  for (const [key, h, desc] of SPECIES) if (n.startsWith(key)) return { avg: h, text: desc(color), key };
+  for (const [key, h, desc] of SPECIES) if (n.includes(key)) return { avg: h, text: desc(color), key };
+  return { avg: 170, text: `a ${raceName} (fantasy humanoid)`, key: n };
+}
+
+export function typicalHeight(raceName) { return speciesOf(raceName).avg; }
+
+const pick = (v, table) => { for (const [max, txt] of table) if (v <= max) return txt; return table[table.length - 1][1]; };
+
+export function buildPrompt(d, ch, p) {
+  const sp = speciesOf(d?.race?.name || 'Human');
+  const parts = [];
+  const g = p.gender === 'female' ? 'woman' : p.gender === 'nonbinary' ? 'androgynous person' : 'man';
+  const age = pick(p.age, [[25, 'young adult'], [40, 'adult'], [55, 'middle-aged'], [70, 'older, with grey streaks and wrinkles'], [100, 'elderly, white hair and deep wrinkles']]);
+  parts.push(`${age} ${g}, ${sp.text}`);
+  const h = p.height || sp.avg;
+  const rel = (h - sp.avg) / sp.avg;
+  parts.push(pick(rel, [[-0.15, `very short for their kind (${h} cm)`], [-0.06, `short for their kind (${h} cm)`], [0.06, `average height (${h} cm)`], [0.15, `tall for their kind (${h} cm)`], [9, `very tall for their kind (${h} cm)`]]));
+  parts.push(pick(p.build, [[12, 'very thin, gaunt build'], [32, 'slim build'], [58, 'average build'], [74, 'stocky, slightly heavy build'], [89, 'heavyset, overweight with a round belly'], [100, 'very fat, obese body']]));
+  const curvy = pick(p.curvy, [[18, 'straight angular figure'], [48, ''], [74, 'curvy figure'], [100, 'very curvy hourglass figure']]);
+  if (curvy) parts.push(curvy);
+  const mus = pick(p.muscle, [[18, 'frail with little muscle'], [52, ''], [78, 'muscular, athletic'], [100, 'extremely muscular, powerful physique']]);
+  if (mus) parts.push(mus);
+  parts.push(pick(p.attract, [[18, 'plain, homely, rugged face'], [42, 'ordinary looking face'], [68, 'attractive face'], [88, 'very attractive, charismatic face'], [100, 'stunningly beautiful face with a captivating gaze']]));
+  if (p.hair) parts.push(p.hair + ' hair');
+  if (p.skin) parts.push(p.skin + ' skin');
+  if (p.eyes) parts.push(p.eyes + ' eyes');
+  if (p.features) parts.push(p.features);
+  // clothing & gear
+  const gear = [];
+  if (p.useGear && d) {
+    const cls = d.classInfo?.[0]?.cls?.name;
+    if (cls && CLASS_GEAR[lc(cls)]) gear.push(CLASS_GEAR[lc(cls)]);
+    const eq = (ch?.inventory || []).filter(i => i.equipped).map(i => i.name);
+    if (eq.length) gear.push('equipped with ' + eq.join(', '));
+  }
+  if (p.clothing) gear.push(p.clothing);
+  if (gear.length) parts.push('wearing ' + gear.join(', '));
+  parts.push('fully clothed, tasteful, safe for work');
+  if (p.extra) parts.push(p.extra);
+  const fr = FRAMINGS.find(f => f[0] === p.framing) || FRAMINGS[0];
+  parts.push(fr[2]);
+  parts.push(p.removeBg ? 'isolated on a plain flat light grey studio background, no scenery, no text' : 'atmospheric fantasy background, no text');
+  const st = STYLES.find(s => s[0] === p.style) || STYLES[0];
+  parts.push(st[2]);
+  return parts.filter(Boolean).join(', ');
+}
+
+export function frameSize(p) {
+  const fr = FRAMINGS.find(f => f[0] === p.framing) || FRAMINGS[0];
+  return { width: fr[3], height: fr[4] };
+}
+
+// Remove a flat background by flood-filling from the borders (works for plain studio backgrounds)
+export async function removeBackground(dataUrl, tolerance = 34) {
+  const img = new Image(); img.src = dataUrl; await img.decode();
+  const w = img.naturalWidth; const h = img.naturalHeight;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0);
+  const id = ctx.getImageData(0, 0, w, h); const px = id.data;
+  // reference color = median of border pixels
+  const border = [];
+  for (let x = 0; x < w; x += 4) { border.push(x, x + (h - 1) * w); }
+  for (let y = 0; y < h; y += 4) { border.push(y * w, y * w + w - 1); }
+  const ch = (k) => border.map(i => px[i * 4 + k]).sort((a, b) => a - b)[border.length >> 1];
+  const ref = [ch(0), ch(1), ch(2)];
+  const near = (i) => { const dr = px[i * 4] - ref[0]; const dg = px[i * 4 + 1] - ref[1]; const db = px[i * 4 + 2] - ref[2]; return Math.sqrt(dr * dr + dg * dg + db * db) < tolerance; };
+  const bg = new Uint8Array(w * h);
+  const stack = [];
+  for (const i of border) if (near(i)) { bg[i] = 1; stack.push(i); }
+  while (stack.length) {
+    const i = stack.pop(); const x = i % w; const y = (i / w) | 0;
+    const nb = [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1];
+    for (const j of nb) if (j >= 0 && !bg[j] && near(j)) { bg[j] = 1; stack.push(j); }
+  }
+  // soft edge: pixels next to background get partial alpha
+  for (let i = 0; i < w * h; i++) {
+    if (bg[i]) { px[i * 4 + 3] = 0; continue; }
+    const x = i % w; const y = (i / w) | 0;
+    let n = 0;
+    if (x > 0 && bg[i - 1]) n++; if (x < w - 1 && bg[i + 1]) n++; if (y > 0 && bg[i - w]) n++; if (y < h - 1 && bg[i + w]) n++;
+    if (n) px[i * 4 + 3] = 255 - n * 50;
+  }
+  ctx.putImageData(id, 0, 0);
+  return c.toDataURL('image/png');
+}

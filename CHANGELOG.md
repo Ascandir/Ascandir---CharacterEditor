@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0
+- **KI-Maler** im Designer: malt deinen Charakter mit lokaler KI (Z-Image Turbo über ComfyUI)
+- Übernimmt Volk (inkl. Unterart, z. B. Drachenfarbe), Klasse und angelegte Ausrüstung vom Charakterbogen
+- Regler: Größe in cm (passend zum Volk), Körperbau, Kurven, Muskeln, Attraktivität, Alter; dazu Haare, Augen, Haut, Merkmale, Kleidung, eigene Zusätze
+- 7 Stile (Gemalt, Realistisch, 3D-Spiel, Comic, Tusche, Aquarell, Anime), Ganzkörper / Dreiviertel / Portrait
+- Mehrere Varianten auf einmal, „Ausgewähltes verfeinern“ mit einstellbarer Änderungsstärke, Bildverlauf pro Charakter
+- Hintergrund wird automatisch entfernt; Token mit Ring direkt aus dem Bild (Ausschnitt einstellbar), Export als PNG, als Portrait übernehmen
+- **KI-Einrichtung**: Beim ersten Start installiert das Programm ComfyUI (AMD ROCm oder NVIDIA) und das Bildmodell selbst – mit Fortschritt, Speicherort-Wahl und Fortsetzen abgebrochener Downloads
+- Einstellungen: KI starten/beenden, automatisches Beenden bei Inaktivität, Suche nach Updates für ComfyUI und Modelle
+- Der bisherige 3D-Designer bleibt als „3D-Baukasten“ erhalten
+
 ## 0.1.7
 - Foundry-Export: Charakterbogen → „Für Foundry exportieren“ erzeugt eine Datei für das dnd5e-System (in Foundry: Akteur anlegen → Rechtsklick → „Import Data“)
 - Übernommen werden Attribute, Rettungswürfe, Fertigkeiten, TP, Bewegung, Dunkelsicht, Sprachen, Resistenzen, Werkzeuge, Klassen und Unterklassen, Volk, Hintergrund, alle Merkmale und Feats, Zauber und das Inventar (Rüstung und Waffen mit Werten)

@@ -13,6 +13,7 @@ import CharList from './views/CharList.jsx';
 import { primaryGpu, AMD_DRIVER_URL } from './hardware.js';
 import { useUpdater, UpdateDialog } from './components/Update.jsx';
 import { DialogHost } from './components/Dialog.jsx';
+import AiSetup from './components/AiSetup.jsx';
 
 export const DEFAULT_SETTINGS = { lang: 'de', rules: '2024', disabledSources: [], homebrew: [], profiles: {}, activeProfile: 'Standard' };
 
@@ -73,6 +74,8 @@ export default function App() {
   const updChecked = useRef(false);
   useEffect(() => { if (settings && !updChecked.current && settings.autoUpdate !== false) { updChecked.current = true; upd.check(); } }, [settings]); // eslint-disable-line
   const [driverWarn, setDriverWarn] = useState(null);
+  const [aiFirstRun, setAiFirstRun] = useState(false);
+  useEffect(() => { api.ai?.status().then(s => { if (s.supported && !s.setupDone && !s.setupSkipped) setAiFirstRun(true); }).catch(() => {}); }, []);
   useEffect(() => { api.hardware().then(info => { const g = primaryGpu(info); if (g?.status === 'old') setDriverWarn(g); }).catch(() => {}); }, []);
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
 
@@ -219,6 +222,14 @@ export default function App() {
           {view === 'sources' && <Sources {...ctx} addHomebrew={addHomebrew} addHomebrewMany={addHomebrewMany} addOwnHomebrew={addOwnHomebrew} reload={() => loadAll(true)} hbLoaded={hb} />}
           {view === 'settings' && <Settings {...ctx} />}
         </main>
+        {aiFirstRun && !status.loading && (
+          <div className="modal-bg">
+            <div className="modal" style={{ maxWidth: 680 }} role="dialog" aria-label={t.aiSetupTitle}>
+              <h2 className="serif">{t.aiSetupTitle}</h2>
+              <AiSetup onDone={() => setAiFirstRun(false)} onSkip={async () => { await api.ai.skip(); setAiFirstRun(false); }} />
+            </div>
+          </div>
+        )}
         {showUpd && upd.info && <UpdateDialog u={upd} onClose={() => setShowUpd(false)} />}
         {showChars && <CharList {...ctx} onClose={() => setShowChars(false)} current={ch} setCh={setCh} />}
         {toast && <div className="toast">{toast}</div>}
