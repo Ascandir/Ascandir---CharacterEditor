@@ -238,9 +238,13 @@ ipcMain.handle('update:install', async (e, { url, name }) => {
       try { trellis.stop(); } catch { /* not running */ }
       const esc = s => s.replace(/'/g, "''");
       const aiDir = (await ai.readAiCfg()).dir;
-      const ps = `Wait-Process -Id ${process.pid} -ErrorAction SilentlyContinue; ` +
+      const logf = path.join(path.dirname(file), 'update.log');
+      // NOTE: a process started from a hidden PowerShell inherits the hidden window state unless
+      // -WindowStyle Normal is given; that made the installer invisible before (0.3.4 - 0.4.1).
+      const ps = `$log='${esc(logf)}'; "start $(Get-Date)" | Out-File $log; ` +
+        `Wait-Process -Id ${process.pid} -Timeout 30 -ErrorAction SilentlyContinue; "app closed" | Out-File $log -Append; ` +
         `Get-Process | Where-Object { $_.Path -and ($_.Path.StartsWith('${esc(path.dirname(process.execPath))}')${aiDir ? ` -or $_.Path.StartsWith('${esc(aiDir)}')` : ''}) } | Stop-Process -Force -ErrorAction SilentlyContinue; ` +
-        `Start-Sleep -Seconds 1; Start-Process -FilePath '${esc(file)}'`;
+        `Start-Sleep -Seconds 1; try { Start-Process -FilePath '${esc(file)}' -WindowStyle Normal; "installer started" | Out-File $log -Append } catch { $_ | Out-File $log -Append; Start-Process explorer.exe -ArgumentList '/select,"${esc(file)}"' }`;
       const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-Command', ps], { detached: true, stdio: 'ignore', windowsHide: true });
       await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
       child.unref();

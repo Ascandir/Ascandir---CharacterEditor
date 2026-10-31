@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2
+- Update-Installation: Das Installationsprogramm startete seit 0.3.4 unsichtbar im Hintergrund. Es öffnet sich jetzt wieder sichtbar. Falls es trotzdem nicht startet, öffnet sich der Ordner mit dem Installationsprogramm
+- KI-Maler: Tiervölker deutlich genauer beschrieben (Aarakocra, Kenku, Owlin, Tabaxi, Echsenvolk, Tortle, Harengon, Minotaurus, Kobold): ganzer Tierkopf, Federn/Fell/Schuppen am ganzen Körper, Vogelbeine mit Krallen, Flügel auf dem Rücken usw.
+
 ## 0.4.1
 - KI-Maler: Fehler „fetch failed“ behoben. ComfyUI ist bei großen Bildern (Hochskalieren, Speichern) zeitweise nicht erreichbar, das Programm wartet jetzt geduldig statt abzubrechen
 - Stürzt ComfyUI wirklich ab, zeigt die Fehlermeldung den Grund aus dem ComfyUI-Protokoll (z. B. „Grafikspeicher voll“)
