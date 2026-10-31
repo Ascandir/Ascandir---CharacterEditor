@@ -35,6 +35,12 @@ contextBridge.exposeInMainWorld('ace', {
     openDir: () => ipcRenderer.invoke('ai:openDir'),
     on: (ch, cb) => { const h = (_e, d) => cb(d); ipcRenderer.on(ch, h); return () => ipcRenderer.removeListener(ch, h); },
   },
+  llm: {
+    models: (o) => ipcRenderer.invoke('llm:models', o),
+    chat: (o) => ipcRenderer.invoke('llm:chat', o),
+    stop: () => ipcRenderer.invoke('llm:stop'),
+    on: (ch, cb) => { const h = (_e, d) => cb(d); ipcRenderer.on(ch, h); return () => ipcRenderer.removeListener(ch, h); },
+  },
   trellis: {
     status: () => ipcRenderer.invoke('trellis:status'),
     start: () => ipcRenderer.invoke('trellis:start'),

@@ -233,3 +233,16 @@ export async function removeBackground(dataUrl, localTol = 9, globalTol = 170) {
   ctx.putImageData(id, 0, 0);
   return c.toDataURL('image/png');
 }
+
+// prompt written by the user / the AI advisor ("free" mode in the painter)
+export function freePrompt(p, opts = {}) {
+  const st = STYLES.find(s => s[0] === p.style) || STYLES[0];
+  const parts = [];
+  if (opts.multi) parts.push(MULTI_VIEW);
+  parts.push((p.freePrompt || '').trim());
+  if (opts.emphasis?.length) parts.push('IMPORTANT, clearly visible body shape: ' + opts.emphasis.join(', '));
+  if (opts.multi) parts.push('plain flat light grey background, no scenery, no text, no labels');
+  else if (p.removeBg && p.freeBg !== false) parts.push('plain simple studio background, no scenery, no text');
+  if (p.freeAppendStyle) parts.push(st[0] === 'custom' ? (p.customStyle || '').trim() : st[2]);
+  return parts.filter(Boolean).join(', ');
+}

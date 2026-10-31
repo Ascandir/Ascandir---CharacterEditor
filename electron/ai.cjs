@@ -365,10 +365,13 @@ async function comfyFetch(url, opts, what) {
   }
 }
 function crashText() {
-  const tail = procLog.slice(-25).join('');
-  const oom = /out of memory|OutOfMemory|HIP error|hipErrorOutOfMemory|CUDA error|allocate/i.test(tail);
-  return (oom ? 'ComfyUI ran out of GPU memory and stopped. Try a lower resolution (e.g. 2K or High) or fewer images at once.\n\n'
-    : 'ComfyUI stopped unexpectedly.\n\n') + tail.slice(-900);
+  // drop tqdm progress bars, keep the real messages
+  const clean = procLog.join('').replace(/\r/g, '\n').split('\n')
+    .filter(l => l.trim() && !/\d+%\|.*\|\s*\d+\/\d+/.test(l) && !/^\s*\d+\/\d+\s*\[/.test(l)).slice(-30).join('\n');
+  try { fs.writeFileSync(path.join(app.getPath('userData'), 'comfyui-last.log'), procLog.join(''), 'utf8'); } catch { /* ignore */ }
+  const oom = /out of memory|OutOfMemory|HIP error|hipErrorOutOfMemory|CUDA error|allocate|MemoryError/i.test(clean);
+  return (oom ? 'ComfyUI ran out of memory and stopped. Try a lower resolution or fewer images at once.\n\n' : 'ComfyUI stopped unexpectedly.\n\n')
+    + clean.slice(-1200) + '\n\n(Full log: ' + path.join(app.getPath('userData'), 'comfyui-last.log') + ')';
 }
 
 async function generate(params) {

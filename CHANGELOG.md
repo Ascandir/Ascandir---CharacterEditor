@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+- Neuer Tab **KI-Berater** im Designer: Chat mit deinem lokalen Textmodell (Strata oder jeder OpenAI-kompatible Server). Du beschreibst den Charakter, der Berater fragt nach und baut einen Bild-Prompt. „In KI-Maler übernehmen“ setzt ihn mit einem Klick ein. Optional gehen Infos aus dem Charakterbogen und das ausgewählte Bild mit
+- KI-Maler: **Prompt-Quelle** wählbar. „Regler“ ist der bisherige Weg, „Eigener Prompt“ nimmt ein großes Textfeld, in das der Berater-Prompt kommt
+- Qwen: Schritte wählbar (20/30/45, Standard jetzt 30)
+- Bessere Absturzmeldungen: Fortschrittsbalken werden ausgefiltert, das komplette ComfyUI-Protokoll landet in einer Datei, und es gibt einen Hinweis, wenn Strata gleichzeitig Speicher belegt
+
 ## 0.5.2
 - Klassenauswahl wie bei 5e.tools: Trefferwürfel und TP, Hauptattribut, Rettungswürfe, Rüstung, Waffen, Werkzeuge, Fertigkeiten, Zauberattribut, Mehrklassen-Voraussetzung und Startausrüstung
 - **Klassentabelle** über alle 20 Stufen mit Übungsbonus, Merkmalen, Klassenspalten (z. B. Rages, Channel Divinity, Cantrips, Prepared Spells) und **Zauberplätzen pro Grad**. Die gewählte Stufe ist hervorgehoben

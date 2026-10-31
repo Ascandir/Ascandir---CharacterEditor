@@ -4,7 +4,7 @@ import { splitViews } from '../ai/images.js';
 import { promptDialog, confirmDialog } from '../components/Dialog.jsx';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
-import { buildPrompt, frameSize, removeBackground, STYLES, FRAMINGS, DEFAULT_PAINTER, typicalHeight, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize } from '../ai/prompt.js';
+import { freePrompt, buildPrompt, frameSize, removeBackground, STYLES, FRAMINGS, DEFAULT_PAINTER, typicalHeight, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize } from '../ai/prompt.js';
 import { RINGS, composeToken } from '../three/token.js';
 import AiSetup from '../components/AiSetup.jsx';
 
@@ -69,8 +69,9 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   const selImg = cache[selName];
   const raceH = typicalHeight(d?.race?.name);
   const autoPrompt = useMemo(() => buildPrompt(d, ch, p), [d, ch.inventory, JSON.stringify(p)]);
-  const prompt = p.promptOverride ?? autoPrompt;
-  const multiPrompt = useMemo(() => buildPrompt(d, ch, p, { multi: true }), [d, ch.inventory, JSON.stringify(p)]);
+  const isFree = p.promptMode === 'free';
+  const prompt = isFree ? freePrompt(p) : (p.promptOverride ?? autoPrompt);
+  const multiPrompt = useMemo(() => (isFree ? freePrompt(p, { multi: true }) : buildPrompt(d, ch, p, { multi: true })), [d, ch.inventory, JSON.stringify(p)]);
   const selMeta = paintings.find(x => x.name === selName);
   const fileRef = useRef(null);
   const importImage = async (file) => {
@@ -133,13 +134,13 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
       const changed = mode === 'refine' ? BODY_PARTS.map(b => b[0]).filter(k => (prev?.body?.[k] ?? 50) !== (p.body?.[k] ?? 50)) : [];
       const shapeChanged = changed.length > 0 || (mode === 'refine' && prev && ['build', 'curvy', 'muscle', 'height', 'attract'].some(k => prev[k] !== p[k]));
       const emphasis = changed.length ? bodyText({ ...p, body: Object.fromEntries(changed.map(k => [k, p.body?.[k] ?? 50])) }, changed).filter(x => !/^exaggerated stylised/.test(x)) : [];
-      const usedPrompt = multi ? multiPrompt : (mode === 'refine' && emphasis.length && p.promptOverride == null ? buildPrompt(d, ch, p, { emphasis }) : prompt);
+      const usedPrompt = multi ? multiPrompt : (mode === 'refine' && emphasis.length && (isFree || p.promptOverride == null) ? (isFree ? freePrompt(p, { emphasis }) : buildPrompt(d, ch, p, { emphasis })) : prompt);
       const params = { prompt: usedPrompt, seed, width, height, batch: multi ? 1 : mode === 'refine' ? Math.min(count, 2) : count, removeBg: (multi || p.removeBg) && hasBiRef };
       if (!multi && upscaleSize(p) && hasUpscale) params.upscale = upscaleSize(p);
       if (useQwen) {
         // Qwen Image 2.1: native up to 2K, edit/reference mode instead of img2img
         const neg = (p.style === 'custom' ? (p.customNegative || '') : '').trim();
-        Object.assign(params, { model: 'qwen', negative: neg, cfg: neg ? 4 : 1, steps: p.qSteps || 40 });
+        Object.assign(params, { model: 'qwen', negative: neg, cfg: neg ? 4 : 1, steps: p.qSteps || 30 });
         if (!multi && ['2k', '4k'].includes(p.res)) { const k = 2048 / Math.max(width, height); params.width = Math.round(width * k / 32) * 32; params.height = Math.round(height * k / 32) * 32; if (p.res === '2k') delete params.upscale; }
         if (mode === 'refine' && selImg) {
           params.refImages = [selImg]; params.editLatent = true;
@@ -170,7 +171,14 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         for (const old of all.slice(MAX_PAINTINGS)) api.deleteImage(c.id, old.name);
         c.paintings = all.slice(0, MAX_PAINTINGS); c.selectedPainting = saved[0]?.name; return c;
       });
-    } catch (e) { const m = String(e.message || e); setErr(/COMFY_TOO_OLD/.test(m) ? 'COMFY_TOO_OLD' : m); }
+    } catch (e) {
+      let m = String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+      if (/stopped unexpectedly|ran out of memory/.test(m) && useQwen) {
+        let llmUp = false; try { await api.llm.models({ url: globalSettings?.llm?.url, key: globalSettings?.llm?.key }); llmUp = true; } catch { /* not running */ }
+        m = (llmUp ? t.pCrashLlm + '\n\n' : t.pCrashQwen + '\n\n') + m;
+      }
+      setErr(/COMFY_TOO_OLD/.test(m) ? 'COMFY_TOO_OLD' : m);
+    }
     setBusy(null); refresh();
   };
 
@@ -211,6 +219,23 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
     <div className="page" style={{ alignItems: 'stretch' }}>
       <section className="card col" style={{ flex: '1 1 300px', maxWidth: 360, gap: 12 }}>
         <div className="muted small">{d?.race?.name || '—'} · {d?.classInfo?.map(c => c.cls.name).join(' / ') || '—'}</div>
+        <div className="col" style={{ gap: 6 }}>
+          <span className="bold small">{t.pSource}</span>
+          <div className="seg">
+            <button className={!isFree ? 'on' : ''} onClick={() => set('promptMode', 'sliders')}>{t.pSourceSliders}</button>
+            <button className={isFree ? 'on' : ''} onClick={() => set('promptMode', 'free')}>{t.pSourceFree}</button>
+          </div>
+        </div>
+        {isFree && (
+          <div className="col" style={{ gap: 6 }}>
+            <textarea rows={12} value={p.freePrompt || ''} aria-label={t.pSourceFree} placeholder={t.pFreeHint} onChange={e => set('freePrompt', e.target.value)} style={{ resize: 'vertical', fontSize: 13, minHeight: 120 }} />
+            <div className="row small" style={{ gap: 8 }}>
+              <button className="btn sm" onClick={() => update(c => { c.designerMode = 'advisor'; return c; })}>{t.pToAdvisor}</button>
+              <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={!!p.freeAppendStyle} onChange={e => set('freeAppendStyle', e.target.checked)} />{t.pFreeStyle}</label>
+            </div>
+          </div>
+        )}
+        {!isFree && <>
         <div className="seg">
           {[['male', t.pMale], ['female', t.pFemale], ['nonbinary', t.pAndro]].map(([k, l]) => <button key={k} className={p.gender === k ? 'on' : ''} onClick={() => set('gender', k)}>{l}</button>)}
         </div>
@@ -245,6 +270,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         {text('features', t.pFeatures, lang === 'de' ? 'z. B. scar over left eye, thorn tattoos' : 'e.g. scar over left eye')}
         <label className="row small"><input type="checkbox" checked={p.useGear} onChange={e => set('useGear', e.target.checked)} />{t.pUseGear}</label>
         {text('clothing', t.pClothing, lang === 'de' ? 'z. B. long ragged leather coat' : 'e.g. long ragged leather coat')}
+        </>}
         <div className="col" style={{ gap: 6 }}>
           <span className="bold small">{t.style}</span>
           <div className="row wrap" style={{ gap: 6 }}>
@@ -282,6 +308,13 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
           <div className="row wrap" style={{ gap: 6 }}>{RESOLUTIONS.map(([k, l]) => <button key={k} className={'chip' + ((p.res || 'std') === k ? ' on' : '')} onClick={() => set('res', k)}>{l[lang]}</button>)}</div>
           <span className="muted small">{t.pResHint}</span>
         </div>
+        {useQwen && (
+          <div className="col" style={{ gap: 6 }}>
+            <span className="bold small">{t.pSteps}</span>
+            <div className="row wrap" style={{ gap: 6 }}>{[[20, t.pStepsFast], [30, t.pStepsStd], [45, t.pStepsBest]].map(([n, l]) => <button key={n} className={'chip' + ((p.qSteps || 30) === n ? ' on' : '')} onClick={() => set('qSteps', n)}>{l} · {n}</button>)}</div>
+            <span className="muted small">{t.pStepsHint}</span>
+          </div>
+        )}
         <label className="row small"><input type="checkbox" checked={p.removeBg} onChange={e => set('removeBg', e.target.checked)} />{t.pRemoveBg}</label>
         <label className="col" style={{ gap: 4 }}><span className="muted small">{t.pExtra}</span>
           <textarea rows={2} value={p.extra || ''} onChange={e => set('extra', e.target.value)} /></label>
@@ -340,7 +373,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             <span className="muted">{p.strength} % – {p.strength < 40 ? t.pSmall : p.strength < 65 ? t.pMedium : t.pBig}</span>
           </div>
         )}
-        {ready && p.promptOverride != null && <div className="banner" style={{ margin: 0 }}><span className="small grow">{t.pOverrideWarn}</span><button className="btn sm" onClick={() => set('promptOverride', null)}>{t.pPromptReset}</button></div>}
+        {ready && !isFree && p.promptOverride != null && <div className="banner" style={{ margin: 0 }}><span className="small grow">{t.pOverrideWarn}</span><button className="btn sm" onClick={() => set('promptOverride', null)}>{t.pPromptReset}</button></div>}
         {ready && upscaleSize(p) && !hasUpscale && (
           <div className="banner" style={{ margin: 0 }}>
             <span className="small grow">{t.pUpModel}</span>

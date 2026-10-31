@@ -4,6 +4,7 @@ import { DEFAULT_PAINTER } from '../ai/prompt.js';
 import { useT } from '../i18n.js';
 import Painter from './Painter.jsx';
 import Trellis3D from './Trellis3D.jsx';
+import Advisor from './Advisor.jsx';
 
 export default function Designer(props) {
   const { t } = useT();
@@ -17,12 +18,13 @@ export default function Designer(props) {
     return () => { o1(); o2(); };
   }, []);
   if (!ch) return <div className="loading"><button className="btn primary" onClick={createChar}>{t.newChar}</button></div>;
-  const mode = ch.designerMode === 'trellis' ? 'trellis' : 'painter';
+  const mode = ['trellis', 'advisor'].includes(ch.designerMode) ? ch.designerMode : 'painter';
   return (
     <>
       <div className="row" style={{ padding: '14px 22px 0' }}>
-        <div className="seg" style={{ minWidth: 320 }}>
+        <div className="seg" style={{ minWidth: 440 }}>
           <button className={mode === 'painter' ? 'on' : ''} onClick={() => update(c => { c.designerMode = 'painter'; return c; })}>{t.designerPainter}</button>
+          <button className={mode === 'advisor' ? 'on' : ''} onClick={() => update(c => { c.designerMode = 'advisor'; return c; })}>{t.designerAdvisor}</button>
           <button className={mode === 'trellis' ? 'on' : ''} onClick={() => update(c => { c.designerMode = 'trellis'; return c; })}>{t.designer3d}</button>
         </div>
         <div className="grow" />
@@ -37,7 +39,7 @@ export default function Designer(props) {
           </label>
         )}
       </div>
-      {mode === 'painter' ? <Painter {...props} /> : <Trellis3D {...props} />}
+      {mode === 'painter' ? <Painter {...props} /> : mode === 'advisor' ? <Advisor {...props} /> : <Trellis3D {...props} />}
     </>
   );
 }

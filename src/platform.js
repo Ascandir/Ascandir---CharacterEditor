@@ -34,6 +34,9 @@ const browser = {
     async generate() { throw new Error('Nur unter Windows'); }, async log() { return ''; }, async skip() {}, async setIdle() {}, async chooseDir() { return null; }, async openDir() {},
     on() { return () => {}; },
   },
+  llm: {
+    async models() { throw new Error('NO_SERVER'); }, async chat() { throw new Error('NO_SERVER'); }, async stop() {}, on() { return () => {}; },
+  },
   trellis: {
     async status() { return { supported: false, installed: false }; },
     async start() { throw new Error('Nur unter Windows'); }, async stop() {}, async log() { return ''; },
@@ -73,4 +76,5 @@ const browser = {
 export const api = (typeof window !== 'undefined' && window.ace) ? window.ace : browser;
 // test hook: a mocked AI service can be injected for UI tests
 if (typeof window !== 'undefined' && window.__ACE_MOCK_AI) api.ai = window.__ACE_MOCK_AI;
+if (typeof window !== 'undefined' && window.__ACE_MOCK_LLM) api.llm = window.__ACE_MOCK_LLM;
 if (typeof window !== 'undefined' && window.__ACE_MOCK_TRELLIS) api.trellis = window.__ACE_MOCK_TRELLIS;
