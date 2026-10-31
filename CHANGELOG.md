@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.2
+- Test-Version, um die neue Update-Funktion aus 0.6.1 auszuprobieren (keine weiteren Änderungen)
+
 ## 0.6.1
 - **Update-Funktion neu gebaut**, mit dem Standard-Updater für Electron-Programme (electron-updater). Das Installationsprogramm wird jetzt im Update-Modus gestartet. Der fehlte bisher, deshalb blieb die alte Version beim Deinstallieren hängen oder es passierte gar nichts
 - Jeder Update-Schritt wird in `update.log` im Programmdaten-Ordner protokolliert
