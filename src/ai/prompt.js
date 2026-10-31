@@ -65,6 +65,7 @@ export const STYLES = [
   ['ink', { de: 'Tusche', en: 'Ink' }, 'pen and ink drawing, cross-hatching, sepia tones, old fantasy book illustration'],
   ['watercolor', { de: 'Aquarell', en: 'Watercolor' }, 'watercolor painting, soft washes, delicate lines'],
   ['anime', { de: 'Anime', en: 'Anime' }, 'anime style illustration, cel shading, clean lines'],
+  ['custom', { de: 'Eigener Stil', en: 'Custom style' }, ''],
 ];
 
 export const FRAMINGS = [
@@ -163,7 +164,7 @@ export function buildPrompt(d, ch, p, opts = {}) {
   parts.push('fully clothed, safe for work');
   if (p.extra) parts.push(p.extra);
   parts.push(opts.multi ? 'plain flat light grey background, no scenery, no text, no labels, no frames between the views' : p.removeBg ? 'plain simple studio background, no scenery, no text' : 'atmospheric fantasy background, no text');
-  parts.push(st[2]);
+  parts.push(st[0] === 'custom' ? (p.customStyle || '').trim() || STYLES[0][2] : st[2]);
   return parts.filter(Boolean).join(', ');
 }
 

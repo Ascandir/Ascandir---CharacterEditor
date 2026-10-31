@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.2.7
+- KI-Maler: Grafikstil **„Eigener Stil“** mit Textfeld, in dem du den Stil frei beschreibst
+
 ## 0.2.6
 - KI-Maler: Textfeld **Pose** (z. B. „kneeling, drawing a sword“)
 - **Körperdetails** zum Aufklappen: Schulterbreite, Armlänge, Armdicke, Oberweite/Brust, Taille, Hüfte, Po, Beinlänge, Beindicke, Kopfgröße. 50 = normal, Doppelklick auf einen Regler setzt ihn zurück

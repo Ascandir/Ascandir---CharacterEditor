@@ -229,6 +229,7 @@ export default function Painter({ ch, d, update }) {
         <div className="col" style={{ gap: 6 }}>
           <span className="bold small">{t.style}</span>
           <div className="row" style={{ gap: 6 }}>{STYLES.map(([k, l]) => <button key={k} className={'chip' + (p.style === k ? ' on' : '')} onClick={() => set('style', k)}>{l[lang]}</button>)}</div>
+          {p.style === 'custom' && <textarea rows={3} value={p.customStyle || ''} aria-label={t.pCustomStyle} placeholder={t.pCustomStyleHint} onChange={e => set('customStyle', e.target.value)} />}
         </div>
         <div className="col" style={{ gap: 6 }}>
           <span className="bold small">{t.pFraming}</span>
