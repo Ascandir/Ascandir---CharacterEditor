@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.1
+- KI-Maler: Das Bildmodell wählst du jetzt oben rechts per Auswahlliste, auf Höhe von „KI-Maler“ und „3D (TRELLIS)“
+
 ## 0.5.0
 - KI-Maler: zweites Bildmodell **Qwen Image 2.1** (ca. 30 GB, im KI-Maler per Knopf ladbar). Hält sich viel genauer an Beschreibungen, malt bis 2K direkt, ist aber deutlich langsamer
 - Mit Qwen bearbeitet „Ausgewähltes verfeinern“ das Bild gezielt statt es neu zu malen. Dazu gibt es das Feld **Änderungswunsch** (z. B. „give him a red cloak“)

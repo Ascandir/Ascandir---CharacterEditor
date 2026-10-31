@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { api } from '../platform.js';
+import { DEFAULT_PAINTER } from '../ai/prompt.js';
 import { useT } from '../i18n.js';
 import Painter from './Painter.jsx';
 import Trellis3D from './Trellis3D.jsx';
@@ -6,6 +8,14 @@ import Trellis3D from './Trellis3D.jsx';
 export default function Designer(props) {
   const { t } = useT();
   const { ch, update, createChar } = props;
+  const [models, setModels] = useState({});
+  useEffect(() => {
+    const load = () => api.ai.status().then(s => setModels(s.models || {})).catch(() => {});
+    load();
+    const o1 = api.ai.on('ai:progress', pr => { if (pr.phase === 'done') load(); });
+    const o2 = api.ai.on('ai:state', load);
+    return () => { o1(); o2(); };
+  }, []);
   if (!ch) return <div className="loading"><button className="btn primary" onClick={createChar}>{t.newChar}</button></div>;
   const mode = ch.designerMode === 'trellis' ? 'trellis' : 'painter';
   return (
@@ -15,6 +25,17 @@ export default function Designer(props) {
           <button className={mode === 'painter' ? 'on' : ''} onClick={() => update(c => { c.designerMode = 'painter'; return c; })}>{t.designerPainter}</button>
           <button className={mode === 'trellis' ? 'on' : ''} onClick={() => update(c => { c.designerMode = 'trellis'; return c; })}>{t.designer3d}</button>
         </div>
+        <div className="grow" />
+        {mode === 'painter' && (
+          <label className="row small" style={{ gap: 8 }}>
+            <span className="muted">{t.pModel}</span>
+            <select value={models['qwen-image-21']?.present && ch.painter?.model === 'qwen' ? 'qwen' : 'zimage'} aria-label={t.pModel}
+              onChange={e => update(c => { c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), model: e.target.value }; return c; })}>
+              <option value="zimage">Z-Image Turbo · {t.pFast}</option>
+              <option value="qwen" disabled={!models['qwen-image-21']?.present}>Qwen Image 2.1 · {t.pBest}{models['qwen-image-21']?.present ? '' : ' (' + t.pNotLoaded + ')'}</option>
+            </select>
+          </label>
+        )}
       </div>
       {mode === 'painter' ? <Painter {...props} /> : <Trellis3D {...props} />}
     </>

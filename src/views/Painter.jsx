@@ -323,14 +323,10 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             </>}
           </div>
         )}
-        {ready && (
+        {ready && !hasQwen && (
           <div className="row small wrap" style={{ gap: 10, padding: '0 4px' }}>
-            <span className="muted">{t.pModel}</span>
-            <div className="seg">
-              <button className={!useQwen ? 'on' : ''} onClick={() => set('model', 'zimage')}>Z-Image Turbo <span className="muted">· {t.pFast}</span></button>
-              <button className={useQwen ? 'on' : ''} disabled={!hasQwen} onClick={() => set('model', 'qwen')}>Qwen Image 2.1 <span className="muted">· {t.pBest}</span></button>
-            </div>
-            {!hasQwen && <button className="btn sm" disabled={!!bgInstall} onClick={() => installModel('qwen-image-21')}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : t.pQwenLoad}</button>}
+            <span className="muted grow">{t.pQwenHint}</span>
+            <button className="btn sm" disabled={!!bgInstall} onClick={() => installModel('qwen-image-21')}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : t.pQwenLoad}</button>
           </div>
         )}
         {ready && useQwen && selImg && (
