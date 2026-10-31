@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.7
+- Absturzmeldungen von ComfyUI ohne Farbcodes (besser lesbar)
+
 ## 0.6.6
 - Neuer **Grafikkarten-Modus** (Einstellungen → KI), Standard „Schonend“: ComfyUI lässt 2,5 GB Grafikspeicher für Windows und den Treiber frei, lagert mehr in den Arbeitsspeicher aus und rechnet die Aufmerksamkeit in kleineren Stücken. Verhindert Treiber-Abstürze bei großen Modellen wie Qwen Image 2.1
 - Im Modus „Schonend“ malt Qwen höchstens ca. 1 Megapixel. Höhere Auflösungen entstehen über den Hochskalierer

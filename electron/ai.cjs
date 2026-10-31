@@ -387,7 +387,7 @@ async function comfyFetch(url, opts, what) {
 }
 function crashText() {
   // drop tqdm progress bars, keep the real messages
-  const clean = procLog.join('').replace(/\r/g, '\n').split('\n')
+  const clean = procLog.join('').replace(/\x1b\[[0-9;]*m/g, '').replace(/\r/g, '\n').split('\n')
     .filter(l => l.trim() && !/\d+%\|.*\|\s*\d+\/\d+/.test(l) && !/^\s*\d+\/\d+\s*\[/.test(l)).slice(-30).join('\n');
   try { fs.writeFileSync(path.join(app.getPath('userData'), 'comfyui-last.log'), procLog.join(''), 'utf8'); } catch { /* ignore */ }
   const oom = /out of memory|OutOfMemory|HIP error|hipErrorOutOfMemory|CUDA error|allocate|MemoryError/i.test(clean);
