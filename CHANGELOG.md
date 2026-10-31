@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2
+- Update-Funktion repariert: kein Absturz mehr („EBUSY … resource busy or locked“), wenn noch ein altes Installationsprogramm läuft
+- Das Update-Installationsprogramm läuft jetzt sichtbar statt still im Hintergrund, am Ende kann das Programm direkt gestartet werden
+
 ## 0.2.1
 - Hintergrund-Entfernung mit dem KI-Modell **BiRefNet** (erkennt die Figur selbst, auch bei Verläufen und Schatten). Im KI-Maler erscheint ein Knopf zum Nachladen (ca. 0,4 GB)
 - Ohne BiRefNet: verbessertes Ersatzverfahren, das auch Hintergrund-Verläufe entfernt

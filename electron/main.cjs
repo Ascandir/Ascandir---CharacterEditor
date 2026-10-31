@@ -195,28 +195,46 @@ ipcMain.handle('update:check', async () => {
   } catch { /* keep release body */ }
   return { current: app.getVersion(), version, available: !!asset && newer(version, app.getVersion()), notes, url: asset?.browser_download_url, size: asset?.size, name: asset?.name };
 });
+let updating = false;
 ipcMain.handle('update:install', async (e, { url, name }) => {
   const u = new URL(url);
   if (u.hostname !== 'github.com' || !/^Ascandir-CharacterEditor-Setup-[\d.]+\.exe$/.test(name)) throw new Error('invalid update source');
-  const res = await fetch(url, { headers: { 'User-Agent': 'Ascandir-CharacterEditor' } });
-  if (!res.ok || !res.body) throw new Error('Download HTTP ' + res.status);
-  const total = Number(res.headers.get('content-length')) || 0;
-  const file = path.join(require('os').tmpdir(), name);
-  const out = fs.createWriteStream(file);
-  let got = 0; let lastPct = -1;
-  for await (const chunk of res.body) {
-    out.write(chunk); got += chunk.length;
-    const pct = total ? Math.floor(got / total * 100) : 0;
-    if (pct !== lastPct) { lastPct = pct; e.sender.send('update:progress', pct); }
+  if (updating) throw new Error('update already running');
+  updating = true;
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'Ascandir-CharacterEditor' } });
+    if (!res.ok || !res.body) throw new Error('Download HTTP ' + res.status);
+    const total = Number(res.headers.get('content-length')) || 0;
+    // own folder + unique name, so a still running / locked old installer never blocks the download
+    const dir = path.join(require('os').tmpdir(), 'ascandir-update');
+    await fsp.mkdir(dir, { recursive: true });
+    for (const f of await fsp.readdir(dir).catch(() => [])) await fsp.unlink(path.join(dir, f)).catch(() => {});
+    const file = path.join(dir, name.replace(/\.exe$/, '-' + Date.now() + '.exe'));
+    const out = fs.createWriteStream(file);
+    const failed = new Promise((_, reject) => out.on('error', reject));
+    failed.catch(() => {});
+    let got = 0; let lastPct = -1;
+    for await (const chunk of res.body) {
+      if (!out.write(chunk)) await Promise.race([new Promise(r => out.once('drain', r)), failed]);
+      got += chunk.length;
+      const pct = total ? Math.floor(got / total * 100) : 0;
+      if (pct !== lastPct) { lastPct = pct; e.sender.send('update:progress', pct); }
+    }
+    await Promise.race([new Promise((resolve, reject) => out.end(err => (err ? reject(err) : resolve()))), failed]);
+    if (total && got !== total) throw new Error('download incomplete');
+    if (process.platform === 'win32') {
+      const { spawn } = require('child_process');
+      // visible installer: the user sees progress and can start the app on the last page
+      const child = spawn(file, [], { detached: true, stdio: 'ignore' });
+      await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
+      child.unref();
+      setTimeout(() => app.quit(), 300);
+    }
+    return true;
+  } catch (err) {
+    updating = false;
+    throw err;
   }
-  await new Promise((resolve, reject) => out.end(err => (err ? reject(err) : resolve())));
-  if (process.platform === 'win32') {
-    const { spawn } = require('child_process');
-    // silent install into the existing folder, then start the app again
-    spawn(file, ['/S', '--force-run'], { detached: true, stdio: 'ignore' }).unref();
-    setTimeout(() => app.quit(), 500);
-  }
-  return true;
 });
 
 app.whenReady().then(async () => {
