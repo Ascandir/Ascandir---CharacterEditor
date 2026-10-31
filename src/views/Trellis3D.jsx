@@ -63,6 +63,9 @@ export default function Trellis3D({ ch, update }) {
   const [thumbs, setThumbs] = useState({});
   const [views, setViews] = useState(null);
   const [glb, setGlb] = useState(null);
+  const [inst, setInst] = useState(null);
+  const [quant, setQuant] = useState('f16');
+  const [upd, setUpd] = useState(null);
   const s3 = { source: null, view: 'front', resolution: 1024, texture: true, seed: 42, ...(ch.trellis || {}) };
   const set = (k, v) => update(c => { c.trellis = { ...s3, ...(c.trellis || {}), [k]: v }; return c; });
   const paintings = ch.paintings || [];
@@ -78,7 +81,9 @@ export default function Trellis3D({ ch, update }) {
     const o1 = api.trellis.on('trellis:log', l => setLastLog(l));
     const o2 = api.trellis.on('trellis:gen', g => setBusy(b => (b ? { ...b, seconds: g.seconds } : b)));
     const o3 = api.trellis.on('trellis:state', refresh);
-    return () => { o1(); o2(); o3(); };
+    const o4 = api.ai.on('ai:progress', pr => setInst(x => (x && pr.phase !== 'done' ? { label: pr.label || x.label, pct: pr.pct, speed: pr.speed } : x)));
+    api.trellis.updates().then(setUpd).catch(() => {});
+    return () => { o1(); o2(); o3(); o4(); };
   }, []);
   useEffect(() => {
     let alive = true;
@@ -112,12 +117,31 @@ export default function Trellis3D({ ch, update }) {
     <div className="page" style={{ alignItems: 'stretch' }}>
       <section className="card col" style={{ flex: '1 1 300px', maxWidth: 380, gap: 12 }}>
         <span className="bold">TRELLIS.2</span>
-        {st && !st.installed && (
+        {st && (!st.installed || !st.own || inst || upd?.update) && (
           <div className="col" style={{ gap: 8 }}>
-            <span className="small">{t.t3NotFound}</span>
-            <button className="btn primary" onClick={() => api.trellis.install()}>{t.t3Install}</button>
-            <span className="muted small">{t.t3InstallHint}</span>
-            <button className="btn sm" onClick={refresh}>{t.t3Recheck}</button>
+            {!st.installed && <span className="small">{t.t3NotFound}</span>}
+            {st.installed && !st.own && <span className="muted small">{t.t3UsingStudio}</span>}
+            {upd?.update && <span className="small" style={{ color: 'var(--accent2)' }}>{t.t3UpdateAvail(upd.latest)}</span>}
+            {!inst && <>
+              {!upd?.update && <>
+                <span className="muted small">{t.t3Weights}</span>
+                <div className="seg">{Object.entries(st.quants || { f16: { gb: 16.5 }, q8: { gb: 9.5 }, q4: { gb: 6 } }).map(([k, q]) => <button key={k} className={quant === k ? 'on' : ''} onClick={() => setQuant(k)}>{k.toUpperCase()} · {q.gb} GB</button>)}</div>
+                <span className="muted small">{t.t3QuantHint}</span>
+              </>}
+              <button className={'btn' + (!st.installed || upd?.update ? ' primary' : '')} onClick={async () => {
+                setErr(null); setInst({ label: '…', pct: 0 });
+                try { await api.trellis.setup({ quant, runtimeOnly: !!upd?.update }); setUpd(null); } catch (e) { if (!/cancel/.test(String(e))) setErr(String(e.message || e)); }
+                setInst(null); refresh();
+              }}>{upd?.update ? t.t3Update : t.t3InstallOwn}</button>
+            </>}
+            {inst && (
+              <div className="col" style={{ gap: 6 }}>
+                <span className="small">{inst.label} · {inst.pct ?? 0} %{inst.speed ? ` · ${(inst.speed / 1e6).toFixed(1)} MB/s` : ''}</span>
+                <div style={{ height: 8, borderRadius: 4, background: 'var(--line)' }}><div style={{ width: (inst.pct || 0) + '%', height: 8, borderRadius: 4, background: 'var(--accent)' }} /></div>
+                <span className="muted small">{t.t3InstallResume}</span>
+                <button className="btn sm" onClick={() => api.trellis.cancel()}>{t.cancel}</button>
+              </div>
+            )}
           </div>
         )}
         {st?.installed && (

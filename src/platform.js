@@ -37,7 +37,7 @@ const browser = {
   trellis: {
     async status() { return { supported: false, installed: false }; },
     async start() { throw new Error('Nur unter Windows'); }, async stop() {}, async log() { return ''; },
-    async generate() { throw new Error('Nur unter Windows'); }, async load() { return null; }, async remove() {}, async exportGlb() {}, async install() {}, async openDir() {},
+    async generate() { throw new Error('Nur unter Windows'); }, async load() { return null; }, async remove() {}, async exportGlb() {}, async install() {}, async openDir() {}, async setup() { throw new Error('Nur unter Windows'); }, async cancel() {}, async updates() { return {}; },
     on() { return () => {}; },
   },
   async getSettings() { return JSON.parse(LS?.getItem('ace.settings') || '{}'); },

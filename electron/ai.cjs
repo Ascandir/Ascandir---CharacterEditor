@@ -354,4 +354,4 @@ function register(mainWindowGetter) {
   app.on('before-quit', () => { stop(); });
 }
 
-module.exports = { register, zImageWorkflow, DEFAULT_CATALOG, _test: { install, generate, download, extract } };
+module.exports = { register, zImageWorkflow, DEFAULT_CATALOG, download, extract, readAiCfg: readCfg, writeAiCfg: writeCfg, stopComfy: stop, _test: { install, generate, download, extract } };

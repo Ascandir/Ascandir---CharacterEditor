@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+- TRELLIS wird jetzt **vom Programm selbst installiert**: Programmteil (Vulkan für AMD, CUDA für NVIDIA) und die TRELLIS.2-Modelle landen in deinem KI-Ordner. Modellgröße wählbar: F16 (16,5 GB), Q8 (9,5 GB), Q4 (6 GB). Abgebrochene Downloads werden fortgesetzt
+- Eigene Installation läuft auf einem eigenen Port und stört ein separat installiertes Trellis Studio nicht
+- Neue TRELLIS-Versionen werden erkannt und lassen sich per Knopf aktualisieren
+- Vor dem 3D-Erzeugen wird die Bild-KI beendet, damit der Grafikspeicher frei ist
+
 ## 0.3.0
 - Der 3D-Baukasten ist raus. Neu im Designer: **3D (TRELLIS)**. Das Programm benutzt dein installiertes TRELLIS (trellis.cpp / Trellis Studio), startet es selbst und schickt das Bild hin
 - Als Vorlage wird automatisch die neueste Mehrfachansicht genommen. TRELLIS verarbeitet genau ein Bild, deshalb wählst du die Ansicht (Standard: vorne)

@@ -7,6 +7,14 @@ const fsp = require('fs/promises');
 const http = require('http');
 const { spawn } = require('child_process');
 
+const ai = require('./ai.cjs');
+const REPO = 'pwilkin/trellis.cpp';
+const REL_BASE = process.env.ACE_TRELLIS_REL || `https://github.com/${REPO}/releases/latest/download`;
+const HF_BASE = process.env.ACE_TRELLIS_HF || 'https://huggingface.co/ilintar/trellis2-gguf/resolve/main';
+const WEIGHTS = ['birefnet.gguf', 'dinov3.gguf', 'ss_flow.gguf', 'ss_dec.gguf', 'shape_flow_512.gguf', 'shape_flow_1024.gguf', 'shape_dec.gguf', 'tex_flow_512.gguf', 'tex_flow_1024.gguf', 'tex_dec.gguf'];
+const QUANTS = { f16: { sub: '', gb: 16.5 }, q8: { sub: 'q8/', gb: 9.5 }, q4: { sub: 'q4/', gb: 6 } };
+const OWN_PORT = 8092;
+let instAbort = null;
 const INSTALL_CMD = 'irm https://raw.githubusercontent.com/pwilkin/trellis.cpp/main/install/install.ps1 | iex';
 let child = null;
 let starting = null;
@@ -18,6 +26,10 @@ const cfgFile = () => process.env.ACE_TRELLIS_CFG || path.join(app.getPath('appD
 const modelDir = (charId) => path.join(app.getPath('userData'), 'models3d', String(charId).replace(/[^\w-]/g, ''));
 
 async function readCfg() {
+  if (!process.env.ACE_TRELLIS_CFG) {
+    const c = (await ai.readAiCfg()).trellis;
+    if (c?.serverBin && fs.existsSync(c.serverBin)) return { own: true, serverBin: c.serverBin, modelsDir: c.modelsDir, gpu: 0, host: '127.0.0.1', port: OWN_PORT, backend: c.backend, quant: c.quant, version: c.version };
+  }
   try {
     const raw = (await fsp.readFile(cfgFile(), 'utf8')).replace(/^﻿/, '');
     const c = JSON.parse(raw);
@@ -50,12 +62,65 @@ async function healthy(cfg) {
   try { const r = await req(cfg, 'GET', '/health', { timeout: 1500 }); return r.status === 200; } catch { return false; }
 }
 
+async function findFile(dir, name, depth = 3) {
+  for (const e of await fsp.readdir(dir, { withFileTypes: true }).catch(() => [])) {
+    const p = path.join(dir, e.name);
+    if (e.isFile() && e.name.toLowerCase() === name) return p;
+    if (e.isDirectory() && depth > 0) { const r = await findFile(p, name, depth - 1); if (r) return r; }
+  }
+  return null;
+}
+
+async function latestTag() {
+  try {
+    const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { 'User-Agent': 'Ascandir-CharacterEditor' } });
+    if (r.ok) return (await r.json()).tag_name || null;
+  } catch { /* offline */ }
+  return null;
+}
+
+// own installation: runtime from the trellis.cpp GitHub release + TRELLIS.2 GGUF weights, into <AI folder>/trellis
+async function install({ quant = 'f16', runtimeOnly = false } = {}) {
+  if (process.platform !== 'win32' && !process.env.ACE_AI_TEST) throw new Error('only available on Windows');
+  if (instAbort) throw new Error('installation already running');
+  const acfg = await ai.readAiCfg();
+  const base = path.join(acfg.dir || app.getPath('userData'), 'trellis');
+  const backend = acfg.gpu === 'nvidia' ? 'cuda' : 'vulkan'; // Vulkan is the self-contained choice for AMD
+  const q = QUANTS[quant] ? quant : 'f16';
+  instAbort = new AbortController(); const signal = instAbort.signal;
+  try {
+    stop();
+    const runtimeDir = path.join(base, 'runtime');
+    const zip = path.join(base, 'downloads', `trellis-${backend}-windows-x64.zip`);
+    await ai.download(`${REL_BASE}/trellis-${backend}-windows-x64.zip`, zip, 'TRELLIS runtime', signal);
+    await fsp.rm(runtimeDir, { recursive: true, force: true });
+    send('ai:progress', { phase: 'extract', label: 'TRELLIS runtime', pct: 0 });
+    await ai.extract(zip, runtimeDir, 'TRELLIS runtime');
+    await fsp.rm(zip, { force: true });
+    const serverBin = await findFile(runtimeDir, 'trellis-server.exe');
+    if (!serverBin) throw new Error('trellis-server.exe not found after extraction');
+    const modelsDir = path.join(base, 'models-' + q);
+    if (!runtimeOnly) {
+      for (const w of WEIGHTS) {
+        const dest = path.join(modelsDir, w);
+        if (fs.existsSync(dest)) continue;
+        await ai.download(`${HF_BASE}/${QUANTS[q].sub}${w}`, dest, 'TRELLIS.2 – ' + w, signal);
+      }
+    }
+    const c = await ai.readAiCfg();
+    c.trellis = { serverBin, modelsDir: runtimeOnly && c.trellis?.modelsDir ? c.trellis.modelsDir : modelsDir, backend, quant: runtimeOnly ? c.trellis?.quant || q : q, version: await latestTag() };
+    await ai.writeAiCfg(c);
+    send('ai:progress', { phase: 'done' });
+    return true;
+  } finally { instAbort = null; send('trellis:state', {}); }
+}
+
 async function status() {
   const cfg = await readCfg();
   const installed = !!(cfg?.serverBin && fs.existsSync(cfg.serverBin));
   const modelsOk = !!(cfg?.modelsDir && fs.existsSync(path.join(cfg.modelsDir, 'shape_flow_1024.gguf')));
   const running = installed && await healthy(cfg);
-  return { supported: process.platform === 'win32' || !!process.env.ACE_TRELLIS_CFG, installed, modelsOk, running, starting: !!starting, busy, external: running && !child, cfg: cfg ? { ...cfg } : null, cfgFile: cfgFile() };
+  return { supported: process.platform === 'win32' || !!process.env.ACE_TRELLIS_CFG, installed, own: !!cfg?.own, modelsOk, running, starting: !!starting, busy, installing: !!instAbort, external: running && !child, cfg: cfg ? { ...cfg } : null, cfgFile: cfgFile(), quants: QUANTS };
 }
 
 async function start() {
@@ -107,6 +172,8 @@ async function generate({ charId, image, seed, resolution, texture, faces }) {
   const t0 = Date.now();
   const timer = setInterval(() => send('trellis:gen', { seconds: Math.round((Date.now() - t0) / 1000) }), 1000);
   try {
+    // free the GPU memory held by the image AI before TRELLIS loads its models
+    try { await ai.stopComfy(); log('image AI (ComfyUI) stopped to free GPU memory'); } catch { /* not running */ }
     await start();
     const cfg = await readCfg();
     const png = Buffer.from(String(image).split(',').pop(), 'base64');
@@ -151,6 +218,9 @@ function register(winGetter) {
     await fsp.copyFile(path.join(modelDir(charId), path.basename(name)), r.filePath);
     return r.filePath;
   });
+  ipcMain.handle('trellis:setup', (_e, o) => install(o || {}));
+  ipcMain.handle('trellis:cancel', () => { instAbort?.abort(); return true; });
+  ipcMain.handle('trellis:updates', async () => { const cfg = await readCfg(); const latest = await latestTag(); return { own: !!cfg?.own, installed: cfg?.version || null, latest, update: !!(cfg?.own && latest && cfg.version && latest !== cfg.version) }; });
   ipcMain.handle('trellis:install', async () => {
     // visible PowerShell window running the official one-line installer
     spawn('cmd.exe', ['/c', 'start', 'powershell', '-NoExit', '-ExecutionPolicy', 'Bypass', '-Command', INSTALL_CMD], { detached: true, stdio: 'ignore' }).unref();
@@ -160,4 +230,4 @@ function register(winGetter) {
   app.on('before-quit', () => { stop(); });
 }
 
-module.exports = { register, _test: { multipart, readCfg, generate, status, stop } };
+module.exports = { register, _test: { multipart, readCfg, generate, status, stop, install } };
