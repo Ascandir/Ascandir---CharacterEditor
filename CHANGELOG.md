@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.5
+- Beim Start beendet das Programm übrig gebliebene KI-Prozesse aus einer früheren Sitzung (z. B. ComfyUI, das nach dem Beenden über den Task-Manager weiterlief und Grafikspeicher und Modelldateien belegt hat)
+- Vor einem Update werden auch alle Prozesse aus dem KI-Ordner beendet
+- Der KI-Ordner kann nicht mehr innerhalb des Programmordners liegen, weil ein Update ihn sonst löschen würde
+
 ## 0.3.4
 - Update-Installation hängt nicht mehr: Das Programm beendet vorher ComfyUI und TRELLIS, schließt sich vollständig und startet das Installationsprogramm erst, wenn kein Teil der alten Version mehr läuft
 - Das Programm kann nur noch einmal gleichzeitig laufen (ein zweiter Start holt das vorhandene Fenster nach vorne)

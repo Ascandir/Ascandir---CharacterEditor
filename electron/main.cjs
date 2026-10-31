@@ -237,8 +237,9 @@ ipcMain.handle('update:install', async (e, { url, name }) => {
       try { await ai.stopComfy(); } catch { /* not running */ }
       try { trellis.stop(); } catch { /* not running */ }
       const esc = s => s.replace(/'/g, "''");
+      const aiDir = (await ai.readAiCfg()).dir;
       const ps = `Wait-Process -Id ${process.pid} -ErrorAction SilentlyContinue; ` +
-        `Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith('${esc(path.dirname(process.execPath))}') } | Stop-Process -Force -ErrorAction SilentlyContinue; ` +
+        `Get-Process | Where-Object { $_.Path -and ($_.Path.StartsWith('${esc(path.dirname(process.execPath))}')${aiDir ? ` -or $_.Path.StartsWith('${esc(aiDir)}')` : ''}) } | Stop-Process -Force -ErrorAction SilentlyContinue; ` +
         `Start-Sleep -Seconds 1; Start-Process -FilePath '${esc(file)}'`;
       const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-Command', ps], { detached: true, stdio: 'ignore', windowsHide: true });
       await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });

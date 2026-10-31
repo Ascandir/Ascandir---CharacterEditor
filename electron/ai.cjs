@@ -333,7 +333,17 @@ async function updates() {
   return out;
 }
 
+// processes left over from a crashed / force-killed earlier session (ComfyUI python, trellis-server)
+// keep GPU memory and lock model files – clean them up on start. Only touches programs inside the AI folder.
+async function killOrphans() {
+  if (process.platform !== 'win32' || EXTERNAL) return;
+  const dir = (await readCfg()).dir; if (!dir) return;
+  const esc = dir.replace(/'/g, "''");
+  execFile('powershell.exe', ['-NoProfile', '-Command', `Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith('${esc}') } | Stop-Process -Force -ErrorAction SilentlyContinue`], { windowsHide: true }, () => {});
+}
+
 function register(mainWindowGetter) {
+  killOrphans();
   ipcMain.handle('ai:status', async () => { win = mainWindowGetter(); return status(); });
   ipcMain.handle('ai:updates', () => updates());
   ipcMain.handle('ai:install', async (_e, opts) => { win = mainWindowGetter(); return install(opts); });
@@ -348,6 +358,9 @@ function register(mainWindowGetter) {
     const r = await dialog.showOpenDialog(mainWindowGetter(), { properties: ['openDirectory', 'createDirectory'] });
     if (r.canceled || !r.filePaths[0]) return null;
     const dir = path.join(r.filePaths[0], 'Ascandir-AI');
+    // never inside the program folder: an update/uninstall would delete it
+    const inst = path.dirname(process.execPath).toLowerCase();
+    if (app.isPackaged && (dir.toLowerCase() + path.sep).startsWith(inst + path.sep)) throw new Error('This folder is inside the program folder and would be deleted by updates. Please choose another folder.');
     return { dir, freeGB: await freeSpaceGB(r.filePaths[0]) };
   });
   ipcMain.handle('ai:openDir', async () => { const c = await readCfg(); if (c.dir) await shell.openPath(c.dir); return true; });
