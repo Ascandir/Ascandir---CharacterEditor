@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+- KI-Maler: Fehler „fetch failed“ behoben. ComfyUI ist bei großen Bildern (Hochskalieren, Speichern) zeitweise nicht erreichbar, das Programm wartet jetzt geduldig statt abzubrechen
+- Stürzt ComfyUI wirklich ab, zeigt die Fehlermeldung den Grund aus dem ComfyUI-Protokoll (z. B. „Grafikspeicher voll“)
+- 2K/4K werden jetzt in „Standard“ gemalt und dann hochskaliert, das braucht weniger Speicher
+
 ## 0.4.0
 - **Klickbare Verweise**: Talente, Zauber, Gegenstände und optionale Merkmale in Beschreibungen (z. B. das Talent eines Hintergrunds) sind anklickbar und zeigen ihre Beschreibung
 - **Weapon Mastery** (2024) für Barbar, Kämpfer, Paladin, Waldläufer und Schurke als Auswahl, inklusive Beschreibung der Mastery-Eigenschaft. Die Anzahl steigt mit der Stufe

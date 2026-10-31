@@ -314,6 +314,24 @@ async function uploadImage(dataUrl, name) {
   return (await r.json()).name;
 }
 
+// ComfyUI can be unresponsive for a while under heavy load (upscaling, saving big PNGs): retry while the process lives
+async function comfyFetch(url, opts, what) {
+  const t0 = Date.now();
+  for (let i = 0; ; i++) {
+    try { return await fetch(url, opts); } catch (e) {
+      await new Promise(r => setTimeout(r, 1500));
+      if (!proc && !EXTERNAL) throw new Error(crashText());
+      if (Date.now() - t0 > 10 * 60 * 1000) throw new Error(`ComfyUI not reachable (${what}): ${e.cause?.code || e.message}\n` + procLog.slice(-10).join('').slice(-800));
+    }
+  }
+}
+function crashText() {
+  const tail = procLog.slice(-25).join('');
+  const oom = /out of memory|OutOfMemory|HIP error|hipErrorOutOfMemory|CUDA error|allocate/i.test(tail);
+  return (oom ? 'ComfyUI ran out of GPU memory and stopped. Try a lower resolution (e.g. 2K or High) or fewer images at once.\n\n'
+    : 'ComfyUI stopped unexpectedly.\n\n') + tail.slice(-900);
+}
+
 async function generate(params) {
   await start();
   touch();
@@ -321,15 +339,15 @@ async function generate(params) {
   let initImage = null;
   if (params.initImage) initImage = await uploadImage(params.initImage, 'ascandir_init.png');
   const workflow = zImageWorkflow({ ...params, initImage });
-  const r = await fetch(`http://127.0.0.1:${port}/prompt`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: workflow, client_id: 'ascandir' }) });
+  const r = await comfyFetch(`http://127.0.0.1:${port}/prompt`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: workflow, client_id: 'ascandir' }) }, 'prompt');
   const body = await r.json().catch(() => ({}));
   if (!r.ok || !body.prompt_id) throw new Error('ComfyUI: ' + JSON.stringify(body.error || body.node_errors || body).slice(0, 500));
   const id = body.prompt_id;
   for (;;) {
     await new Promise(res => setTimeout(res, 1000));
     send('ai:gen', { phase: 'running', seconds: Math.round((Date.now() - t0) / 1000) });
-    if (!proc && !EXTERNAL) throw new Error('ComfyUI stopped: ' + procLog.slice(-6).join(' ').slice(-500));
-    const h = await (await fetch(`http://127.0.0.1:${port}/history/${id}`)).json().catch(() => ({}));
+    if (!proc && !EXTERNAL) throw new Error(crashText());
+    const h = await (await comfyFetch(`http://127.0.0.1:${port}/history/${id}`, undefined, 'history')).json().catch(() => ({}));
     const entry = h[id];
     if (!entry) continue;
     if (entry.status?.status_str === 'error') throw new Error('ComfyUI error: ' + JSON.stringify(entry.status.messages || '').slice(-600));
@@ -338,7 +356,7 @@ async function generate(params) {
     const out = [];
     for (const im of imgs) {
       const q = new URLSearchParams({ filename: im.filename, subfolder: im.subfolder || '', type: im.type || 'output' });
-      const buf = Buffer.from(await (await fetch(`http://127.0.0.1:${port}/view?${q}`)).arrayBuffer());
+      const buf = Buffer.from(await (await comfyFetch(`http://127.0.0.1:${port}/view?${q}`, undefined, 'view')).arrayBuffer());
       out.push('data:image/png;base64,' + buf.toString('base64'));
     }
     touch();
