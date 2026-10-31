@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('ace', {
   setSettings: (s) => ipcRenderer.invoke('settings:set', s),
   saveFile: (o) => ipcRenderer.invoke('file:save', o),
   openFile: (o) => ipcRenderer.invoke('file:open', o),
+  saveFilesToDir: (o) => ipcRenderer.invoke('file:saveDir', o),
   openExternal: (u) => ipcRenderer.invoke('sys:openExternal', u),
   hardware: () => ipcRenderer.invoke('sys:hardware'),
   version: () => ipcRenderer.invoke('app:version'),

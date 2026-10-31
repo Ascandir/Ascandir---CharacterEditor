@@ -44,6 +44,10 @@ const browser = {
     a.click();
     return defaultName;
   },
+  async saveFilesToDir({ files }) {
+    for (const f of files) { const a = document.createElement('a'); a.download = f.name; a.href = 'data:image/png;base64,' + f.dataBase64; a.click(); }
+    return 'downloads';
+  },
   async openFile() {
     return new Promise(resolve => {
       const i = document.createElement('input');

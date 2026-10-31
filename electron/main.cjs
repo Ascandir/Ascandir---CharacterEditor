@@ -128,6 +128,13 @@ ipcMain.handle('file:save', async (e, { defaultName, filters, dataBase64, text }
   else await fsp.writeFile(r.filePath, text || '', 'utf8');
   return r.filePath;
 });
+ipcMain.handle('file:saveDir', async (e, { files }) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  const r = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'] });
+  if (r.canceled || !r.filePaths.length) return null;
+  for (const f of files) await fsp.writeFile(path.join(r.filePaths[0], path.basename(f.name)), Buffer.from(f.dataBase64, 'base64'));
+  return r.filePaths[0];
+});
 ipcMain.handle('file:open', async (e, { filters }) => {
   const win = BrowserWindow.fromWebContents(e.sender);
   const r = await dialog.showOpenDialog(win, { properties: ['openFile'], filters });

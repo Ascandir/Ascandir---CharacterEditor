@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.5
+- KI-Maler: **eigene Bilder importieren** (Knopf „Bild importieren“ oder ins Bild ziehen) und danach mit „Ausgewähltes verfeinern“ von der KI anpassen lassen
+- **Mehrfachansicht**: erzeugt ein Blatt mit 4 Ansichten (vorne, rechts, hinten, links), auf Wunsch am ausgewählten Bild orientiert. „Ansichten einzeln speichern (TRELLIS)“ legt jede Ansicht als freigestelltes PNG in einen Ordner
+
 ## 0.2.4
 - KI-Maler: großes Bild mit dem Mausrad zoomen (zur Mausposition hin), mit gedrückter Maustaste verschieben, Doppelklick setzt zurück. Unten rechts gibt es −/+ und „Einpassen“
 

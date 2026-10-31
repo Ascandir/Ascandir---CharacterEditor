@@ -104,7 +104,10 @@ const LOOKS = [
   [100, 'stunningly beautiful face, captivating gaze, perfect features'],
 ];
 
-export function buildPrompt(d, ch, p) {
+export const MULTI_VIEW = 'character turnaround reference sheet, four full body views of the exact same character side by side in one row, from left to right: front view, side view facing right, back view, side view facing left, each view from head to feet, standing in a relaxed A-pose with arms slightly away from the body, orthographic camera at chest height, even neutral lighting, identical outfit, colors and proportions in every view';
+export const MULTI_SIZE = { width: 1792, height: 1024, views: 4 };
+
+export function buildPrompt(d, ch, p, opts = {}) {
   const sp = speciesOf(d?.race?.name || 'Human');
   const fr = FRAMINGS.find(f => f[0] === p.framing) || FRAMINGS[0];
   const st = STYLES.find(s => s[0] === p.style) || STYLES[0];
@@ -112,7 +115,7 @@ export function buildPrompt(d, ch, p) {
   const g = p.gender === 'female' ? 'woman' : p.gender === 'nonbinary' ? 'androgynous person' : 'man';
   const age = pick(p.age, [[25, 'young adult'], [40, 'adult'], [55, 'middle-aged'], [70, 'older, with grey streaks and wrinkles'], [100, 'elderly, white hair and deep wrinkles']]);
   // framing first: the model weighs the beginning of the prompt most
-  parts.push(fr[2]);
+  parts.push(opts.multi ? MULTI_VIEW : fr[2]);
   parts.push(`${age} ${g}, ${sp.text}`);
   parts.push(pick(p.attract, LOOKS));
   parts.push(pick(p.build, [[12, 'very thin, gaunt build'], [32, 'slim build'], [58, 'average build'], [74, 'stocky, slightly heavy build'], [89, 'heavyset, overweight with a round belly'], [100, 'very fat, obese body']]));
@@ -139,7 +142,7 @@ export function buildPrompt(d, ch, p) {
   if (gear.length) parts.push('wearing ' + gear.join(', '));
   parts.push('fully clothed, safe for work');
   if (p.extra) parts.push(p.extra);
-  parts.push(p.removeBg ? 'plain simple studio background, no scenery, no text' : 'atmospheric fantasy background, no text');
+  parts.push(opts.multi ? 'plain flat light grey background, no scenery, no text, no labels, no frames between the views' : p.removeBg ? 'plain simple studio background, no scenery, no text' : 'atmospheric fantasy background, no text');
   parts.push(st[2]);
   return parts.filter(Boolean).join(', ');
 }
