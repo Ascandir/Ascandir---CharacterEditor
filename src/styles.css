@@ -114,3 +114,13 @@ h1, h2, h3 { margin: 0; }
 .row.wrap { flex-wrap: wrap; }
 .reflink { color: var(--accent2); text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
 .reflink:hover { color: var(--accent); }
+.classtable { border-collapse: collapse; width: 100%; font-size: 13px; }
+.classtable th, .classtable td { padding: 5px 8px; text-align: center; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.classtable td:nth-child(3) { white-space: normal; min-width: 220px; }
+.classtable th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.classtable th.grp { border-bottom: 1px solid var(--accent); color: var(--accent2); }
+.classtable tr.cur td { background: var(--chip); color: var(--accent2); font-weight: 700; }
+.classtable tr.past td { color: var(--text); }
+.classtable tbody tr:not(.cur):not(.past) td { opacity: .75; }
+.featrow { border-bottom: 1px solid var(--line); }
+.featrow .collapse-head { gap: 10px; padding: 6px 0; }

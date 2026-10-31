@@ -3,6 +3,7 @@ import { useT, ABILS, ABIL_LONG, ABIL_NAMES } from '../i18n.js';
 import { makeFilter, equipmentGroups, POINT_COST, fmtMod, mod, stripTags, dedupeByName } from '../engine/rules.js';
 import { uidOf, sourceGroup } from '../data/loader.js';
 import { Choices } from '../components/Shared.jsx';
+import ClassInfo from '../components/ClassInfo.jsx';
 import { buildFacets, applyFacets, activeCount } from '../filters.js';
 import Entries from '../components/Entries.jsx';
 
@@ -239,11 +240,14 @@ function ClassStep(props) {
               }} />
               <span className="muted small">HD d{cls.hd?.faces} · {t.save_}: {(cls.proficiency || []).map(a => a.toUpperCase()).join(', ')}</span>
             </div>
-            <Detail title={cls.name} src={db.sourceMeta[cls.source]?.name || cls.source}
-              facts={(cls.classFeatures || []).map(r => (typeof r === 'string' ? r : r.classFeature).split('|')).filter(p => Number(p[3]) <= startLevel).map(p => p[0] + ' (' + p[3] + ')')} entries={null} />
+            <div className="card row" style={{ alignItems: 'baseline' }}>
+              <h1 className="serif" style={{ fontSize: 26, margin: 0 }}>{cls.name}</h1><span className="muted">{db.sourceMeta[cls.source]?.name || cls.source}</span>
+            </div>
+            <Choices list={d.choices.filter(c => c.group === 'class')} update={update} d={d} />
+            <ClassInfo db={db} settings={settings} cls={cls} level={startLevel} />
           </>
         )}
-        <Choices list={d.choices.filter(c => c.group === 'class')} update={update} d={d} />
+        {!cls && <Choices list={d.choices.filter(c => c.group === 'class')} update={update} d={d} />}
       </section>
     </div>
   );

@@ -63,6 +63,24 @@ function prereqText(pr) {
   return [].concat(pr).map(p => Object.entries(p).map(([k, v]) => k === 'level' ? 'Level ' + (v.level ?? v) : k === 'ability' ? [].concat(v).map(a => Object.entries(a).map(([x, y]) => x.toUpperCase() + ' ' + y).join('/')).join(' or ') : k === 'feat' ? [].concat(v).map(f => String(f).split('|')[0]).join(', ') : k === 'spellcasting' || k === 'spellcasting2020' ? 'Spellcasting' : k === 'other' ? v : k).join(', ')).join('; ');
 }
 
+function RefEntry({ e, depth }) {
+  const db = useContext(DbCtx);
+  const ref = String(e.classFeature || e.subclassFeature || e.optionalfeature || '');
+  const p = ref.split('|');
+  let ent = null;
+  if (db) {
+    if (e.type === 'refClassFeature') ent = db.classFeatureMap?.get([p[0], p[1], p[2] || 'PHB', p[3], p[4] || p[2] || 'PHB'].map(x => String(x).toLowerCase()).join('|'));
+    else if (e.type === 'refSubclassFeature') ent = db.subclassFeatureMap?.get([p[0], p[1], p[2] || 'PHB', p[3], p[4] || 'PHB', p[5], p[6] || p[4] || 'PHB'].map(x => String(x).toLowerCase()).join('|'));
+    else ent = findEntity(db, 'optionalfeature', p[0], p[1]);
+  }
+  return (
+    <div style={{ marginLeft: depth ? 8 : 0 }}>
+      <p><b>{p[0]}</b></p>
+      {ent?.entries && <Entry e={ent.entries} depth={depth + 1} />}
+    </div>
+  );
+}
+
 function Entry({ e, depth }) {
   if (e == null) return null;
   if (typeof e === 'string') return <p><Rich text={e} /></p>;
@@ -80,7 +98,7 @@ function Entry({ e, depth }) {
     case 'item':
       return <p>{e.name && <b>{stripTags(e.name)} </b>}{e.entry ? <Rich text={e.entry} /> : null}{e.entries ? <Entry e={e.entries} depth={depth + 1} /> : null}</p>;
     case 'refClassFeature': case 'refSubclassFeature': case 'refOptionalfeature':
-      return <p><b>{String(e.classFeature || e.subclassFeature || e.optionalfeature || '').split('|')[0]}</b></p>;
+      return <RefEntry e={e} depth={depth} />;
     case 'quote':
       return <p><i>{(e.entries || []).map(stripTags).join(' ')}</i></p>;
     default:

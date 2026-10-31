@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.2
+- Klassenauswahl wie bei 5e.tools: Trefferwürfel und TP, Hauptattribut, Rettungswürfe, Rüstung, Waffen, Werkzeuge, Fertigkeiten, Zauberattribut, Mehrklassen-Voraussetzung und Startausrüstung
+- **Klassentabelle** über alle 20 Stufen mit Übungsbonus, Merkmalen, Klassenspalten (z. B. Rages, Channel Divinity, Cantrips, Prepared Spells) und **Zauberplätzen pro Grad**. Die gewählte Stufe ist hervorgehoben
+- Alle Klassenmerkmale mit Beschreibung zum Aufklappen. Ein Klick auf ein Merkmal in der Tabelle springt dorthin. Unter-Merkmale (z. B. Divine Spark, Turn Undead) werden jetzt mit Text angezeigt
+- Liste aller verfügbaren Unterklassen
+
 ## 0.5.1
 - KI-Maler: Das Bildmodell wählst du jetzt oben rechts per Auswahlliste, auf Höhe von „KI-Maler“ und „3D (TRELLIS)“
 
