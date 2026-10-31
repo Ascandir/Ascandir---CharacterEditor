@@ -232,11 +232,18 @@ ipcMain.handle('update:install', async (e, { url, name }) => {
     if (total && got !== total) throw new Error('download incomplete');
     if (process.platform === 'win32') {
       const { spawn } = require('child_process');
-      // visible installer: the user sees progress and can start the app on the last page
-      const child = spawn(file, [], { detached: true, stdio: 'ignore' });
+      // stop everything we started (ComfyUI, TRELLIS), then let a small helper wait until this
+      // process is really gone before it opens the installer, so no file of the old version is locked
+      try { await ai.stopComfy(); } catch { /* not running */ }
+      try { trellis.stop(); } catch { /* not running */ }
+      const esc = s => s.replace(/'/g, "''");
+      const ps = `Wait-Process -Id ${process.pid} -ErrorAction SilentlyContinue; ` +
+        `Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith('${esc(path.dirname(process.execPath))}') } | Stop-Process -Force -ErrorAction SilentlyContinue; ` +
+        `Start-Sleep -Seconds 1; Start-Process -FilePath '${esc(file)}'`;
+      const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-Command', ps], { detached: true, stdio: 'ignore', windowsHide: true });
       await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
       child.unref();
-      setTimeout(() => app.quit(), 300);
+      setTimeout(() => app.exit(0), 300);
     }
     return true;
   } catch (err) {
@@ -244,6 +251,12 @@ ipcMain.handle('update:install', async (e, { url, name }) => {
     throw err;
   }
 });
+
+if (!app.requestSingleInstanceLock()) {
+  app.exit(0);
+} else {
+  app.on('second-instance', () => { const w = BrowserWindow.getAllWindows()[0]; if (w) { if (w.isMinimized()) w.restore(); w.focus(); } });
+}
 
 app.whenReady().then(async () => {
   await ensureDirs();

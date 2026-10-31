@@ -230,4 +230,4 @@ function register(winGetter) {
   app.on('before-quit', () => { stop(); });
 }
 
-module.exports = { register, _test: { multipart, readCfg, generate, status, stop, install } };
+module.exports = { register, stop, _test: { multipart, readCfg, generate, status, stop, install } };

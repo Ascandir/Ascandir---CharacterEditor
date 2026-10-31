@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.4
+- Update-Installation hängt nicht mehr: Das Programm beendet vorher ComfyUI und TRELLIS, schließt sich vollständig und startet das Installationsprogramm erst, wenn kein Teil der alten Version mehr läuft
+- Das Programm kann nur noch einmal gleichzeitig laufen (ein zweiter Start holt das vorhandene Fenster nach vorne)
+
 ## 0.3.3
 - Körperdetails deutlich stärker: 7 Stufen, die Enden sind bewusst übertrieben (0 = z. B. komplett flach, 100 = riesig und cartoonhaft)
 - Verfeinern nach geänderten Körperdetails oder Körperform: Die geänderten Werte werden in der KI-Anweisung nach vorne gezogen, und die Änderungsstärke wird automatisch auf mindestens 68 % angehoben, damit sich die Figur auch wirklich ändert
