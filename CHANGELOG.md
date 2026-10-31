@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+- Der 3D-Baukasten ist raus. Neu im Designer: **3D (TRELLIS)**. Das Programm benutzt dein installiertes TRELLIS (trellis.cpp / Trellis Studio), startet es selbst und schickt das Bild hin
+- Als Vorlage wird automatisch die neueste Mehrfachansicht genommen. TRELLIS verarbeitet genau ein Bild, deshalb wählst du die Ansicht (Standard: vorne)
+- Auflösung 512/1024/1536, mit oder ohne Textur, Seed. Fertige Modelle werden pro Charakter gespeichert, im Programm drehbar angezeigt und lassen sich als GLB exportieren
+- Ist TRELLIS nicht installiert, startet ein Knopf den offiziellen Installer
+
 ## 0.2.7
 - KI-Maler: Grafikstil **„Eigener Stil“** mit Textfeld, in dem du den Stil frei beschreibst
 
