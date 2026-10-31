@@ -106,18 +106,34 @@ const LOOKS = [
 ];
 
 // body detail sliders (50 = no mention). [key, de, en, [[max, text]...]]
+// body detail sliders (50 = no mention). Six steps: extreme low, strong, mild | mild, strong, extreme high.
+// Extremes are deliberately exaggerated (stylised, cartoonish proportions are fine).
+const S = (xl, l, ml, mh, h, xh) => [[8, xl], [25, l], [42, ml], [58, ''], [75, mh], [92, h], [100, xh]];
 export const BODY_PARTS = [
-  ['shoulders', 'Schulterbreite', 'Shoulder width', [[20, 'very narrow shoulders'], [38, 'narrow shoulders'], [62, ''], [82, 'broad shoulders'], [100, 'extremely broad shoulders']]],
-  ['armLen', 'Armlänge', 'Arm length', [[20, 'very short stubby arms'], [38, 'short arms'], [62, ''], [82, 'long arms'], [100, 'very long lanky arms reaching to the knees']]],
-  ['armThick', 'Armdicke', 'Arm thickness', [[20, 'very thin skinny arms'], [38, 'slender arms'], [62, ''], [82, 'thick strong arms'], [100, 'massive heavy arms']]],
-  ['bust', 'Oberweite', 'Bust / chest', [[20, { f: 'flat chest', m: 'narrow flat chest' }], [38, { f: 'small bust', m: 'slim chest' }], [62, ''], [82, { f: 'large bust', m: 'broad chest' }], [100, { f: 'very large bust', m: 'very broad barrel chest' }]]],
-  ['waist', 'Taille', 'Waist', [[20, 'very narrow waist'], [38, 'slim waist'], [62, ''], [82, 'thick waist'], [100, 'very wide waist']]],
-  ['hips', 'Hüfte', 'Hips', [[20, 'very narrow hips'], [38, 'narrow hips'], [62, ''], [82, 'wide hips'], [100, 'very wide hips']]],
-  ['butt', 'Po', 'Buttocks', [[20, 'flat buttocks'], [38, 'small buttocks'], [62, ''], [82, 'large rounded buttocks'], [100, 'very large buttocks']]],
-  ['legLen', 'Beinlänge', 'Leg length', [[20, 'very short stubby legs'], [38, 'short legs'], [62, ''], [82, 'long legs'], [100, 'very long legs']]],
-  ['legThick', 'Beindicke', 'Leg thickness', [[20, 'very thin spindly legs'], [38, 'slender legs'], [62, ''], [82, 'thick strong legs'], [100, 'massive heavy legs']]],
-  ['head', 'Kopfgröße', 'Head size', [[20, 'very small head'], [38, 'small head'], [62, ''], [82, 'large head'], [100, 'very large head']]],
+  ['shoulders', 'Schulterbreite', 'Shoulder width', S('extremely narrow sloping shoulders, tiny shoulders barely wider than the head', 'very narrow shoulders', 'narrow shoulders', 'broad shoulders', 'very broad massive shoulders', 'absurdly wide exaggerated shoulders, shoulders twice as wide as normal, huge V-shaped torso')],
+  ['armLen', 'Armlänge', 'Arm length', S('tiny stubby arms, extremely short arms that end at the waist', 'very short stubby arms', 'short arms', 'long arms', 'very long lanky arms reaching to the knees', 'absurdly long exaggerated arms, ape-like arms with hands hanging below the knees')],
+  ['armThick', 'Armdicke', 'Arm thickness', S('stick-thin skeletal arms, arms like twigs', 'very thin skinny arms', 'slender arms', 'thick strong arms', 'very thick massive arms', 'gigantic exaggerated arms, arms thicker than the head, huge bulging forearms')],
+  ['bust', 'Oberweite', 'Bust / chest', S({ f: 'completely flat chest, no bust at all', m: 'sunken narrow chest, flat thin torso' }, { f: 'very small bust, flat-chested', m: 'very narrow thin chest' }, { f: 'small bust', m: 'slim chest' }, { f: 'large bust', m: 'broad chest' }, { f: 'very large bust', m: 'very broad barrel chest' }, { f: 'enormous exaggerated bust, gigantic chest, stylised cartoonish proportions', m: 'enormous exaggerated barrel chest, gigantic torso' })],
+  ['waist', 'Taille', 'Waist', S('impossibly tiny wasp waist, extremely cinched waist', 'very narrow waist', 'slim waist', 'thick waist', 'very wide thick waist', 'enormous round wide waist, barrel-shaped torso')],
+  ['hips', 'Hüfte', 'Hips', S('completely straight narrow hips, no hips at all', 'very narrow hips', 'narrow hips', 'wide hips', 'very wide hips', 'extremely wide exaggerated hips, hips twice as wide as the waist')],
+  ['butt', 'Po', 'Buttocks', S('completely flat buttocks, flat as a board, no butt at all', 'very flat small buttocks', 'small buttocks', 'large rounded buttocks', 'very large round buttocks, big butt', 'enormous exaggerated round buttocks, gigantic protruding butt, stylised cartoonish proportions')],
+  ['legLen', 'Beinlänge', 'Leg length', S('tiny stubby legs, extremely short legs, very low center of gravity', 'very short stubby legs', 'short legs', 'long legs', 'very long legs', 'absurdly long exaggerated legs, legs make up most of the body height')],
+  ['legThick', 'Beindicke', 'Leg thickness', S('stick-thin skeletal legs, legs like twigs', 'very thin spindly legs', 'slender legs', 'thick strong legs', 'very thick massive legs', 'gigantic exaggerated thighs and legs, tree-trunk legs')],
+  ['head', 'Kopfgröße', 'Head size', S('tiny head, absurdly small head on a large body', 'very small head', 'small head', 'large head', 'very large head', 'huge oversized head, cartoonish big-head proportions')],
 ];
+
+export function bodyText(p, keys) {
+  const out = []; let extreme = false;
+  for (const [k, , , scale] of BODY_PARTS) {
+    if (keys && !keys.includes(k)) continue;
+    const v = p.body?.[k]; if (v == null || (v > 42 && v < 58)) continue;
+    let txt = pick(v, scale); if (txt && typeof txt === 'object') txt = p.gender === 'male' ? txt.m : txt.f;
+    if (txt) out.push(txt);
+    if (v <= 25 || v >= 75) extreme = true;
+  }
+  if (extreme) out.push('exaggerated stylised body proportions');
+  return out;
+}
 
 export const MULTI_VIEW = 'character turnaround reference sheet, four full body views of the exact same character side by side in one row, from left to right: front view, side view facing right, back view, side view facing left, each view from head to feet, standing in a relaxed A-pose with arms slightly away from the body, orthographic camera at chest height, even neutral lighting, identical outfit, colors and proportions in every view';
 export const MULTI_SIZE = { width: 1792, height: 1024, views: 4 };
@@ -132,18 +148,15 @@ export function buildPrompt(d, ch, p, opts = {}) {
   // framing first: the model weighs the beginning of the prompt most
   const pose = (p.pose || '').trim();
   parts.push(opts.multi ? MULTI_VIEW : pose ? fr[2].replace('standing pose', '').replace(/,\s*,/g, ',') + ', pose: ' + pose : fr[2]);
+  if (opts.emphasis?.length) parts.push('IMPORTANT, clearly visible body shape: ' + opts.emphasis.join(', '));
   parts.push(`${age} ${g}, ${sp.text}`);
   parts.push(pick(p.attract, LOOKS));
+  parts.push(...bodyText(p));
   parts.push(pick(p.build, [[12, 'very thin, gaunt build'], [32, 'slim build'], [58, 'average build'], [74, 'stocky, slightly heavy build'], [89, 'heavyset, overweight with a round belly'], [100, 'very fat, obese body']]));
   const curvy = pick(p.curvy, [[18, 'straight angular figure'], [48, ''], [74, 'curvy figure'], [100, 'very curvy hourglass figure']]);
   if (curvy) parts.push(curvy);
   const mus = pick(p.muscle, [[18, 'frail with little muscle'], [52, ''], [78, 'muscular, athletic'], [100, 'extremely muscular, powerful physique']]);
   if (mus) parts.push(mus);
-  for (const [k, , , scale] of BODY_PARTS) {
-    const v = p.body?.[k]; if (v == null || v === 50) continue;
-    let txt = pick(v, scale); if (txt && typeof txt === 'object') txt = p.gender === 'male' ? txt.m : txt.f;
-    if (txt) parts.push(txt);
-  }
   const h = p.height || sp.avg;
   const rel = (h - sp.avg) / sp.avg;
   parts.push(pick(rel, [[-0.15, `very short for their kind (${h} cm)`], [-0.06, `short for their kind (${h} cm)`], [0.06, `average height (${h} cm)`], [0.15, `tall for their kind (${h} cm)`], [9, `very tall for their kind (${h} cm)`]]));
@@ -168,9 +181,18 @@ export function buildPrompt(d, ch, p, opts = {}) {
   return parts.filter(Boolean).join(', ');
 }
 
+// output resolution presets (megapixel factor relative to the framing's base size ~1 MP)
+export const RESOLUTIONS = [
+  ['fast', { de: 'Schnell', en: 'Fast' }, 0.6],
+  ['std', { de: 'Standard', en: 'Standard' }, 1],
+  ['high', { de: 'Hoch', en: 'High' }, 1.5],
+  ['max', { de: 'Sehr hoch', en: 'Very high' }, 2.1],
+];
 export function frameSize(p) {
   const fr = FRAMINGS.find(f => f[0] === p.framing) || FRAMINGS[0];
-  return { width: fr[3], height: fr[4] };
+  const r = RESOLUTIONS.find(x => x[0] === p.res) || RESOLUTIONS[1];
+  const k = Math.sqrt(r[2]);
+  return { width: Math.round(fr[3] * k / 64) * 64, height: Math.round(fr[4] * k / 64) * 64 };
 }
 
 // Fallback background removal (when the BiRefNet model is not installed):

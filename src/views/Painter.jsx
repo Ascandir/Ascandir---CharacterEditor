@@ -3,7 +3,7 @@ import ZoomView from '../components/ZoomView.jsx';
 import { splitViews } from '../ai/images.js';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
-import { buildPrompt, frameSize, removeBackground, STYLES, FRAMINGS, DEFAULT_PAINTER, typicalHeight, MULTI_SIZE, BODY_PARTS } from '../ai/prompt.js';
+import { buildPrompt, frameSize, removeBackground, STYLES, FRAMINGS, DEFAULT_PAINTER, typicalHeight, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText } from '../ai/prompt.js';
 import { RINGS, composeToken } from '../three/token.js';
 import AiSetup from '../components/AiSetup.jsx';
 
@@ -116,9 +116,14 @@ export default function Painter({ ch, d, update }) {
       const multi = mode === 'multi';
       const { width, height } = multi ? MULTI_SIZE : frameSize(p);
       const seed = Math.floor(Math.random() * 2 ** 31);
-      const usedPrompt = multi ? multiPrompt : prompt;
+      // shape sliders changed since the selected picture was made → push them to the front and allow bigger changes
+      const prev = selMeta?.params;
+      const changed = mode === 'refine' ? BODY_PARTS.map(b => b[0]).filter(k => (prev?.body?.[k] ?? 50) !== (p.body?.[k] ?? 50)) : [];
+      const shapeChanged = changed.length > 0 || (mode === 'refine' && prev && ['build', 'curvy', 'muscle', 'height', 'attract'].some(k => prev[k] !== p[k]));
+      const emphasis = changed.length ? bodyText({ ...p, body: Object.fromEntries(changed.map(k => [k, p.body?.[k] ?? 50])) }, changed).filter(x => !/^exaggerated stylised/.test(x)) : [];
+      const usedPrompt = multi ? multiPrompt : (mode === 'refine' && emphasis.length && p.promptOverride == null ? buildPrompt(d, ch, p, { emphasis }) : prompt);
       const params = { prompt: usedPrompt, seed, width, height, batch: multi ? 1 : mode === 'refine' ? Math.min(count, 2) : count, removeBg: (multi || p.removeBg) && hasBiRef };
-      if (mode === 'refine' && selImg) { params.initImage = await onGrey(selImg); params.denoise = Math.max(0.15, Math.min(0.9, p.strength / 100)); }
+      if (mode === 'refine' && selImg) { params.initImage = await onGrey(selImg); params.denoise = Math.max(shapeChanged ? 0.68 : 0.15, Math.min(0.9, p.strength / 100)); }
       if (multi && selImg && p.multiFromSel !== false && selMeta?.kind !== 'multi') { params.initImage = await multiInit(await onGrey(selImg)); params.denoise = Math.max(0.4, Math.min(0.95, (p.multiStrength ?? 78) / 100)); }
       const res = await api.ai.generate(params);
       const saved = [];
@@ -126,7 +131,7 @@ export default function Painter({ ch, d, update }) {
         const url = (multi || p.removeBg) && !hasBiRef ? await removeBackground(raw) : raw;
         const name = await api.saveImage(ch.id, url);
         setCache(c => ({ ...c, [name]: url }));
-        saved.push({ name, seed: seed + i, prompt: usedPrompt, ts: Date.now(), seconds: res.seconds, ...(multi ? { kind: 'multi' } : {}) });
+        saved.push({ name, seed: seed + i, prompt: usedPrompt, ts: Date.now(), seconds: res.seconds, params: JSON.parse(JSON.stringify(p)), ...(multi ? { kind: 'multi' } : {}) });
       }
       update(c => {
         const all = [...saved, ...(c.paintings || [])];
@@ -217,6 +222,11 @@ export default function Painter({ ch, d, update }) {
           <span className="bold small">{t.pFraming}</span>
           <div className="seg">{FRAMINGS.map(([k, l]) => <button key={k} className={p.framing === k ? 'on' : ''} onClick={() => set('framing', k)}>{l[lang]}</button>)}</div>
         </div>
+        <div className="col" style={{ gap: 6 }}>
+          <span className="bold small">{t.pRes} <span className="muted">· {frameSize(p).width} × {frameSize(p).height} px</span></span>
+          <div className="seg">{RESOLUTIONS.map(([k, l]) => <button key={k} className={(p.res || 'std') === k ? 'on' : ''} onClick={() => set('res', k)}>{l[lang]}</button>)}</div>
+          <span className="muted small">{t.pResHint}</span>
+        </div>
         <label className="row small"><input type="checkbox" checked={p.removeBg} onChange={e => set('removeBg', e.target.checked)} />{t.pRemoveBg}</label>
         <label className="col" style={{ gap: 4 }}><span className="muted small">{t.pExtra}</span>
           <textarea rows={2} value={p.extra || ''} onChange={e => set('extra', e.target.value)} /></label>
@@ -265,6 +275,7 @@ export default function Painter({ ch, d, update }) {
             <span className="muted">{p.strength} % – {p.strength < 40 ? t.pSmall : p.strength < 65 ? t.pMedium : t.pBig}</span>
           </div>
         )}
+        {ready && p.promptOverride != null && <div className="banner" style={{ margin: 0 }}><span className="small grow">{t.pOverrideWarn}</span><button className="btn sm" onClick={() => set('promptOverride', null)}>{t.pPromptReset}</button></div>}
         {ready && p.removeBg && !hasBiRef && (
           <div className="banner" style={{ margin: 0 }}>
             <span className="small grow">{t.pBgModel}</span>

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.3
+- Körperdetails deutlich stärker: 7 Stufen, die Enden sind bewusst übertrieben (0 = z. B. komplett flach, 100 = riesig und cartoonhaft)
+- Verfeinern nach geänderten Körperdetails oder Körperform: Die geänderten Werte werden in der KI-Anweisung nach vorne gezogen, und die Änderungsstärke wird automatisch auf mindestens 68 % angehoben, damit sich die Figur auch wirklich ändert
+- Hinweis, wenn die KI-Anweisung von Hand geändert wurde, denn dann wirken die Regler nicht
+- Auflösung wählbar: Schnell, Standard, Hoch, Sehr hoch (bis ca. 2 Megapixel)
+
 ## 0.3.2
 - KI-Maler: Die Bildvorschau passt ihre Höhe jetzt automatisch an die Fenstergröße an
 - Am unteren Rand der Vorschau gibt es einen Griff, mit dem du die Höhe selbst ziehen kannst. Die Höhe wird gemerkt, ein Doppelklick auf den Griff stellt wieder auf automatisch
