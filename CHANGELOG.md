@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3
+- **Filter** für Völker, Klassen und Hintergründe (wie bei 5e.tools): z. B. Attributsbonus, Talent, Fertigkeiten, Werkzeuge, Sprachen, Größe, Bewegungsarten, Dunkelsicht, Resistenzen, Kreaturentyp, Quelle. Klick = einschließen, nochmal = ausschließen
+- Standard-Array / gewürfelte Werte: ein bereits vergebener Wert tauscht jetzt die beiden Felder, dazu ein Knopf „Felder leeren“
+
 ## 0.2.2
 - Update-Funktion repariert: kein Absturz mehr („EBUSY … resource busy or locked“), wenn noch ein altes Installationsprogramm läuft
 - Das Update-Installationsprogramm läuft jetzt sichtbar statt still im Hintergrund, am Ende kann das Programm direkt gestartet werden

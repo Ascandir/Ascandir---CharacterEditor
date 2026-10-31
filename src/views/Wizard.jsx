@@ -3,6 +3,7 @@ import { useT, ABILS, ABIL_LONG, ABIL_NAMES } from '../i18n.js';
 import { makeFilter, equipmentGroups, POINT_COST, fmtMod, mod, stripTags, dedupeByName } from '../engine/rules.js';
 import { uidOf, sourceGroup } from '../data/loader.js';
 import { Choices } from '../components/Shared.jsx';
+import { buildFacets, applyFacets, activeCount } from '../filters.js';
 import Entries from '../components/Entries.jsx';
 
 export default function Wizard(props) {
@@ -109,16 +110,73 @@ function Basics({ ch, update }) {
   );
 }
 
-function EntityList({ list, selected, onPick, t, db }) {
+function fmtVal(f, v, t, lang) {
+  if (f.fmt === 'abil') return ABIL_LONG[lang]?.[v] || v;
+  if (f.fmt === 'yesno') return v === 'yes' ? t.fYes : t.fNo;
+  if (f.fmt === 'none' && v === 'none') return t.fNone;
+  if (f.fmt === 'speed') return t['f' + v[0].toUpperCase() + v.slice(1)] || v;
+  if (f.fmt === 'caster') return v === 'no' ? t.fNo : ({ full: t.fFull, '1/2': t.fHalf, '1/3': t.fThird, pact: t.fPact }[v] || t.fYes);
+  return v;
+}
+
+function FilterPanel({ facets, state, setState, t, lang, db }) {
+  const [openId, setOpenId] = useState(null);
+  const cycle = (id, v) => setState(s => {
+    const cur = s[id] || { vals: {}, and: false };
+    const vals = { ...cur.vals }; const nx = ((vals[v] || 0) + 1) % 3;
+    if (nx) vals[v] = nx; else delete vals[v];
+    return { ...s, [id]: { ...cur, vals } };
+  });
+  const toggleAnd = id => setState(s => ({ ...s, [id]: { vals: {}, ...s[id], and: !s[id]?.and } }));
+  return (
+    <div className="col filterpanel" style={{ gap: 4 }}>
+      <span className="muted small">{t.fHint}</span>
+      {facets.map(f => {
+        const st = state[f.id]; const n = Object.keys(st?.vals || {}).length; const open = openId === f.id || n > 0 && openId === null && false;
+        return (
+          <div key={f.id} className="col" style={{ gap: 4 }}>
+            <button className="filterhead" onClick={() => setOpenId(openId === f.id ? '' : f.id)}>
+              <span className="bold grow">{t[f.label]}</span>
+              {n > 0 && <span className="badge">{n}</span>}
+              <span className="muted">{openId === f.id ? '▴' : '▾'}</span>
+            </button>
+            {openId === f.id && (
+              <div className="row wrap" style={{ gap: 4, padding: '2px 0 6px' }}>
+                {f.values.map(({ v, n: cnt }) => {
+                  const s = st?.vals?.[v] || 0;
+                  const label = f.fmt === 'source' ? (db.sourceMeta[v]?.abbr || v) : fmtVal(f, v, t, lang);
+                  return <button key={v} title={f.fmt === 'source' ? db.sourceMeta[v]?.name : undefined} className={'chip fchip' + (s === 1 ? ' inc' : s === 2 ? ' exc' : '')} onClick={() => cycle(f.id, v)}>{s === 2 ? '− ' : s === 1 ? '+ ' : ''}{label} <span className="muted">{cnt}</span></button>;
+                })}
+                <button className="chip" onClick={() => toggleAnd(f.id)} title={t.fAnd + ' / ' + t.fOr}>{t.fMatch}: {st?.and ? t.fAnd : t.fOr}</button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function EntityList({ list, selected, onPick, t, db, kind }) {
+  const { lang } = useT();
   const [q, setQ] = useState('');
   const [grp, setGrp] = useState('all');
-  const shown = list.filter(e => (!q || e.name.toLowerCase().includes(q.toLowerCase())) && (grp === 'all' || (grp === 'hb' ? e.__origin === 'homebrew' : e.__origin !== 'homebrew')));
+  const [fOpen, setFOpen] = useState(false);
+  const [fState, setFState] = useState({});
+  const base = list.filter(e => (!q || e.name.toLowerCase().includes(q.toLowerCase())) && (grp === 'all' || (grp === 'hb' ? e.__origin === 'homebrew' : e.__origin !== 'homebrew')));
+  const facets = useMemo(() => kind ? buildFacets(kind, list) : [], [kind, list]);
+  const shown = kind ? applyFacets(kind, base, fState) : base;
+  const nAct = activeCount(fState);
   return (
     <section className="card col" style={{ flex: '1 1 300px', maxWidth: 400 }}>
       <input placeholder={t.search} value={q} onChange={e => setQ(e.target.value)} aria-label={t.search} />
-      <div className="row" style={{ gap: 6 }}>
+      <div className="row wrap" style={{ gap: 6 }}>
         {[['all', 'Alle / All'], ['off', 'Offiziell'], ['hb', t.srcHomebrew]].map(([k, l]) => <button key={k} className={'chip' + (grp === k ? ' on' : '')} onClick={() => setGrp(k)}>{l}</button>)}
+        {facets.length > 0 && <button className={'chip' + (fOpen || nAct ? ' on' : '')} onClick={() => setFOpen(!fOpen)}>{t.filters}{nAct ? ` (${nAct})` : ''} {fOpen ? '▴' : '▾'}</button>}
+        {nAct > 0 && <button className="chip" onClick={() => setFState({})}>{t.fReset}</button>}
       </div>
+      {fOpen && <FilterPanel facets={facets} state={fState} setState={setFState} t={t} lang={lang} db={db} />}
+      {(nAct > 0 || q) && <span className="muted small">{t.fShown(shown.length, list.length)}</span>}
       <div className="col scroll" style={{ gap: 6, maxHeight: 560 }}>
         {shown.map(e => (
           <button key={uidOf(e)} className={'listbtn' + (selected === uidOf(e) ? ' sel' : '')} onClick={() => onPick(e)}>
@@ -138,7 +196,7 @@ function RaceStep(props) {
   const race = d.race;
   return (
     <div className="page">
-      <EntityList list={races} selected={ch.raceUid} db={db} t={t} onPick={e => update(c => {
+      <EntityList kind="race" list={races} selected={ch.raceUid} db={db} t={t} onPick={e => update(c => {
         c.raceUid = uidOf(e);
         for (const k of Object.keys(c.choices)) if (k.startsWith('race:')) delete c.choices[k];
         return c;
@@ -163,7 +221,7 @@ function ClassStep(props) {
   const startLevel = ch.levels.filter(l => l.classUid === first).length || 1;
   return (
     <div className="page">
-      <EntityList list={classes} selected={first} db={db} t={t} onPick={e => update(c => {
+      <EntityList kind="class" list={classes} selected={first} db={db} t={t} onPick={e => update(c => {
         const old = c.levels[0]?.classUid; const nu = uidOf(e);
         if (!c.levels.length) c.levels = [{ classUid: nu }];
         else c.levels = c.levels.map(l => (l.classUid === old ? { ...l, classUid: nu } : l));
@@ -199,7 +257,7 @@ function BgStep(props) {
   const bg = d.background;
   return (
     <div className="page">
-      <EntityList list={bgs} selected={ch.backgroundUid} db={db} t={t} onPick={e => update(c => {
+      <EntityList kind="background" list={bgs} selected={ch.backgroundUid} db={db} t={t} onPick={e => update(c => {
         c.backgroundUid = uidOf(e);
         for (const k of Object.keys(c.choices)) if (k.startsWith('bg:') || k.startsWith('background:')) delete c.choices[k];
         c.equipChoices = {}; return c;
@@ -305,6 +363,12 @@ function AbilityStep({ ch, d, update }) {
             )}
           </>
         )}
+        {['standard', 'roll'].includes(gen.method) && gen.values.length > 0 && (
+          <div className="row" style={{ gap: 6 }}>
+            <button className="btn sm" onClick={() => setGen(g => { g.assign = {}; })}>{t.clearAssign}</button>
+            <span className="muted small">{t.swapHint}</span>
+          </div>
+        )}
         {gen.method === 'pointbuy' && <div className={'bold' + (27 - spent < 0 ? '' : '')} style={{ color: 27 - spent < 0 ? 'var(--bad)' : 'var(--accent2)' }}>{t.pointsLeft(27 - spent)}</div>}
       </section>
 
@@ -329,11 +393,13 @@ function AbilityStep({ ch, d, update }) {
                   {['standard', 'roll'].includes(gen.method) && (
                     <select aria-label={ABIL_LONG[lang][a]} value={gen.assign?.[a] ?? ''} onChange={e => setGen(g => {
                       const v = e.target.value === '' ? null : Number(e.target.value);
-                      for (const k of ABILS) if (g.assign[k] === v) delete g.assign[k];
+                      const prev = g.assign[a];
+                      // value already used elsewhere → swap the two fields
+                      for (const k of ABILS) if (k !== a && v != null && g.assign[k] === v) { if (prev != null) g.assign[k] = prev; else delete g.assign[k]; }
                       if (v == null) delete g.assign[a]; else g.assign[a] = v;
                     })}>
                       <option value="">—</option>
-                      {gen.values.map((v, i) => <option key={i} value={i} disabled={Object.entries(gen.assign || {}).some(([k, x]) => x === i && k !== a)}>{v}</option>)}
+                      {gen.values.map((v, i) => <option key={i} value={i}>{v}{Object.entries(gen.assign || {}).some(([k, x]) => x === i && k !== a) ? ' ⇄' : ''}</option>)}
                     </select>
                   )}
                   {gen.method === 'pointbuy' && (
