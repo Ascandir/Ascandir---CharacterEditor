@@ -83,7 +83,7 @@ async function status() {
   if (proc) { try { running = (await fetch(`http://127.0.0.1:${port}/system_stats`)).ok; } catch { running = false; } }
   return {
     platform: process.platform, supported: process.platform === 'win32',
-    dir: cfg.dir || null, defaultDir: path.join(app.getPath('userData'), 'ai'), gpu: cfg.gpu || null,
+    dir: cfg.dir || null, defaultDir: await suggestedDir() || path.join(app.getPath('userData'), 'ai'), programModelsDir: await suggestedDir(), gpu: cfg.gpu || null,
     comfyInstalled: !!root, comfyVersion: cfg.comfyVersion || null, models, running, starting: !!proc && !running,
     freeGB: cfg.dir ? await freeSpaceGB(cfg.dir) : await freeSpaceGB(app.getPath('userData')),
     setupDone: !!cfg.setupDone, setupSkipped: !!cfg.setupSkipped, idleMinutes: cfg.idleMinutes ?? 10,
@@ -142,9 +142,24 @@ function extract(archive, outDir, label) {
 
 async function install({ dir, gpu, models: modelIds, comfy: doComfy = true }) {
   if (process.platform !== 'win32' && !ALLOW_ANY_OS) throw new Error('AI setup is only available on Windows');
+  const cfg = await readCfg();
+  // switching folders: move the existing installation instead of downloading everything again
+  if (cfg.dir && path.resolve(cfg.dir).toLowerCase() !== path.resolve(dir).toLowerCase() && fs.existsSync(cfg.dir)) {
+    const empty = !fs.existsSync(dir) || (await fsp.readdir(dir)).filter(f => !f.startsWith('.')).length === 0;
+    if (empty) {
+      await stop();
+      send('ai:progress', { phase: 'extract', label: 'Moving / Verschieben', pct: 0 });
+      try {
+        if (fs.existsSync(dir)) await fsp.rmdir(dir);
+        await fsp.mkdir(path.dirname(dir), { recursive: true });
+        await fsp.rename(cfg.dir, dir);
+        if (cfg.trellis) for (const k of ['serverBin', 'modelsDir']) if (cfg.trellis[k]?.startsWith(cfg.dir)) cfg.trellis[k] = dir + cfg.trellis[k].slice(cfg.dir.length);
+        log('moved AI folder ' + cfg.dir + ' -> ' + dir);
+      } catch (e) { log('move failed (' + e.message + '), installing fresh'); }
+    }
+  }
   await fsp.mkdir(dir, { recursive: true });
   const catalog = await getCatalog();
-  const cfg = await readCfg();
   cfg.dir = dir; cfg.gpu = gpu; cfg.models = cfg.models || {};
   await writeCfg(cfg);
   abort = new AbortController();
@@ -335,6 +350,13 @@ async function updates() {
 
 // processes left over from a crashed / force-killed earlier session (ComfyUI python, trellis-server)
 // keep GPU memory and lock model files – clean them up on start. Only touches programs inside the AI folder.
+// "<program folder>\models": kept across updates by the installer (build/installer.nsh), used when writable
+async function suggestedDir() {
+  if (!app.isPackaged) return null;
+  const d = path.join(path.dirname(process.execPath), 'models');
+  try { await fsp.mkdir(d, { recursive: true }); const f = path.join(d, '.write-test'); await fsp.writeFile(f, 'x'); await fsp.unlink(f); return d; } catch { return null; }
+}
+
 async function killOrphans() {
   if (process.platform !== 'win32' || EXTERNAL) return;
   const dir = (await readCfg()).dir; if (!dir) return;
@@ -357,10 +379,13 @@ function register(mainWindowGetter) {
   ipcMain.handle('ai:chooseDir', async () => {
     const r = await dialog.showOpenDialog(mainWindowGetter(), { properties: ['openDirectory', 'createDirectory'] });
     if (r.canceled || !r.filePaths[0]) return null;
-    const dir = path.join(r.filePaths[0], 'Ascandir-AI');
-    // never inside the program folder: an update/uninstall would delete it
+    const picked = r.filePaths[0];
+    const dir = path.basename(picked).toLowerCase() === 'models' ? picked : path.join(picked, 'models');
+    // inside the program folder only "<program>\models" survives updates
     const inst = path.dirname(process.execPath).toLowerCase();
-    if (app.isPackaged && (dir.toLowerCase() + path.sep).startsWith(inst + path.sep)) throw new Error('This folder is inside the program folder and would be deleted by updates. Please choose another folder.');
+    const keep = path.join(inst, 'models');
+    const low = dir.toLowerCase();
+    if (app.isPackaged && (low + path.sep).startsWith(inst + path.sep) && !(low === keep || low.startsWith(keep + path.sep))) throw new Error('Inside the program folder only the folder "models" is kept during updates. Please choose that or another folder.');
     return { dir, freeGB: await freeSpaceGB(r.filePaths[0]) };
   });
   ipcMain.handle('ai:openDir', async () => { const c = await readCfg(); if (c.dir) await shell.openPath(c.dir); return true; });

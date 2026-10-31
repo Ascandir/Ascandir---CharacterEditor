@@ -1,7 +1,7 @@
 {
   "name": "ascandir-charactereditor",
   "productName": "Ascandir - CharacterEditor",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "D&D 5e Character Editor with 5e.tools data and 3D designer",
   "author": "Ascandir",
   "main": "electron/main.cjs",
@@ -62,7 +62,8 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Ascandir - CharacterEditor",
       "deleteAppDataOnUninstall": false,
-      "uninstallDisplayName": "Ascandir - CharacterEditor"
+      "uninstallDisplayName": "Ascandir - CharacterEditor",
+      "include": "build/installer.nsh"
     },
     "publish": null,
     "extraResources": [

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.6
+- KI einrichten: Vorschlag, die KI im Ordner **„models“ im Programmordner** zu installieren. Dieser Ordner bleibt bei Updates erhalten
+- Wählst du selbst einen Ordner, wird darin ein Unterordner „models“ angelegt
+- Wechselst du den Ordner, wird die vorhandene KI (ComfyUI, Modelle, TRELLIS) dorthin verschoben statt neu geladen
+
 ## 0.3.5
 - Beim Start beendet das Programm übrig gebliebene KI-Prozesse aus einer früheren Sitzung (z. B. ComfyUI, das nach dem Beenden über den Task-Manager weiterlief und Grafikspeicher und Modelldateien belegt hat)
 - Vor einem Update werden auch alle Prozesse aus dem KI-Ordner beendet

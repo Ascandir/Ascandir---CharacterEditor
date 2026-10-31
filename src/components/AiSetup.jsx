@@ -59,8 +59,13 @@ export default function AiSetup({ onDone, onSkip, compact }) {
         <span className="bold">{t.aiFolder}</span>
         <div className="row">
           <code className="grow" style={{ padding: '9px 12px', borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--line)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dir}</code>
-          <button className="btn sm" disabled={busy} onClick={async () => { const r = await api.ai.chooseDir(); if (r) { setDir(r.dir); setFree(r.freeGB); } }}>{t.aiChange}</button>
+          <button className="btn sm" disabled={busy} onClick={async () => { try { const r = await api.ai.chooseDir(); if (r) { setDir(r.dir); setFree(r.freeGB); } } catch (e) { setErr(String(e.message || e).replace(/^Error invoking remote method[^:]*: (Error: )?/, '')); } }}>{t.aiChange}</button>
         </div>
+        {st.programModelsDir && dir !== st.programModelsDir && (
+          <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} disabled={busy} onClick={() => setDir(st.programModelsDir)}>{t.aiUseProgramDir}</button>
+        )}
+        {st.programModelsDir && dir === st.programModelsDir && <span className="muted small">{t.aiProgramDirNote}</span>}
+        {st.dir && dir !== st.dir && st.comfyInstalled && <span className="small" style={{ color: 'var(--accent2)' }}>{t.aiMoveNote(st.dir)}</span>}
       </div>
       <div className="col" style={{ gap: 6 }}>
         <span className="bold">{t.aiModels}</span>
