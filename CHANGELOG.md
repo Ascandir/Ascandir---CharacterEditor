@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.6
+- KI-Maler: Textfeld **Pose** (z. B. „kneeling, drawing a sword“)
+- **Körperdetails** zum Aufklappen: Schulterbreite, Armlänge, Armdicke, Oberweite/Brust, Taille, Hüfte, Po, Beinlänge, Beindicke, Kopfgröße. 50 = normal, Doppelklick auf einen Regler setzt ihn zurück
+
 ## 0.2.5
 - KI-Maler: **eigene Bilder importieren** (Knopf „Bild importieren“ oder ins Bild ziehen) und danach mit „Ausgewähltes verfeinern“ von der KI anpassen lassen
 - **Mehrfachansicht**: erzeugt ein Blatt mit 4 Ansichten (vorne, rechts, hinten, links), auf Wunsch am ausgewählten Bild orientiert. „Ansichten einzeln speichern (TRELLIS)“ legt jede Ansicht als freigestelltes PNG in einen Ordner

@@ -104,6 +104,20 @@ const LOOKS = [
   [100, 'stunningly beautiful face, captivating gaze, perfect features'],
 ];
 
+// body detail sliders (50 = no mention). [key, de, en, [[max, text]...]]
+export const BODY_PARTS = [
+  ['shoulders', 'Schulterbreite', 'Shoulder width', [[20, 'very narrow shoulders'], [38, 'narrow shoulders'], [62, ''], [82, 'broad shoulders'], [100, 'extremely broad shoulders']]],
+  ['armLen', 'Armlänge', 'Arm length', [[20, 'very short stubby arms'], [38, 'short arms'], [62, ''], [82, 'long arms'], [100, 'very long lanky arms reaching to the knees']]],
+  ['armThick', 'Armdicke', 'Arm thickness', [[20, 'very thin skinny arms'], [38, 'slender arms'], [62, ''], [82, 'thick strong arms'], [100, 'massive heavy arms']]],
+  ['bust', 'Oberweite', 'Bust / chest', [[20, { f: 'flat chest', m: 'narrow flat chest' }], [38, { f: 'small bust', m: 'slim chest' }], [62, ''], [82, { f: 'large bust', m: 'broad chest' }], [100, { f: 'very large bust', m: 'very broad barrel chest' }]]],
+  ['waist', 'Taille', 'Waist', [[20, 'very narrow waist'], [38, 'slim waist'], [62, ''], [82, 'thick waist'], [100, 'very wide waist']]],
+  ['hips', 'Hüfte', 'Hips', [[20, 'very narrow hips'], [38, 'narrow hips'], [62, ''], [82, 'wide hips'], [100, 'very wide hips']]],
+  ['butt', 'Po', 'Buttocks', [[20, 'flat buttocks'], [38, 'small buttocks'], [62, ''], [82, 'large rounded buttocks'], [100, 'very large buttocks']]],
+  ['legLen', 'Beinlänge', 'Leg length', [[20, 'very short stubby legs'], [38, 'short legs'], [62, ''], [82, 'long legs'], [100, 'very long legs']]],
+  ['legThick', 'Beindicke', 'Leg thickness', [[20, 'very thin spindly legs'], [38, 'slender legs'], [62, ''], [82, 'thick strong legs'], [100, 'massive heavy legs']]],
+  ['head', 'Kopfgröße', 'Head size', [[20, 'very small head'], [38, 'small head'], [62, ''], [82, 'large head'], [100, 'very large head']]],
+];
+
 export const MULTI_VIEW = 'character turnaround reference sheet, four full body views of the exact same character side by side in one row, from left to right: front view, side view facing right, back view, side view facing left, each view from head to feet, standing in a relaxed A-pose with arms slightly away from the body, orthographic camera at chest height, even neutral lighting, identical outfit, colors and proportions in every view';
 export const MULTI_SIZE = { width: 1792, height: 1024, views: 4 };
 
@@ -115,7 +129,8 @@ export function buildPrompt(d, ch, p, opts = {}) {
   const g = p.gender === 'female' ? 'woman' : p.gender === 'nonbinary' ? 'androgynous person' : 'man';
   const age = pick(p.age, [[25, 'young adult'], [40, 'adult'], [55, 'middle-aged'], [70, 'older, with grey streaks and wrinkles'], [100, 'elderly, white hair and deep wrinkles']]);
   // framing first: the model weighs the beginning of the prompt most
-  parts.push(opts.multi ? MULTI_VIEW : fr[2]);
+  const pose = (p.pose || '').trim();
+  parts.push(opts.multi ? MULTI_VIEW : pose ? fr[2].replace('standing pose', '').replace(/,\s*,/g, ',') + ', pose: ' + pose : fr[2]);
   parts.push(`${age} ${g}, ${sp.text}`);
   parts.push(pick(p.attract, LOOKS));
   parts.push(pick(p.build, [[12, 'very thin, gaunt build'], [32, 'slim build'], [58, 'average build'], [74, 'stocky, slightly heavy build'], [89, 'heavyset, overweight with a round belly'], [100, 'very fat, obese body']]));
@@ -123,6 +138,11 @@ export function buildPrompt(d, ch, p, opts = {}) {
   if (curvy) parts.push(curvy);
   const mus = pick(p.muscle, [[18, 'frail with little muscle'], [52, ''], [78, 'muscular, athletic'], [100, 'extremely muscular, powerful physique']]);
   if (mus) parts.push(mus);
+  for (const [k, , , scale] of BODY_PARTS) {
+    const v = p.body?.[k]; if (v == null || v === 50) continue;
+    let txt = pick(v, scale); if (txt && typeof txt === 'object') txt = p.gender === 'male' ? txt.m : txt.f;
+    if (txt) parts.push(txt);
+  }
   const h = p.height || sp.avg;
   const rel = (h - sp.avg) / sp.avg;
   parts.push(pick(rel, [[-0.15, `very short for their kind (${h} cm)`], [-0.06, `short for their kind (${h} cm)`], [0.06, `average height (${h} cm)`], [0.15, `tall for their kind (${h} cm)`], [9, `very tall for their kind (${h} cm)`]]));

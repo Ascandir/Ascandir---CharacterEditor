@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ZoomView from '../components/ZoomView.jsx';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
-import { buildPrompt, frameSize, removeBackground, STYLES, FRAMINGS, DEFAULT_PAINTER, typicalHeight, MULTI_SIZE } from '../ai/prompt.js';
+import { buildPrompt, frameSize, removeBackground, STYLES, FRAMINGS, DEFAULT_PAINTER, typicalHeight, MULTI_SIZE, BODY_PARTS } from '../ai/prompt.js';
 import { RINGS, composeToken } from '../three/token.js';
 import AiSetup from '../components/AiSetup.jsx';
 
@@ -77,6 +77,7 @@ export default function Painter({ ch, d, update }) {
   const [count, setCount] = useState(2);
   const [showSetup, setShowSetup] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
+  const [showBody, setShowBody] = useState(false);
   const tokenRef = useRef(null);
   const paintings = ch.paintings || [];
   const selName = ch.selectedPainting || paintings[0]?.name;
@@ -200,6 +201,23 @@ export default function Painter({ ch, d, update }) {
         {slider('muscle', t.muscle, 0, 100, t.little, t.much)}
         {slider('attract', t.pAttract, 0, 100, t.pPlain, t.pStunning)}
         {slider('age', t.age, 18, 100, t.young, t.old)}
+        <div className="col" style={{ gap: 8 }}>
+          <button className="btn sm ghost" onClick={() => setShowBody(!showBody)}>{t.pBody} {showBody ? '▾' : '▸'}{Object.values(p.body || {}).some(v => v !== 50) ? ' •' : ''}</button>
+          {showBody && <>
+            {BODY_PARTS.map(([k, de, en]) => {
+              const v = p.body?.[k] ?? 50;
+              return (
+                <div key={k}>
+                  <div className="row" style={{ justifyContent: 'space-between' }}><label htmlFor={'bd-' + k} className="small">{lang === 'de' ? de : en}</label><span className="muted small">{v === 50 ? t.pNormal : v}</span></div>
+                  <input id={'bd-' + k} type="range" min={0} max={100} value={v} onChange={e => set('body', { ...(p.body || {}), [k]: Number(e.target.value) })} onDoubleClick={() => set('body', { ...(p.body || {}), [k]: 50 })} />
+                </div>
+              );
+            })}
+            <button className="btn sm" onClick={() => set('body', {})}>{t.pBodyReset}</button>
+          </>}
+        </div>
+        <label className="col" style={{ gap: 4 }}><span className="muted small">{t.pPose}</span>
+          <input value={p.pose || ''} placeholder={lang === 'de' ? 'z. B. kniet, zieht das Schwert, blickt über die Schulter' : 'e.g. kneeling, drawing a sword, looking over the shoulder'} onChange={e => set('pose', e.target.value)} /></label>
         <div className="grid g2">
           {text('hair', t.hair, lang === 'de' ? 'z. B. long black, braided' : 'e.g. long black, braided')}
           {text('eyes', t.pEyes, lang === 'de' ? 'z. B. amber' : 'e.g. amber')}
