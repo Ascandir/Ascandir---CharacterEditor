@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import ZoomView from '../components/ZoomView.jsx';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
 import { buildPrompt, frameSize, removeBackground, STYLES, FRAMINGS, DEFAULT_PAINTER, typicalHeight } from '../ai/prompt.js';
@@ -202,9 +203,7 @@ export default function Painter({ ch, d, update }) {
         )}
         {busy && <div className="banner info" style={{ margin: 0 }}><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />{st?.running ? t.pPainting : t.aiStartingFirst} · {busy.seconds || 0} s</div>}
         {err && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small" style={{ whiteSpace: 'pre-wrap' }}>{err}</span></div>}
-        <div className="checker" style={{ flex: 1, minHeight: 520, borderRadius: 14, border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          {selImg ? <img src={selImg} alt="" style={{ maxWidth: '100%', maxHeight: 640, objectFit: 'contain' }} /> : <span className="muted">{t.pEmpty}</span>}
-        </div>
+        <ZoomView src={selImg} empty={t.pEmpty} labels={{ fit: t.zoomFit, hint: t.zoomHint }} />
         {paintings.length > 0 && (
           <div className="row" style={{ gap: 8, overflowX: 'auto', flexWrap: 'nowrap', paddingBottom: 4 }}>
             {paintings.map(pt => (

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.2.4
+- KI-Maler: großes Bild mit dem Mausrad zoomen (zur Mausposition hin), mit gedrückter Maustaste verschieben, Doppelklick setzt zurück. Unten rechts gibt es −/+ und „Einpassen“
+
 ## 0.2.3
 - **Filter** für Völker, Klassen und Hintergründe (wie bei 5e.tools): z. B. Attributsbonus, Talent, Fertigkeiten, Werkzeuge, Sprachen, Größe, Bewegungsarten, Dunkelsicht, Resistenzen, Kreaturentyp, Quelle. Klick = einschließen, nochmal = ausschließen
 - Standard-Array / gewürfelte Werte: ein bereits vergebener Wert tauscht jetzt die beiden Felder, dazu ein Knopf „Felder leeren“
