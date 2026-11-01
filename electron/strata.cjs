@@ -1,4 +1,5 @@
 // Starts / stops the user's Strata (local text model, https://github.com/Niko1221/Strata) on demand
+// (cmd /s /c strips the outermost quotes, so the whole command line is wrapped in one more pair)
 // through its Terminal command:  strata launch --preset NAME --yes --no-tui   and   strata launch --stop
 const { app, ipcMain } = require('electron');
 const path = require('path');
@@ -35,7 +36,7 @@ function findCmd(custom) {
 
 function run(cmd, args, timeout = 60000) {
   return new Promise(resolve => {
-    execFile('cmd.exe', ['/d', '/s', '/c', `"${cmd}" ${args.join(' ')}`], { windowsHide: true, timeout, windowsVerbatimArguments: true, maxBuffer: 8 * 1024 * 1024, env: { ...process.env, PYTHONUTF8: '1', NO_COLOR: '1' } },
+    execFile('cmd.exe', ['/d', '/s', '/c', `""${cmd}" ${args.join(' ')}"`], { windowsHide: true, timeout, windowsVerbatimArguments: true, maxBuffer: 8 * 1024 * 1024, env: { ...process.env, PYTHONUTF8: '1', NO_COLOR: '1' } },
       (err, stdout, stderr) => resolve({ code: err ? (err.code ?? 1) : 0, stdout: String(stdout || ''), stderr: String(stderr || '') }));
   });
 }
@@ -68,7 +69,7 @@ async function start({ cmd: custom, preset, url, key }) {
   if (!preset) throw new Error('STRATA_NO_PRESET');
   starting = (async () => {
     log('> strata launch --preset ' + preset + ' --yes --no-tui');
-    const p = spawn('cmd.exe', ['/d', '/s', '/c', `"${cmd}" launch --preset ${q(preset)} --yes --no-tui`], { windowsHide: true, windowsVerbatimArguments: true, env: { ...process.env, PYTHONUTF8: '1', NO_COLOR: '1' } });
+    const p = spawn('cmd.exe', ['/d', '/s', '/c', `""${cmd}" launch --preset ${q(preset)} --yes --no-tui"`], { windowsHide: true, windowsVerbatimArguments: true, env: { ...process.env, PYTHONUTF8: '1', NO_COLOR: '1' } });
     let exited = null;
     p.stdout.on('data', log); p.stderr.on('data', log);
     p.on('exit', c => { exited = c; });
@@ -110,7 +111,7 @@ function register(winGetter) {
   ipcMain.handle('strata:touch', () => { touch(); return true; });
   ipcMain.handle('strata:setIdle', (_e, m, o) => { setIdle(m, o); return true; });
   ipcMain.handle('strata:log', () => logBuf.slice(-60).join('\n'));
-  app.on('before-quit', () => { if (startedByUs) { const cmd = findCmd(); if (cmd) spawn('cmd.exe', ['/d', '/s', '/c', `"${cmd}" launch --stop`], { windowsHide: true, detached: true, stdio: 'ignore', windowsVerbatimArguments: true }).unref(); } });
+  app.on('before-quit', () => { if (startedByUs) { const cmd = findCmd(); if (cmd) spawn('cmd.exe', ['/d', '/s', '/c', `""${cmd}" launch --stop"`], { windowsHide: true, detached: true, stdio: 'ignore', windowsVerbatimArguments: true }).unref(); } });
 }
 
 module.exports = { register, touch };

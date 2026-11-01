@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.6
+- KI-Berater: Strata startete nicht, wenn der Preset-Name Leerzeichen enthält (z. B. „IQ3_S 64K“). Der Startbefehl wird jetzt richtig in Anführungszeichen gesetzt
+
 ## 0.7.5
 - **Alter** von 5 bis 1000 Jahren (Regler plus Eingabefeld). Darunter steht, ab wann das gewählte Volk erwachsen ist und wie alt es meist wird (z. B. Elf: erwachsen ab 100, lebt etwa 750 Jahre). Das Alter wird relativ zum Volk beschrieben: Ein 300-jähriger Elf ist ein junger Erwachsener, ein 300-jähriger Mensch uralt
 - Bei Kindern und Jugendlichen werden Körperdetails, Kurven und Attraktivität ignoriert und die Kleidung ist immer bedeckt
