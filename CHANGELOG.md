@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.5
+- KI-Maler: **Fortschrittsbalken** beim Malen. Im KI-Maler steht unter „Die KI malt …“ ein Balken mit „Schritt 12 von 30 · noch etwa 0:40 · 35 %“. Solange das Modell noch geladen wird, läuft der Balken als Lauflicht, danach zeigt er die echten Rechenschritte von ComfyUI und am Ende „Nachbearbeitung“ (Freistellen / Hochskalieren). Auch die Anzeige oben neben „Einstellungen“ hat einen kleinen Balken mit Prozentzahl
+
 ## 0.8.4
 - Alle Textfelder im KI-Maler und im KI-Berater (KI-Anweisung, eigener Prompt, Stil-Prompt, Negativ-Prompt, Zusätze, Eingabe im Berater) haben oben rechts einen **⤢-Knopf**. Er öffnet den Text in einem großen Fenster zum bequemen Lesen und Bearbeiten, mit Zeichen- und Wortzählung und „Kopieren“. Änderungen wirken sofort, „Fertig“ oder Esc schließt das Fenster
 

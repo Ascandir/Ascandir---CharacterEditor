@@ -149,3 +149,8 @@ h1, h2, h3 { margin: 0; }
 .bigtext { position: relative; display: flex; flex-direction: column; }
 .bigtext-btn { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; padding: 0; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--muted, #aaa); cursor: pointer; font-size: 14px; line-height: 1; opacity: .75; }
 .bigtext-btn:hover { opacity: 1; color: inherit; }
+.progbar, .jobbar { position: relative; height: 6px; border-radius: 99px; background: rgba(127,127,127,.25); overflow: hidden; }
+.jobbar { display: inline-block; width: 70px; height: 5px; }
+.progbar > i, .jobbar > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; background: var(--accent); transition: width .6s ease; }
+.progbar.indet > i, .jobbar.indet > i { width: 30% !important; animation: progindet 1.4s ease-in-out infinite; }
+@keyframes progindet { 0% { left: -30%; } 100% { left: 100%; } }

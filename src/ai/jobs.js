@@ -31,7 +31,14 @@ export function cancelJob(kind) {
 let wired = false;
 export function wireJobs() {
   if (wired) return; wired = true;
-  api.ai.on?.('ai:gen', g => setJob('paint', j => (j ? { ...j, seconds: g.seconds } : j)));
+  api.ai.on?.('ai:gen', g => setJob('paint', j => (j ? { ...j, seconds: g.seconds, stage: g.stage, step: g.step, total: g.total, eta: g.eta, post: g.post } : j)));
   api.trellis.on?.('trellis:gen', g => setJob('model3d', j => (j ? { ...j, seconds: g.seconds } : j)));
 }
 export const fmtTime = (s) => `${Math.floor((s || 0) / 60)}:${String((s || 0) % 60).padStart(2, '0')}`;
+// overall progress of a painting job in % (null = not measurable yet, e.g. while the model loads)
+export function jobPct(j) {
+  if (!j || !j.stage || j.stage === 'load') return null;
+  const span = j.post ? 88 : 95;
+  if (j.stage === 'post') return span + 2;
+  return Math.max(1, Math.round(span * (j.step || 0) / Math.max(1, j.total || 1)));
+}

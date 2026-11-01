@@ -14,7 +14,7 @@ import { primaryGpu, AMD_DRIVER_URL } from './hardware.js';
 import { useUpdater, UpdateDialog } from './components/Update.jsx';
 import { DialogHost } from './components/Dialog.jsx';
 import { DbCtx, RefHost } from './components/Entries.jsx';
-import { useJobs, wireJobs, cancelJob, dismissDone, fmtTime } from './ai/jobs.js';
+import { useJobs, wireJobs, cancelJob, dismissDone, fmtTime, jobPct } from './ai/jobs.js';
 import AiSetup from './components/AiSetup.jsx';
 
 export const DEFAULT_SETTINGS = { lang: 'de', rules: '2024', disabledSources: [], homebrew: [], profiles: {}, activeProfile: 'Standard' };
@@ -213,6 +213,8 @@ export default function App() {
               <button className="linklike" onClick={() => { setView('designer'); if (ch && ch.id === jobs[k].charId) update(c => { c.designerMode = mode; return c; }); }}>
                 {jobs[k].cancelling ? t.pCancelling : label} · {fmtTime(jobs[k].seconds)}
               </button>
+              {k === 'paint' && <span className={'jobbar' + (jobPct(jobs[k]) == null ? ' indet' : '')} title={jobPct(jobs[k]) == null ? t.progLoading : jobPct(jobs[k]) + ' %'}><i style={{ width: (jobPct(jobs[k]) ?? 30) + '%' }} /></span>}
+              {k === 'paint' && jobPct(jobs[k]) != null && <span style={{ minWidth: 30 }}>{jobPct(jobs[k])} %</span>}
               {!jobs[k].cancelling && <button className="jobx" aria-label={t.cancel} title={t.cancel} onClick={() => cancelJob(k)}>✕</button>}
             </span>
           ))}

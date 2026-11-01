@@ -288,13 +288,26 @@ async function start() {
   }
 }
 let logFile = null;
+// progress of the running picture, read from ComfyUI's tqdm bars ("12/30 [00:40<01:00, ...]")
+let gen = null; // { phase: 'load' | 'sample' | 'post', step, total, firstAt, lastAt }
+function trackSteps(t) {
+  if (!gen || gen.phase === 'post') return;
+  let m, last = null; const re = /(\d+)\/(\d+) \[/g;
+  while ((m = re.exec(t))) last = m;
+  if (!last) return;
+  const step = Number(last[1]), total = Number(last[2]);
+  if (!total) return;
+  if (gen.phase === 'load') { gen.phase = 'sample'; gen.firstAt = Date.now(); gen.firstStep = step; }
+  gen.step = step; gen.total = total; gen.lastAt = Date.now();
+  if (step >= total) gen.phase = 'post';
+}
 function spawnComfy(root, env, args) {
   procLog = [];
   // the whole log is also written to a file while running (a driver reset can take the app down with it)
   try { logFile = path.join(app.getPath('userData'), 'comfyui.log'); fs.writeFileSync(logFile, new Date().toISOString() + ' start: ' + args.join(' ') + '\n'); } catch { logFile = null; }
   log('args: ' + args.join(' ') + '\n');
   proc = spawn(path.join(root, 'python_embeded', 'python.exe'), ['-s', path.join('ComfyUI', 'main.py'), ...args], { cwd: root, env, windowsHide: true });
-  const w = d => { const t = String(d); log(t); if (logFile) fs.appendFile(logFile, t, () => {}); };
+  const w = d => { const t = String(d); log(t); if (logFile) fs.appendFile(logFile, t, () => {}); trackSteps(t); };
   proc.stdout.on('data', w);
   proc.stderr.on('data', w);
   proc.on('close', code => { log('ComfyUI exited ' + code); if (logFile) fs.appendFile(logFile, '\nComfyUI exited ' + code + '\n', () => {}); proc = null; send('ai:state', { running: false }); });
@@ -489,11 +502,14 @@ async function generateInner(params) {
   }
   const id = body.prompt_id;
   currentPrompt = id; cancelRequested = false;
+  gen = { phase: 'load', step: 0, total: 0 };
   for (;;) {
     await new Promise(res => setTimeout(res, 1000));
     if (cancelRequested) { await cancelGenerate(); currentPrompt = null; throw new Error('CANCELLED'); }
     lastUse = Date.now();
-    send('ai:gen', { phase: 'running', seconds: Math.round((Date.now() - t0) / 1000) });
+    let eta = null;
+    if (gen?.phase === 'sample' && gen.step > (gen.firstStep || 0)) eta = Math.round((gen.lastAt - gen.firstAt) / (gen.step - (gen.firstStep || 0)) * (gen.total - gen.step) / 1000);
+    send('ai:gen', { phase: 'running', seconds: Math.round((Date.now() - t0) / 1000), stage: gen?.phase || 'load', step: gen?.step || 0, total: gen?.total || 0, eta, post: !!(params.upscale || params.removeBg) });
     if (!proc && !EXTERNAL) throw new Error(crashText());
     const h = await (await comfyFetch(`http://127.0.0.1:${port}/history/${id}`, undefined, 'history')).json().catch(() => ({}));
     const entry = h[id];

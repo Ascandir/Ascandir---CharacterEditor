@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import BigText from '../components/BigText.jsx';
 import ZoomView, { ImageModal } from '../components/ZoomView.jsx';
 import { splitViews } from '../ai/images.js';
-import { useJob, useJobs, finishJob, cancelJob, fmtTime } from '../ai/jobs.js';
+import { useJob, useJobs, finishJob, cancelJob, fmtTime, jobPct } from '../ai/jobs.js';
 import { promptDialog, confirmDialog } from '../components/Dialog.jsx';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
@@ -535,8 +535,15 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             }}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : t.pBgModelBtn}</button>
           </div>
         )}
-        {busy && <div className="banner info" style={{ margin: 0 }}><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /><span className="grow">{busy.cancelling ? t.pCancelling : (st?.running ? t.pPainting : t.aiStartingFirst)} · {fmtTime(busy.seconds)}{busy.charId !== ch.id ? ' · ' + (busy.name || '') : ''}</span>
-          <button className="btn sm" disabled={busy.cancelling} onClick={() => cancelJob('paint')}>{t.cancel}</button></div>}
+        {busy && <div className="banner info" style={{ margin: 0, flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+          <div className="row" style={{ gap: 10 }}><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /><span className="grow">{busy.cancelling ? t.pCancelling : (st?.running ? t.pPainting : t.aiStartingFirst)} · {fmtTime(busy.seconds)}{busy.charId !== ch.id ? ' · ' + (busy.name || '') : ''}</span>
+          <button className="btn sm" disabled={busy.cancelling} onClick={() => cancelJob('paint')}>{t.cancel}</button></div>
+          {!busy.cancelling && <div className="col" style={{ gap: 4 }}>
+            <div className={'progbar' + (jobPct(busy) == null ? ' indet' : '')}><i style={{ width: (jobPct(busy) ?? 30) + '%' }} /></div>
+            <span className="muted small">{busy.stage === 'sample' ? t.progStep(busy.step, busy.total) + (busy.eta != null ? ' · ' + t.progEta(fmtTime(busy.eta)) : '') + ' · ' + jobPct(busy) + ' %'
+              : busy.stage === 'post' ? t.progPost : t.progLoading}</span>
+          </div>}
+        </div>}
         {!err && !busy && lastDone?.kind === 'paint' && !lastDone.ok && lastDone.msg && lastDone.msg !== 'CANCELLED' && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small" style={{ whiteSpace: 'pre-wrap' }}>{lastDone.msg === 'COMFY_TOO_OLD' ? t.pComfyOld : lastDone.msg}</span></div>}
         {err && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small grow" style={{ whiteSpace: 'pre-wrap' }}>{err === 'COMFY_TOO_OLD' ? t.pComfyOld : err}</span>
           {err === 'COMFY_TOO_OLD' && <button className="btn sm primary" disabled={!!bgInstall} onClick={async () => { setBgInstall('…'); const off = api.ai.on('ai:progress', pr => setBgInstall((pr.pct ?? 0) + ' %')); try { await api.ai.install({ dir: st.dir, gpu: st.gpu, models: [], comfy: true }); setErr(null); } catch (e) { setErr(String(e.message || e)); } off(); setBgInstall(null); refresh(); }}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : t.pComfyUpdate}</button>}</div>}
