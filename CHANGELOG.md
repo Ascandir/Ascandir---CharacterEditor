@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.1
+- 3D: Die **Texturen** der TRELLIS-Modelle werden jetzt in der Vorschau angezeigt. Sie waren immer in der GLB-Datei enthalten, die Vorschau durfte sie wegen einer Sicherheitseinstellung aber nicht laden und zeigte das Modell weiß
+
 ## 0.8.0
 - **KI-Berater füllt die Regler aus**: Neue Auswahl „Ergebnis: Regler ausfüllen / eigener Prompt“ (Standard: Regler). Der Berater setzt Geschlecht, Alter, Größe, Körperbau, Kurven, Muskeln, Attraktivität, Körperdetails, Haare, Haut, Augen, Merkmale, Kleidung, Pose und Ausschnitt. Mit „In die Regler übernehmen“ landet alles im KI-Maler, wo du danach weiter an den Reglern schieben kannst
 - **Deutsche Beschreibungen** in Haare, Haut, Augen, Merkmale, Kleidung, Pose und Zusätze: Beim Verlassen des Feldes übersetzt dein Textmodell (Strata, falls es läuft) den Text ins Englische. Unter dem Feld steht „EN: …“, so wie es im Prompt landet. Ohne laufendes Textmodell hilft eine deutlich erweiterte Wortliste (u. a. Frisuren wie Pferdeschwanz, Dutt, Zöpfe, Irokese, Locken, schulterlang)

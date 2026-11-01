@@ -83,7 +83,7 @@ export default function Trellis3D({ ch, update }) {
     const o2 = () => {};
     const o3 = api.trellis.on('trellis:state', refresh);
     const o4 = api.ai.on('ai:progress', pr => setInst(x => (x && pr.phase !== 'done' ? { label: pr.label || x.label, pct: pr.pct, speed: pr.speed } : x)));
-    api.trellis.updates().then(setUpd).catch(() => {});
+    api.trellis.updates?.().then(setUpd).catch(() => {});
     return () => { o1(); o2(); o3(); o4(); };
   }, []);
   useEffect(() => {
