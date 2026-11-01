@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import ZoomView from '../components/ZoomView.jsx';
+import ZoomView, { ImageModal } from '../components/ZoomView.jsx';
 import { splitViews } from '../ai/images.js';
 import { useJob, useJobs, finishJob, cancelJob, fmtTime } from '../ai/jobs.js';
 import { promptDialog, confirmDialog } from '../components/Dialog.jsx';
@@ -63,6 +63,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   const [showSetup, setShowSetup] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
   const [showBody, setShowBody] = useState(false);
+  const [big, setBig] = useState(false);
   const savedStyles = globalSettings?.customStyles || [];
   const curSaved = p.style === 'custom' ? savedStyles.find(x => x.id === p.savedStyleId) : null;
   const tokenRef = useRef(null);
@@ -423,7 +424,8 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         {err && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small grow" style={{ whiteSpace: 'pre-wrap' }}>{err === 'COMFY_TOO_OLD' ? t.pComfyOld : err}</span>
           {err === 'COMFY_TOO_OLD' && <button className="btn sm primary" disabled={!!bgInstall} onClick={async () => { setBgInstall('…'); const off = api.ai.on('ai:progress', pr => setBgInstall((pr.pct ?? 0) + ' %')); try { await api.ai.install({ dir: st.dir, gpu: st.gpu, models: [], comfy: true }); setErr(null); } catch (e) { setErr(String(e.message || e)); } off(); setBgInstall(null); refresh(); }}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : t.pComfyUpdate}</button>}</div>}
         <div className="col" style={{ gap: 6 }} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); importImage(e.dataTransfer.files?.[0]); }}>
-          <ZoomView src={selImg} empty={t.pEmptyImport} labels={{ fit: t.zoomFit, hint: t.zoomHint, resize: t.zoomResize }} />
+          <ZoomView src={selImg} empty={t.pEmptyImport} labels={{ fit: t.zoomFit, hint: t.zoomHint, open: t.zoomOpen }} onOpen={() => setBig(true)} />
+          {big && <ImageModal src={selImg} onClose={() => setBig(false)} labels={{ fit: t.zoomFit, hint: t.zoomHint, close: t.close }} />}
         </div>
         <div className="row small" style={{ gap: 8 }}>
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={e => { importImage(e.target.files?.[0]); e.target.value = ''; }} />

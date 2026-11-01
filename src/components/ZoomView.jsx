@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 const HKEY = 'ace.zoomview.height';
 function savedHeight() { try { const v = Number(localStorage.getItem(HKEY)); return v > 150 ? v : null; } catch { return null; } }
 
-export default function ZoomView({ src, empty, labels = {}, reserve = 170 }) {
+export default function ZoomView({ src, empty, labels = {}, reserve = 170, fill = false, onOpen = null }) {
   const hgt = null; // height follows the window (manual resizing was removed)
   const setHgt = () => {};
   const resizing = useRef(null);
@@ -51,19 +51,24 @@ export default function ZoomView({ src, empty, labels = {}, reserve = 170 }) {
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
 
-  const down = e => { if (e.button !== 0) return; drag.current = { px: e.clientX, py: e.clientY }; e.currentTarget.setPointerCapture(e.pointerId); };
+  const down = e => { if (e.button !== 0) return; drag.current = { px: e.clientX, py: e.clientY, sx: e.clientX, sy: e.clientY }; e.currentTarget.setPointerCapture(e.pointerId); };
   const move = e => {
     if (!drag.current) return;
     const dx = e.clientX - drag.current.px, dy = e.clientY - drag.current.py;
-    drag.current = { px: e.clientX, py: e.clientY };
+    drag.current = { ...drag.current, px: e.clientX, py: e.clientY };
     setV(o => ({ ...o, x: o.x + dx, y: o.y + dy }));
   };
-  const up = () => { drag.current = null; };
+  const up = (e) => {
+    const d = drag.current; drag.current = null;
+    // a click without dragging opens the big view
+    if (d && onOpen && src && e?.type === 'pointerup' && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 5) onOpen();
+  };
 
   return (
     <div ref={box} className="checker zoomview" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
-      onDoubleClick={() => setV({ s: 1, x: 0, y: 0 })}
-      style={{ flex: 'none', height: (hgt || autoH) + 'px', borderRadius: 14, border: '1px solid var(--line)', position: 'relative', overflow: 'hidden', cursor: src ? (drag.current ? 'grabbing' : 'grab') : 'default', touchAction: 'none', userSelect: 'none' }}>
+      onDoubleClick={() => { if (!onOpen) setV({ s: 1, x: 0, y: 0 }); }}
+      title={onOpen && src ? labels.open : undefined}
+      style={{ flex: fill ? 1 : 'none', height: fill ? '100%' : (hgt || autoH) + 'px', borderRadius: 14, border: '1px solid var(--line)', position: 'relative', overflow: 'hidden', cursor: src ? (onOpen ? 'zoom-in' : (drag.current ? 'grabbing' : 'grab')) : 'default', touchAction: 'none', userSelect: 'none' }}>
       {src ? (
         <img src={src} alt="" draggable={false} style={{ position: 'absolute', left: '50%', top: '50%', maxWidth: '100%', maxHeight: '100%', transform: `translate(-50%, -50%) translate(${v.x}px, ${v.y}px) scale(${v.s})`, transformOrigin: 'center' }} />
       ) : <span className="muted" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{empty}</span>}
@@ -75,6 +80,23 @@ export default function ZoomView({ src, empty, labels = {}, reserve = 170 }) {
           <button className="btn sm" onClick={() => setV({ s: 1, x: 0, y: 0 })} title={labels.hint}>{labels.fit || 'Fit'}</button>
         </div>
       )}
+    </div>
+  );
+}
+
+// big view in a popup: wheel zoom, drag to pan, Esc / click outside closes
+export function ImageModal({ src, onClose, labels = {} }) {
+  useEffect(() => {
+    const k = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k);
+  }, [onClose]);
+  if (!src) return null;
+  return (
+    <div className="modal-bg" style={{ zIndex: 75 }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '94vw', height: '92vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+        <ZoomView src={src} fill labels={labels} />
+        <button className="btn sm" style={{ position: 'absolute', top: 10, right: 10 }} onClick={onClose} aria-label={labels.close || 'Close'}>✕</button>
+      </div>
     </div>
   );
 }

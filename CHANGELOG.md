@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.2
+- KI-Maler: Ein Klick aufs Bild öffnet eine **große Ansicht** im Popup. Dort zoomst du mit dem Mausrad und verschiebst mit gedrückter Maustaste. Schließen per ✕, Esc oder Klick daneben. In der normalen Vorschau gehen Zoomen und Verschieben weiterhin
+
 ## 0.7.1
 - KI-Maler: Die Bildvorschau lässt sich nicht mehr von Hand in der Höhe ziehen, sie passt sich nur noch automatisch an die Fenstergröße an
 
