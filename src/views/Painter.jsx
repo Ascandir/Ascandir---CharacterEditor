@@ -219,7 +219,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
       if (/stopped unexpectedly|ran out of memory/.test(m) && useQwen) {
         let llmUp = false; try { await api.llm.models({ url: globalSettings?.llm?.url, key: globalSettings?.llm?.key }); llmUp = true; } catch { /* not running */ }
         const mem = await api.mem?.().catch(() => null);
-        m = (llmUp ? t.pCrashLlm + '\n\n' : (mem && mem.freeGB < 30 ? t.pCrashQwen + '\n\n' : t.pCrashQwenGpu + '\n\n')) + m;
+        m = (llmUp ? t.pCrashLlm + '\n\n' : (mem && mem.freeGB < 30 ? t.pCrashQwen + '\n\n' : '')) + m;
       }
       if (!/CANCELLED/.test(m)) { setErr(/COMFY_TOO_OLD/.test(m) ? 'COMFY_TOO_OLD' : m); failMsg = m; } else failMsg = 'CANCELLED';
     }

@@ -86,7 +86,7 @@ export default function App() {
   useEffect(() => { api.ai?.status().then(s => { if (s.supported && !s.setupDone && !s.setupSkipped) setAiFirstRun(true); }).catch(() => {}); }, []);
   useEffect(() => { api.hardware().then(info => { const g = primaryGpu(info); if (g?.status === 'old') setDriverWarn(g); }).catch(() => {}); }, []);
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
-  useEffect(() => { document.title = ch ? `${ch.name || t.untitled} – ${t.appName}` : t.appName; }, [ch?.name, t]);
+  useEffect(() => { document.title = t.appName; }, [t]);
 
   const db = useMemo(() => {
     if (!official) return null;
