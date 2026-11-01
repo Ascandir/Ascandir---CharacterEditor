@@ -211,6 +211,37 @@ export function bodyText(p, keys, only) {
   return out;
 }
 
+// Relative edit of an existing (e.g. imported) picture: only what changed against the starting values is described
+export const IMPORT_BASE = { body: {}, build: 40, curvy: 30, muscle: 50, attract: 55, height: null };
+export function relChanges(base, p, opts = {}) {
+  const out = [];
+  const amt = d => (Math.abs(d) >= 45 ? 'much ' : Math.abs(d) >= 20 ? 'noticeably ' : 'slightly ');
+  const rel = (k, more, less, def) => {
+    const a = base?.[k] ?? def, b = p[k] ?? def; const dd = b - a;
+    if (Math.abs(dd) >= 5) out.push(amt(dd) + (dd > 0 ? more : less));
+  };
+  if (!opts.minor) {
+    const keys = BODY_PARTS.map(b => b[0]).filter(k => (base?.body?.[k] ?? 50) !== (p.body?.[k] ?? 50));
+    for (const k of keys) {
+      const v = p.body?.[k] ?? 50;
+      const txt = bodyText({ ...p, body: { [k]: v } }, [k]);
+      if (txt.length) out.push(...txt.filter(x => !/^exaggerated stylised/.test(x)));
+      else out.push('normal average ' + BODY_PARTS.find(b => b[0] === k)[2].toLowerCase());
+    }
+    rel('build', 'heavier, broader body', 'slimmer, leaner body', 40);
+    rel('curvy', 'curvier figure', 'less curvy, straighter figure', 30);
+    rel('attract', 'more attractive face', 'plainer, less attractive face', 55);
+  }
+  rel('muscle', 'more muscular', 'less muscular', 50);
+  if ((base?.height ?? null) !== (p.height ?? null) && p.height) out.push((base?.height && p.height < base.height ? 'shorter, ' : base?.height ? 'taller, ' : '') + 'about ' + p.height + ' cm tall');
+  if ((base?.age ?? p.age) !== p.age && p.age) out.push('looks about ' + p.age + ' years old');
+  for (const [k, fmt] of [['hair', x => (/hair|bald/i.test(x) ? x : x + ' hair')], ['eyes', x => (/eye/i.test(x) ? x : x + ' eyes')], ['skin', x => x + ' skin color'], ['features', x => x], ['clothing', x => 'wearing ' + x], ['pose', x => 'pose: ' + x], ['extra', x => x]]) {
+    const a = String(base?.[k] || '').trim(), b = String(p[k] || '').trim();
+    if (b && a !== b) out.push(fmt(toEn(b, p.tr)));
+  }
+  return out;
+}
+
 export const MULTI_VIEW = 'character turnaround reference sheet, four full body views of the exact same character side by side in one row, from left to right: front view, side view facing right, back view, side view facing left, each view from head to feet, standing in a relaxed A-pose with arms slightly away from the body, orthographic camera at chest height, even neutral lighting, identical outfit, colors and proportions in every view';
 export const MULTI_SIZE = { width: 1792, height: 1024, views: 4 };
 

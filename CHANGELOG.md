@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.6
+- KI-Maler: **Eigene Bilder mit den Reglern anpassen**. Beim Importieren springen alle Körperregler (Körperbau, Kurven, Muskeln, Attraktivität, Größe und Körperdetails) auf ihren Normalwert. Verschiebst du danach einen Regler oder änderst ein Feld (Haare, Kleidung, Pose …), wird nur diese Änderung auf das Bild angewendet. Der Rest des Bildes (Gesicht, Kleidung, Stil) soll so bleiben
+- Über dem Bild steht, was geändert wird, mit den Knöpfen „Änderungen anwenden“ und „Regler auf Ausgangswert“. Das Ergebnis wird zum neuen Ausgangspunkt, du kannst also Schritt für Schritt weiter anpassen. Wählst du ein solches Bild in der Galerie aus, werden seine Ausgangswerte wieder geladen
+- Am besten klappt das mit Qwen Image 2.1, das Bilder gezielt bearbeiten kann. Z-Image malt das Bild dafür teilweise neu und weicht stärker ab
+
 ## 0.8.5
 - KI-Maler: **Fortschrittsbalken** beim Malen. Im KI-Maler steht unter „Die KI malt …“ ein Balken mit „Schritt 12 von 30 · noch etwa 0:40 · 35 %“. Solange das Modell noch geladen wird, läuft der Balken als Lauflicht, danach zeigt er die echten Rechenschritte von ComfyUI und am Ende „Nachbearbeitung“ (Freistellen / Hochskalieren). Auch die Anzeige oben neben „Einstellungen“ hat einen kleinen Balken mit Prozentzahl
 

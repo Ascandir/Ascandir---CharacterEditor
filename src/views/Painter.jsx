@@ -6,7 +6,7 @@ import { useJob, useJobs, finishJob, cancelJob, fmtTime, jobPct } from '../ai/jo
 import { promptDialog, confirmDialog } from '../components/Dialog.jsx';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
-import { freePrompt, toEn, buildPrompt, frameSize, removeBackground, STYLES, MIX_PARTS, MIX_MODS, PRESET_MIX, mixStyleText, styleOf, FRAMINGS, DEFAULT_PAINTER, typicalHeight, speciesAge, isMinorAge, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize } from '../ai/prompt.js';
+import { freePrompt, toEn, buildPrompt, frameSize, removeBackground, STYLES, MIX_PARTS, MIX_MODS, PRESET_MIX, mixStyleText, styleOf, FRAMINGS, DEFAULT_PAINTER, typicalHeight, speciesAge, isMinorAge, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize, relChanges, IMPORT_BASE } from '../ai/prompt.js';
 import { RINGS, composeToken } from '../three/token.js';
 import AiSetup from '../components/AiSetup.jsx';
 
@@ -93,12 +93,19 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
     const name = await api.saveImage(ch.id, url);
     setCache(x => ({ ...x, [name]: url }));
     update(x => {
-      const all = [{ name, seed: 0, prompt: '', ts: Date.now(), kind: 'import', file: file.name }, ...(x.paintings || [])];
+      // the sliders go to their normal values: from here on only what you change is applied to the picture
+      const cur = { ...DEFAULT_PAINTER, ...(x.painter || {}) };
+      const base = { ...cur, ...IMPORT_BASE, promptOverride: null, editText: '' };
+      x.painter = base;
+      const all = [{ name, seed: 0, prompt: '', ts: Date.now(), kind: 'import', file: file.name, rel: true, params: JSON.parse(JSON.stringify(base)) }, ...(x.paintings || [])];
       for (const old of all.slice(MAX_PAINTINGS)) api.deleteImage(x.id, old.name);
       x.paintings = all.slice(0, MAX_PAINTINGS); x.selectedPainting = name; return x;
     });
   };
 
+  const BASE_KEYS = ['body', 'build', 'curvy', 'muscle', 'attract', 'height', 'age', 'hair', 'eyes', 'skin', 'features', 'clothing', 'pose', 'extra'];
+  const loadBase = (meta) => update(c => { const b = meta?.params || {}; c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), ...Object.fromEntries(BASE_KEYS.map(k => [k, b[k] ?? (k === 'body' ? {} : DEFAULT_PAINTER[k] ?? null)])), editText: '' }; return c; });
+  const relPending = selMeta?.rel ? relChanges(selMeta.params, p, { minor: isMinorAge(d?.race?.name, p.age) }) : [];
   const refresh = () => api.ai.status().then(setSt).catch(() => setSt({ supported: false }));
   useEffect(() => { refresh(); const off2 = api.ai.on('ai:state', refresh); return () => { off2(); }; }, []);
   // load thumbnails/images lazily
@@ -136,6 +143,8 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   const [ramWarn, setRamWarn] = useState(null); // {mode, freeGB, strata}
   const generate = async (mode, skipRamCheck = false) => {
     if (busy) return;
+    const relMode = mode === 'refine' && !!selImg && !!selMeta?.rel;
+    if (relMode && !relPending.length && !(p.editText || '').trim()) { setErr(t.pRelNothing); return; }
     // Qwen keeps ~30 GB of model data in RAM (16 GB card): check free memory first (Strata alone can take 40+ GB)
     if (useQwen && !skipRamCheck) {
       const lc = globalSettings?.llm || {};
@@ -190,7 +199,11 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
           params.width = Math.round(params.width * k / 32) * 32; params.height = Math.round(params.height * k / 32) * 32;
           if (hasUpscale) params.upscale = target; else delete params.upscale;
         }
-        if (mode === 'refine' && selImg) {
+        if (relMode) {
+          params.refImages = [selImg]; params.editLatent = true;
+          params.resolution = Math.round(Math.sqrt(params.width * params.height) / 32) * 32;
+          params.prompt = `Edit <image1>. ${(p.editText || '').trim() ? p.editText.trim() + '. ' : ''}${relPending.length ? 'Change: ' + relPending.join(', ') + '. ' : ''}Keep everything else exactly as in <image1>: the identity, face, outfit, colors, pose, framing and art style.`;
+        } else if (mode === 'refine' && selImg) {
           params.refImages = [selImg]; params.editLatent = true;
           params.resolution = Math.round(Math.sqrt(params.width * params.height) / 32) * 32;
           params.prompt = `Edit <image1>. ${(p.editText || '').trim() ? p.editText.trim() + '. ' : ''}${emphasis.length ? 'Most important change: ' + emphasis.join(', ') + '. ' : ''}The edited character must match this description: ${usedPrompt}. Keep the identity, face, pose, framing and art style of <image1> unless the description asks for something different.`;
@@ -208,7 +221,11 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
           params.removeBg = false; params.nativeAlpha = true;
         }
       } else {
-      if (mode === 'refine' && selImg) { params.initImage = await onGrey(selImg); params.denoise = Math.max(shapeChanged ? 0.68 : 0.15, Math.min(0.9, p.strength / 100)); }
+      if (relMode) {
+        params.initImage = await onGrey(selImg);
+        params.prompt = [(p.editText || '').trim() && toEn(p.editText, p.tr), ...relPending, 'the same character as in the picture, same outfit, same colors, same art style'].filter(Boolean).join(', ');
+        params.denoise = Math.max(relPending.length ? 0.55 : 0.15, Math.min(0.9, p.strength / 100));
+      } else if (mode === 'refine' && selImg) { params.initImage = await onGrey(selImg); params.denoise = Math.max(shapeChanged ? 0.68 : 0.15, Math.min(0.9, p.strength / 100)); }
       if (multi && selImg && p.multiFromSel !== false && selMeta?.kind !== 'multi') { params.initImage = await multiInit(await onGrey(selImg)); params.denoise = Math.max(0.4, Math.min(0.95, (p.multiStrength ?? 78) / 100)); }
       }
       const res = await api.ai.generate(params);
@@ -217,7 +234,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         const url = (multi || p.removeBg) && !hasBiRef && !params.nativeAlpha ? await removeBackground(raw) : raw;
         const name = await api.saveImage(ch.id, url);
         setCache(c => ({ ...c, [name]: url }));
-        saved.push({ name, seed: seed + i, prompt: params.prompt, model: useQwen ? 'qwen' : 'zimage', ts: Date.now(), seconds: res.seconds, params: JSON.parse(JSON.stringify(p)), ...(multi ? { kind: 'multi' } : {}) });
+        saved.push({ name, seed: seed + i, prompt: params.prompt, model: useQwen ? 'qwen' : 'zimage', ts: Date.now(), seconds: res.seconds, params: JSON.parse(JSON.stringify(p)), ...(multi ? { kind: 'multi' } : {}), ...(relMode ? { rel: true } : {}) });
       }
       ok = true;
       applyTo(c => {
@@ -547,6 +564,15 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         {!err && !busy && lastDone?.kind === 'paint' && !lastDone.ok && lastDone.msg && lastDone.msg !== 'CANCELLED' && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small" style={{ whiteSpace: 'pre-wrap' }}>{lastDone.msg === 'COMFY_TOO_OLD' ? t.pComfyOld : lastDone.msg}</span></div>}
         {err && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small grow" style={{ whiteSpace: 'pre-wrap' }}>{err === 'COMFY_TOO_OLD' ? t.pComfyOld : err}</span>
           {err === 'COMFY_TOO_OLD' && <button className="btn sm primary" disabled={!!bgInstall} onClick={async () => { setBgInstall('…'); const off = api.ai.on('ai:progress', pr => setBgInstall((pr.pct ?? 0) + ' %')); try { await api.ai.install({ dir: st.dir, gpu: st.gpu, models: [], comfy: true }); setErr(null); } catch (e) { setErr(String(e.message || e)); } off(); setBgInstall(null); refresh(); }}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : t.pComfyUpdate}</button>}</div>}
+        {selMeta?.rel && !busy && <div className="banner info" style={{ margin: 0, flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+          <span className="small">{t.pRelHint}</span>
+          <span className="small">{relPending.length ? <><b>{t.pRelChanges}:</b> {relPending.join(', ')}</> : <span className="muted">{t.pRelNone}</span>}</span>
+          <div className="row wrap" style={{ gap: 6 }}>
+            <button className="btn sm primary" disabled={!relPending.length && !(p.editText || '').trim()} onClick={() => generate('refine')}>{t.pRelApply}</button>
+            {relPending.length > 0 && <button className="btn sm" onClick={() => loadBase(selMeta)}>{t.pRelReset}</button>}
+            {!useQwen && <span className="muted small">{t.pRelZimage}</span>}
+          </div>
+        </div>}
         <div className="col" style={{ gap: 6 }} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); importImage(e.dataTransfer.files?.[0]); }}>
           <ZoomView src={selImg} empty={t.pEmptyImport} labels={{ fit: t.zoomFit, hint: t.zoomHint, open: t.zoomOpen }} onOpen={() => setBig(true)} />
           {big && <ImageModal src={selImg} onClose={() => setBig(false)} labels={{ fit: t.zoomFit, hint: t.zoomHint, close: t.close }} />}
@@ -559,7 +585,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         {paintings.length > 0 && (
           <div className="row" style={{ gap: 8, overflowX: 'auto', flexWrap: 'nowrap', paddingBottom: 4 }}>
             {paintings.map(pt => (
-              <button key={pt.name} className="checker" onClick={() => update(c => { c.selectedPainting = pt.name; return c; })}
+              <button key={pt.name} className="checker" onClick={() => { update(c => { c.selectedPainting = pt.name; return c; }); if (pt.rel && pt.name !== selName) loadBase(pt); }}
                 style={{ position: 'relative', flex: 'none', width: 74, height: 100, borderRadius: 8, border: '2px solid ' + (pt.name === selName ? 'var(--accent)' : 'var(--line)'), padding: 0, overflow: 'hidden' }} aria-label={'#' + pt.seed}>
                 {cache[pt.name] && <img src={cache[pt.name]} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
                 {pt.kind && <span className="badge" style={{ position: 'absolute', left: 3, top: 3 }}>{pt.kind === 'multi' ? '4×' : '⇪'}</span>}
