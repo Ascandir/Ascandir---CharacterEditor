@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.9
+- KI-Maler: Neue Oberfläche **„Bild bearbeiten“** (✎). Importierte Bilder öffnen sich direkt darin, jedes andere Bild über den Knopf „✎ Bild bearbeiten“. Hier wird **nichts** aus dem Charakterbogen, dem Grafikstil oder den normalen Reglern und Feldern benutzt
+- Eigene Regler, die alle in der Mitte auf „unverändert“ stehen (links = weniger, rechts = mehr): Größe, Körperbau, Muskeln, Kurven, Attraktivität, Alter und alle Körperdetails. Dazu Felder für Haare, Augen, Hautfarbe, Kleidung, Gesichtsausdruck, Pose, Hintergrund und „Weitere Änderung“. Leere Felder bleiben unverändert
+- Darunter steht genau, was geändert wird. „Änderungen anwenden“ erzeugt das neue Bild (✎ in der Galerie). Danach springen die Regler wieder auf „unverändert“, so kannst du Schritt für Schritt weiterarbeiten
+- Das Bild behält dabei sein eigenes Seitenverhältnis. Deine Charakter-Regler werden beim Import nicht mehr verstellt. „Zurück zum Charakter-Designer“ führt wieder zur normalen Ansicht
+
 ## 0.8.8
 - KI-Maler: **Zentauren** werden deutlich zuverlässiger als ein einziges Wesen gemalt statt als Mensch, der ein Pferd reitet. Die Beschreibung ist viel genauer (menschlicher Oberkörper wächst an Stelle von Hals und Kopf aus dem Pferdekörper, vier Hufe, kein Sattel, kein Reiter) und wird am Ende des Prompts noch einmal betont
 - Ganzkörperbilder von Zentauren werden im **Querformat** gemalt. Im Hochformat passt der lange Pferdekörper schlecht hinein, und die Modelle weichen dann gern auf „Reiter auf Pferd“ aus

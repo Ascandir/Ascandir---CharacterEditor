@@ -6,7 +6,7 @@ import { useJob, useJobs, finishJob, cancelJob, fmtTime, jobPct } from '../ai/jo
 import { promptDialog, confirmDialog } from '../components/Dialog.jsx';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
-import { freePrompt, toEn, buildPrompt, frameSize, removeBackground, STYLES, MIX_PARTS, MIX_MODS, PRESET_MIX, mixStyleText, styleOf, FRAMINGS, DEFAULT_PAINTER, typicalHeight, speciesAge, isMinorAge, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize, relChanges, IMPORT_BASE, speciesNegative, isWideSpecies } from '../ai/prompt.js';
+import { freePrompt, toEn, buildPrompt, frameSize, removeBackground, STYLES, MIX_PARTS, MIX_MODS, PRESET_MIX, mixStyleText, styleOf, FRAMINGS, DEFAULT_PAINTER, typicalHeight, speciesAge, isMinorAge, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize, EDIT_GLOBAL, EDIT_TEXT, editChanges, speciesNegative, isWideSpecies } from '../ai/prompt.js';
 import { RINGS, composeToken } from '../three/token.js';
 import AiSetup from '../components/AiSetup.jsx';
 
@@ -93,19 +93,20 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
     const name = await api.saveImage(ch.id, url);
     setCache(x => ({ ...x, [name]: url }));
     update(x => {
-      // the sliders go to their normal values: from here on only what you change is applied to the picture
-      const cur = { ...DEFAULT_PAINTER, ...(x.painter || {}) };
-      const base = { ...cur, ...IMPORT_BASE, promptOverride: null, editText: '' };
-      x.painter = base;
-      const all = [{ name, seed: 0, prompt: '', ts: Date.now(), kind: 'import', file: file.name, rel: true, params: JSON.parse(JSON.stringify(base)) }, ...(x.paintings || [])];
+      // imported pictures open in the edit view (own sliders, nothing from the character sheet)
+      x.painter = { ...DEFAULT_PAINTER, ...(x.painter || {}), edit: {} };
+      const all = [{ name, seed: 0, prompt: '', ts: Date.now(), kind: 'import', file: file.name, rel: true }, ...(x.paintings || [])];
       for (const old of all.slice(MAX_PAINTINGS)) api.deleteImage(x.id, old.name);
       x.paintings = all.slice(0, MAX_PAINTINGS); x.selectedPainting = name; return x;
     });
   };
 
-  const BASE_KEYS = ['body', 'build', 'curvy', 'muscle', 'attract', 'height', 'age', 'hair', 'eyes', 'skin', 'features', 'clothing', 'pose', 'extra'];
-  const loadBase = (meta) => update(c => { const b = meta?.params || {}; c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), ...Object.fromEntries(BASE_KEYS.map(k => [k, b[k] ?? (k === 'body' ? {} : DEFAULT_PAINTER[k] ?? null)])), editText: '' }; return c; });
-  const relPending = selMeta?.rel ? relChanges(selMeta.params, p, { minor: isMinorAge(d?.race?.name, p.age) }) : [];
+  // edit view: imported pictures (and results of edits) are changed only by the edit sliders, nothing from the character sheet
+  const [editOn, setEditOn] = useState(!!selMeta?.rel);
+  useEffect(() => { setEditOn(!!selMeta?.rel); }, [selName]);
+  const edit = p.edit || {};
+  const setEdit = (k, v) => set('edit', { ...edit, [k]: v });
+  const editList = editChanges(edit, p.tr || {}, { minor: isMinorAge(d?.race?.name, p.age) });
   const refresh = () => api.ai.status().then(setSt).catch(() => setSt({ supported: false }));
   useEffect(() => { refresh(); const off2 = api.ai.on('ai:state', refresh); return () => { off2(); }; }, []);
   // load thumbnails/images lazily
@@ -143,8 +144,11 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   const [ramWarn, setRamWarn] = useState(null); // {mode, freeGB, strata}
   const generate = async (mode, skipRamCheck = false) => {
     if (busy) return;
-    const relMode = mode === 'refine' && !!selImg && !!selMeta?.rel;
-    if (relMode && !relPending.length && !(p.editText || '').trim()) { setErr(t.pRelNothing); return; }
+    const relMode = mode === 'edit' && !!selImg;
+    if (relMode && !editList.length) { setErr(t.pRelNothing); return; }
+    // edit: the picture keeps its own aspect ratio (about 1 megapixel)
+    let editSize = null;
+    if (relMode) { const im = await toImg(selImg); const k = Math.sqrt(1.0e6 / (im.naturalWidth * im.naturalHeight)); editSize = { width: Math.max(256, Math.round(im.naturalWidth * k / 64) * 64), height: Math.max(256, Math.round(im.naturalHeight * k / 64) * 64) }; }
     // Qwen keeps ~30 GB of model data in RAM (16 GB card): check free memory first (Strata alone can take 40+ GB)
     if (useQwen && !skipRamCheck) {
       const lc = globalSettings?.llm || {};
@@ -177,7 +181,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
       const lc = globalSettings?.llm || {};
       if (lc.stopBeforePaint !== false) { try { await api.strata.stop({ cmd: lc.cmd }); } catch { /* not running */ } }
       const multi = mode === 'multi';
-      const { width, height } = multi ? MULTI_SIZE : frameSize(p);
+      const { width, height } = multi ? MULTI_SIZE : editSize || frameSize(p);
       const seed = Math.floor(Math.random() * 2 ** 31);
       // shape sliders changed since the selected picture was made → push them to the front and allow bigger changes
       const prev = selMeta?.params;
@@ -186,14 +190,14 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
       const emphasis = changed.length && !isMinorAge(d?.race?.name, p.age) ? bodyText({ ...p, body: Object.fromEntries(changed.map(k => [k, p.body?.[k] ?? 50])) }, changed).filter(x => !/^exaggerated stylised/.test(x)) : [];
       const usedPrompt = multi ? multiPrompt : (mode === 'refine' && emphasis.length && (isFree || p.promptOverride == null) ? (isFree ? freePrompt(p, { emphasis }) : buildPrompt(d, ch, p, { emphasis })) : prompt);
       const params = { prompt: usedPrompt, seed, width, height, batch: multi ? 1 : mode === 'refine' ? Math.min(count, 2) : count, removeBg: (multi || p.removeBg) && hasBiRef };
-      if (!multi && upscaleSize(p) && hasUpscale) params.upscale = upscaleSize(p);
+      if (!multi && !relMode && upscaleSize(p) && hasUpscale) params.upscale = upscaleSize(p);
       if (useQwen) {
         // Qwen Image 2.1: native up to 2K, edit/reference mode instead of img2img
-        const neg = [styleOf(p).negative, styleOf(p).negative ? speciesNegative(d?.race?.name) : ''].filter(Boolean).join(', ');
+        const neg = relMode ? '' : [styleOf(p).negative, styleOf(p).negative ? speciesNegative(d?.race?.name) : ''].filter(Boolean).join(', ');
         Object.assign(params, qTurbo ? { model: 'qwen', turbo: true, negative: '', cfg: 1, steps: 8 } : { model: 'qwen', negative: neg, cfg: neg ? 4 : 1, steps: p.qSteps || 30 });
-        if (!multi && ['2k', '4k'].includes(p.res)) { const k = 2048 / Math.max(width, height); params.width = Math.round(width * k / 32) * 32; params.height = Math.round(height * k / 32) * 32; if (p.res === '2k') delete params.upscale; }
+        if (!multi && !relMode && ['2k', '4k'].includes(p.res)) { const k = 2048 / Math.max(width, height); params.width = Math.round(width * k / 32) * 32; params.height = Math.round(height * k / 32) * 32; if (p.res === '2k') delete params.upscale; }
         // GPU-friendly mode: Qwen paints at most ~1 MP; bigger sizes are reached with the upscaler (driver resets otherwise)
-        if (!multi && (st?.gpuMode || 'safe') === 'safe' && params.width * params.height > 1.15e6) {
+        if (!multi && !relMode && (st?.gpuMode || 'safe') === 'safe' && params.width * params.height > 1.15e6) {
           const target = params.upscale || { width: params.width, height: params.height };
           const k = Math.sqrt(1.0e6 / (params.width * params.height));
           params.width = Math.round(params.width * k / 32) * 32; params.height = Math.round(params.height * k / 32) * 32;
@@ -202,7 +206,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         if (relMode) {
           params.refImages = [selImg]; params.editLatent = true;
           params.resolution = Math.round(Math.sqrt(params.width * params.height) / 32) * 32;
-          params.prompt = `Edit <image1>. ${(p.editText || '').trim() ? p.editText.trim() + '. ' : ''}${relPending.length ? 'Change: ' + relPending.join(', ') + '. ' : ''}Keep everything else exactly as in <image1>: the identity, face, outfit, colors, pose, framing and art style.`;
+          params.prompt = `Edit <image1>. Make only these changes: ${editList.join('; ')}. Keep everything else exactly as in <image1>: the identity, face, outfit, colors, pose, framing, background and art style.`;
         } else if (mode === 'refine' && selImg) {
           params.refImages = [selImg]; params.editLatent = true;
           params.resolution = Math.round(Math.sqrt(params.width * params.height) / 32) * 32;
@@ -223,8 +227,8 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
       } else {
       if (relMode) {
         params.initImage = await onGrey(selImg);
-        params.prompt = [(p.editText || '').trim() && toEn(p.editText, p.tr), ...relPending, 'the same character as in the picture, same outfit, same colors, same art style'].filter(Boolean).join(', ');
-        params.denoise = Math.max(relPending.length ? 0.55 : 0.15, Math.min(0.9, p.strength / 100));
+        params.prompt = [...editList, 'the same character as in the picture, same outfit, same colors, same art style'].join(', ');
+        params.denoise = Math.max(0.15, Math.min(0.9, (p.editStrength ?? 55) / 100));
       } else if (mode === 'refine' && selImg) { params.initImage = await onGrey(selImg); params.denoise = Math.max(shapeChanged ? 0.68 : 0.15, Math.min(0.9, p.strength / 100)); }
       if (multi && selImg && p.multiFromSel !== false && selMeta?.kind !== 'multi') { params.initImage = await multiInit(await onGrey(selImg)); params.denoise = Math.max(0.4, Math.min(0.95, (p.multiStrength ?? 78) / 100)); }
       }
@@ -234,13 +238,15 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         const url = (multi || p.removeBg) && !hasBiRef && !params.nativeAlpha ? await removeBackground(raw) : raw;
         const name = await api.saveImage(ch.id, url);
         setCache(c => ({ ...c, [name]: url }));
-        saved.push({ name, seed: seed + i, prompt: params.prompt, model: useQwen ? 'qwen' : 'zimage', ts: Date.now(), seconds: res.seconds, params: JSON.parse(JSON.stringify(p)), ...(multi ? { kind: 'multi' } : {}), ...(relMode ? { rel: true } : {}) });
+        saved.push({ name, seed: seed + i, prompt: params.prompt, model: useQwen ? 'qwen' : 'zimage', ts: Date.now(), seconds: res.seconds, params: JSON.parse(JSON.stringify(p)), ...(multi ? { kind: 'multi' } : {}), ...(relMode ? { rel: true, kind: 'edit', changes: editList } : {}) });
       }
       ok = true;
       applyTo(c => {
         const all = [...saved, ...(c.paintings || [])];
         for (const old of all.slice(MAX_PAINTINGS)) api.deleteImage(c.id, old.name);
-        c.paintings = all.slice(0, MAX_PAINTINGS); c.selectedPainting = saved[0]?.name; return c;
+        c.paintings = all.slice(0, MAX_PAINTINGS); c.selectedPainting = saved[0]?.name;
+        if (relMode) c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), edit: {} }; // the result is the new starting point
+        return c;
       });
     } catch (e) {
       let m = String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
@@ -283,8 +289,9 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
     </div>
   );
   // German input: translated to English for the prompt (by the local text model if it is running, otherwise a word list)
-  const translate = async (k) => {
-    const v = String(p[k] || '').trim();
+  const translate = (k) => translateVal(p[k]);
+  const translateVal = async (raw) => {
+    const v = String(raw || '').trim();
     if (!v || p.tr?.[v] || /^[\x20-\x7e]*$/.test(v) && toEn(v) === v) return;
     const lc = globalSettings?.llm || {};
     try {
@@ -310,6 +317,53 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   return (
     <div className="page" style={{ alignItems: 'stretch' }}>
       <section className="card col" style={{ flex: '1 1 300px', maxWidth: 360, gap: 12 }}>
+        {editOn && selImg ? <>
+          <div className="col" style={{ gap: 4 }}>
+            <b>✎ {t.pEditTitle}</b>
+            <span className="muted small">{t.pEditIntro}</span>
+          </div>
+          {EDIT_GLOBAL.map(([k, l]) => {
+            const v = edit[k] ?? 50;
+            return (
+              <div key={k}>
+                <div className="row" style={{ justifyContent: 'space-between' }}><label htmlFor={'ed-' + k} className="small">{l[lang]}</label><span className="muted small">{v === 50 ? t.pEditSame : (v > 50 ? '+' : '') + (v - 50)}</span></div>
+                <input id={'ed-' + k} type="range" min={0} max={100} value={v} onChange={e => setEdit(k, Number(e.target.value))} onDoubleClick={() => setEdit(k, 50)} />
+              </div>
+            );
+          })}
+          <span className="bold small">{t.pBody}</span>
+          {BODY_PARTS.map(([k, de, en]) => {
+            const v = edit.body?.[k] ?? 50;
+            return (
+              <div key={k}>
+                <div className="row" style={{ justifyContent: 'space-between' }}><label htmlFor={'edb-' + k} className="small">{lang === 'de' ? de : en}</label><span className="muted small">{v === 50 ? t.pEditSame : (v > 50 ? '+' : '') + (v - 50)}</span></div>
+                <input id={'edb-' + k} type="range" min={0} max={100} value={v} onChange={e => setEdit('body', { ...(edit.body || {}), [k]: Number(e.target.value) })} onDoubleClick={() => setEdit('body', { ...(edit.body || {}), [k]: 50 })} />
+              </div>
+            );
+          })}
+          {EDIT_TEXT.map(([k, l]) => {
+            const v = String(edit[k] || '').trim();
+            const en = v ? (p.tr?.[v] || toEn(v)) : '';
+            return (
+              <label key={k} className="col" style={{ gap: 4 }}><span className="muted small">{l[lang]}</span>
+                {k === 'extra' ? <BigText rows={3} title={l[lang]} value={edit[k] || ''} placeholder={t.pEditExtraHint} onChange={e => setEdit(k, e.target.value)} onBlur={() => translateVal(edit[k])} />
+                  : <input value={edit[k] || ''} placeholder={t.pEditFieldHint} onChange={e => setEdit(k, e.target.value)} onBlur={() => translateVal(edit[k])} />}
+                {v && en && en.toLowerCase() !== v.toLowerCase() && <span className="muted small">EN: {en}</span>}
+              </label>
+            );
+          })}
+          {!useQwen && <div className="col" style={{ gap: 4 }}>
+            <div className="row" style={{ justifyContent: 'space-between' }}><label htmlFor="ed-strength" className="small">{t.pStrength}</label><span className="muted small">{p.editStrength ?? 55} %</span></div>
+            <input id="ed-strength" type="range" min={15} max={90} value={p.editStrength ?? 55} onChange={e => set('editStrength', Number(e.target.value))} />
+            <span className="muted small">{t.pRelZimage}</span>
+          </div>}
+          <label className="checkline small"><input type="checkbox" checked={!!p.removeBg} onChange={e => set('removeBg', e.target.checked)} /><span>{t.pRemoveBg}</span></label>
+          <div className="small" style={{ background: 'rgba(127,127,127,.08)', borderRadius: 6, padding: '6px 8px' }}>{editList.length ? <><b>{t.pRelChanges}:</b> {editList.join('; ')}</> : <span className="muted">{t.pRelNone}</span>}</div>
+          <div className="row wrap" style={{ gap: 6 }}>
+            <button className="btn primary" disabled={!!busy || !editList.length} onClick={() => generate('edit')}>{t.pRelApply}</button>
+            <button className="btn" disabled={!editList.length} onClick={() => set('edit', {})}>{t.pEditReset}</button>
+          </div>
+        </> : <>
         <div className="muted small">{d?.race?.name || '—'} · {d?.classInfo?.map(c => c.cls.name).join(' / ') || '—'}</div>
         <div className="col" style={{ gap: 6 }}>
           <span className="bold small">{t.pSource}</span>
@@ -479,6 +533,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             {p.promptOverride != null && <button className="btn sm" onClick={() => set('promptOverride', null)}>{t.pPromptReset}</button>}
           </div>
         )}
+        </>}
       </section>
 
       <section className="col" style={{ flex: '999 1 460px', minWidth: 0 }}>
@@ -493,12 +548,18 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             <span className="dot" style={{ background: st.running ? 'var(--ok)' : st.starting ? 'var(--accent)' : 'var(--dim)' }} />
             <span className="small">{st.running ? t.aiRunning : st.starting ? t.aiStarting : t.aiStopped}</span>
             <div className="grow" />
-            <button className="btn primary" disabled={!!busy} onClick={() => generate('new')}>{t.pGenerate}</button>
-            <button className="btn" disabled={!!busy || !selImg} onClick={() => generate('refine')} title={t.pRefineHint}>{t.pRefine}</button>
-            <button className="btn" disabled={!!busy} onClick={() => generate('multi')} title={t.pMultiHint}>{t.pMulti}</button>
+            {editOn && selImg ? <>
+              <button className="btn primary" disabled={!!busy || !editList.length} onClick={() => generate('edit')}>{t.pRelApply}</button>
+              <button className="btn" disabled={!!busy} onClick={() => setEditOn(false)}>{t.pEditBack}</button>
+            </> : <>
+              <button className="btn primary" disabled={!!busy} onClick={() => generate('new')}>{t.pGenerate}</button>
+              <button className="btn" disabled={!!busy || !selImg} onClick={() => generate('refine')} title={t.pRefineHint}>{t.pRefine}</button>
+              <button className="btn" disabled={!!busy} onClick={() => generate('multi')} title={t.pMultiHint}>{t.pMulti}</button>
+              <button className="btn" disabled={!!busy || !selImg} onClick={() => { update(c => { c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), edit: {} }; return c; }); setEditOn(true); }} title={t.pEditOpenHint}>✎ {t.pEditOpen}</button>
+            </>}
           </div>
         )}
-        {ready && (
+        {ready && !(editOn && selImg) && (
           <div className="row small wrap" style={{ gap: 10, padding: '0 4px' }}>
             <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={p.multiFromSel !== false} disabled={!selImg || selMeta?.kind === 'multi'} onChange={e => set('multiFromSel', e.target.checked)} />{t.pMultiFromSel}</label>
             {!useQwen && p.multiFromSel !== false && selImg && selMeta?.kind !== 'multi' && <>
@@ -515,11 +576,11 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             {!hasQwen && <button className="btn sm" disabled={!!bgInstall} onClick={() => installModel('qwen-image-21')}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : (hasQwenTurbo ? t.pQwenLoadShared : t.pQwenLoad)}</button>}
           </div>
         )}
-        {ready && useQwen && selImg && (
+        {ready && useQwen && selImg && !editOn && (
           <label className="col small" style={{ gap: 4, padding: '0 4px' }}><span className="muted">{t.pEditText}</span>
             <input value={p.editText || ''} placeholder={t.pEditTextHint} onChange={e => set('editText', e.target.value)} /></label>
         )}
-        {ready && selImg && !useQwen && (
+        {ready && selImg && !useQwen && !editOn && (
           <div className="row small" style={{ gap: 10, padding: '0 4px' }}>
             <label htmlFor="pt-strength" className="muted">{t.pStrength}</label>
             <input id="pt-strength" type="range" min={15} max={90} value={p.strength} onChange={e => set('strength', Number(e.target.value))} style={{ maxWidth: 240 }} />
@@ -564,15 +625,6 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         {!err && !busy && lastDone?.kind === 'paint' && !lastDone.ok && lastDone.msg && lastDone.msg !== 'CANCELLED' && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small" style={{ whiteSpace: 'pre-wrap' }}>{lastDone.msg === 'COMFY_TOO_OLD' ? t.pComfyOld : lastDone.msg}</span></div>}
         {err && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small grow" style={{ whiteSpace: 'pre-wrap' }}>{err === 'COMFY_TOO_OLD' ? t.pComfyOld : err}</span>
           {err === 'COMFY_TOO_OLD' && <button className="btn sm primary" disabled={!!bgInstall} onClick={async () => { setBgInstall('…'); const off = api.ai.on('ai:progress', pr => setBgInstall((pr.pct ?? 0) + ' %')); try { await api.ai.install({ dir: st.dir, gpu: st.gpu, models: [], comfy: true }); setErr(null); } catch (e) { setErr(String(e.message || e)); } off(); setBgInstall(null); refresh(); }}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : t.pComfyUpdate}</button>}</div>}
-        {selMeta?.rel && !busy && <div className="banner info" style={{ margin: 0, flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
-          <span className="small">{t.pRelHint}</span>
-          <span className="small">{relPending.length ? <><b>{t.pRelChanges}:</b> {relPending.join(', ')}</> : <span className="muted">{t.pRelNone}</span>}</span>
-          <div className="row wrap" style={{ gap: 6 }}>
-            <button className="btn sm primary" disabled={!relPending.length && !(p.editText || '').trim()} onClick={() => generate('refine')}>{t.pRelApply}</button>
-            {relPending.length > 0 && <button className="btn sm" onClick={() => loadBase(selMeta)}>{t.pRelReset}</button>}
-            {!useQwen && <span className="muted small">{t.pRelZimage}</span>}
-          </div>
-        </div>}
         <div className="col" style={{ gap: 6 }} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); importImage(e.dataTransfer.files?.[0]); }}>
           <ZoomView src={selImg} empty={t.pEmptyImport} labels={{ fit: t.zoomFit, hint: t.zoomHint, open: t.zoomOpen }} onOpen={() => setBig(true)} />
           {big && <ImageModal src={selImg} onClose={() => setBig(false)} labels={{ fit: t.zoomFit, hint: t.zoomHint, close: t.close }} />}
@@ -585,10 +637,10 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         {paintings.length > 0 && (
           <div className="row" style={{ gap: 8, overflowX: 'auto', flexWrap: 'nowrap', paddingBottom: 4 }}>
             {paintings.map(pt => (
-              <button key={pt.name} className="checker" onClick={() => { update(c => { c.selectedPainting = pt.name; return c; }); if (pt.rel && pt.name !== selName) loadBase(pt); }}
+              <button key={pt.name} className="checker" onClick={() => update(c => { c.selectedPainting = pt.name; return c; })}
                 style={{ position: 'relative', flex: 'none', width: 74, height: 100, borderRadius: 8, border: '2px solid ' + (pt.name === selName ? 'var(--accent)' : 'var(--line)'), padding: 0, overflow: 'hidden' }} aria-label={'#' + pt.seed}>
                 {cache[pt.name] && <img src={cache[pt.name]} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
-                {pt.kind && <span className="badge" style={{ position: 'absolute', left: 3, top: 3 }}>{pt.kind === 'multi' ? '4×' : '⇪'}</span>}
+                {pt.kind && <span className="badge" style={{ position: 'absolute', left: 3, top: 3 }}>{pt.kind === 'multi' ? '4×' : pt.kind === 'edit' ? '✎' : '⇪'}</span>}
               </button>
             ))}
           </div>

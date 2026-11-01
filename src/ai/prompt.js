@@ -255,6 +255,41 @@ export function relChanges(base, p, opts = {}) {
   return out;
 }
 
+// ---- editing an existing picture: every slider is relative (50 = unchanged) ----
+export const EDIT_GLOBAL = [
+  ['height', { de: 'Größe', en: 'Height' }, 'taller', 'shorter'],
+  ['build', { de: 'Körperbau', en: 'Build' }, 'heavier, broader body', 'slimmer, leaner body'],
+  ['muscle', { de: 'Muskeln', en: 'Muscles' }, 'more muscular', 'less muscular'],
+  ['curvy', { de: 'Kurven', en: 'Curves' }, 'curvier figure', 'less curvy, straighter figure'],
+  ['attract', { de: 'Attraktivität', en: 'Attractiveness' }, 'more attractive face', 'plainer face'],
+  ['age', { de: 'Alter', en: 'Age' }, 'older', 'younger'],
+];
+const EDIT_BODY = {
+  head: ['larger head', 'smaller head'], shoulders: ['broader shoulders', 'narrower shoulders'], armLen: ['longer arms', 'shorter arms'],
+  armThick: ['thicker upper arms', 'thinner upper arms'], forearm: ['thicker forearms', 'thinner forearms'], bust: ['larger chest / bust', 'smaller, flatter chest / bust'],
+  waist: ['wider waist', 'narrower, slimmer waist'], belly: ['bigger belly', 'flatter belly'], hips: ['wider hips', 'narrower hips'],
+  butt: ['bigger, rounder butt', 'smaller, flatter butt'], legLen: ['longer legs', 'shorter legs'], legThick: ['thicker thighs', 'slimmer thighs'], calf: ['thicker calves', 'slimmer calves'],
+};
+export const EDIT_TEXT = [
+  ['hair', { de: 'Haare', en: 'Hair' }, x => 'change the hair to: ' + x],
+  ['eyes', { de: 'Augen', en: 'Eyes' }, x => 'change the eyes to: ' + x],
+  ['skin', { de: 'Hautfarbe', en: 'Skin color' }, x => 'change the skin color to: ' + x],
+  ['clothing', { de: 'Kleidung', en: 'Clothing' }, x => 'change the clothing to: ' + x],
+  ['face', { de: 'Gesichtsausdruck', en: 'Facial expression' }, x => 'facial expression: ' + x],
+  ['pose', { de: 'Pose', en: 'Pose' }, x => 'change the pose to: ' + x],
+  ['background', { de: 'Hintergrund', en: 'Background' }, x => 'change the background to: ' + x],
+  ['extra', { de: 'Weitere Änderung', en: 'Other change' }, x => x],
+];
+export function editChanges(e = {}, tr = {}, opts = {}) {
+  const out = [];
+  const amt = d => (Math.abs(d) >= 45 ? 'far ' : Math.abs(d) >= 32 ? 'much ' : Math.abs(d) >= 18 ? 'noticeably ' : 'slightly ');
+  const one = (v, more, less) => { const d = (v ?? 50) - 50; if (Math.abs(d) >= 5) out.push(amt(d) + (d > 0 ? more : less)); };
+  for (const [k, , more, less] of EDIT_GLOBAL) if (!(opts.minor && ['curvy', 'attract'].includes(k))) one(e[k], more, less);
+  if (!opts.minor) for (const [k] of BODY_PARTS) if (EDIT_BODY[k]) one(e.body?.[k], ...EDIT_BODY[k]);
+  for (const [k, , fmt] of EDIT_TEXT) { const v = String(e[k] || '').trim(); if (v) out.push(fmt(tr[v] || toEn(v, tr))); }
+  return out;
+}
+
 export const MULTI_VIEW = 'character turnaround reference sheet, four full body views of the exact same character side by side in one row, from left to right: front view, side view facing right, back view, side view facing left, each view from head to feet, standing in a relaxed A-pose with arms slightly away from the body, orthographic camera at chest height, even neutral lighting, identical outfit, colors and proportions in every view';
 export const MULTI_SIZE = { width: 1792, height: 1024, views: 4 };
 
