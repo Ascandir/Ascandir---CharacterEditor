@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.12
+- KI-Maler: Der Token-Bereich ist vorerst entfernt und wird später neu gemacht. Die Bildvorschau bekommt dadurch mehr Platz
+
 ## 0.6.11
 - KI-Malen und 3D-Erzeugen laufen weiter, wenn du den Reiter wechselst (z. B. zum KI-Berater oder Charakterbogen). Die Ergebnisse landen trotzdem beim richtigen Charakter
 - **Anzeige oben in der Leiste** neben „Einstellungen“: „KI malt · 2:31“ bzw. „3D-Modell wird erzeugt“ mit Zeit und ✕ zum Abbrechen. Ein Klick darauf führt zurück in den Designer. Danach steht dort kurz „Bild fertig“ oder „Fehlgeschlagen“

@@ -439,29 +439,11 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         )}
       </section>
 
-      <aside className="col" style={{ flex: '1 1 280px', maxWidth: 320 }}>
-        <div className="card col">
-          <span className="bold">Token</span>
-          <div className="checker" style={{ borderRadius: 12, padding: 10, display: 'flex', justifyContent: 'center' }}>
-            <canvas ref={tokenRef} width={560} height={560} style={{ width: 240, height: 240 }} aria-label="Token" />
-          </div>
-          {[['size', t.pCropSize, 10, 100], ['x', t.pCropX, 0, 100], ['y', t.pCropY, 0, 100]].map(([k, l, mn, mx]) => (
-            <div key={k}>
-              <label htmlFor={'cr-' + k} className="muted small">{l}</label>
-              <input id={'cr-' + k} type="range" min={mn} max={mx} value={p.crop[k]} onChange={e => set('crop', { ...p.crop, [k]: Number(e.target.value) })} />
-            </div>
-          ))}
-          <div className="row" style={{ gap: 6 }}>{RINGS.map(([k, l]) => <button key={k} className={'chip' + (tk.tokenRing === k ? ' on' : '')} onClick={() => setTk('tokenRing', k)}>{l[lang]}</button>)}</div>
-          <div className="row">
-            <label className="row small" style={{ gap: 6 }}><input type="color" value={tk.tokenColor} onChange={e => setTk('tokenColor', e.target.value)} aria-label={t.tokenRingColor} style={{ width: 40, height: 30, padding: 2 }} />{t.tokenRingColor}</label>
-            <label className="row small" style={{ gap: 6 }}><input type="color" value={tk.tokenBg} onChange={e => setTk('tokenBg', e.target.value)} aria-label={t.tokenBgColor} style={{ width: 40, height: 30, padding: 2 }} />{t.tokenBgColor}</label>
-          </div>
-          <label className="row small"><input type="checkbox" checked={!!tk.tokenTransparent} onChange={e => setTk('tokenTransparent', e.target.checked)} />{t.tokenTransparent}</label>
-        </div>
+      <aside className="col" style={{ flex: '1 1 220px', maxWidth: 260 }}>
+        {/* token generator removed for now (to be redone later) */}
         <div className="card col">
           <span className="bold">{t.export}</span>
           <button className="btn primary" disabled={!selImg} onClick={exportPng}>{t.exportPng}</button>
-          <button className="btn" disabled={!selImg} onClick={exportToken}>{t.exportToken}</button>
           {selMeta?.kind === 'multi' && <button className="btn" onClick={exportViews} title={t.pViewsHint}>{t.pViews}</button>}
           <button className="btn ghost" disabled={!selImg} onClick={usePortrait}>{lang === 'de' ? 'Als Portrait übernehmen' : 'Use as portrait'}</button>
           {selImg && <button className="btn sm danger" onClick={() => update(c => { api.deleteImage(c.id, selName); c.paintings = (c.paintings || []).filter(x => x.name !== selName); c.selectedPainting = c.paintings[0]?.name; return c; })}>{t.delete}</button>}
