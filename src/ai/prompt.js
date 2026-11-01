@@ -91,6 +91,21 @@ function speciesOf(raceName) {
 
 export function typicalHeight(raceName) { return speciesOf(raceName).avg; }
 
+// [adult from, typical maximum age] in years (D&D lore, rounded)
+const AGES = {
+  human: [18, 90], 'half-elf': [20, 180], elf: [100, 750], eladrin: [100, 750], drow: [100, 750], dwarf: [50, 350], duergar: [50, 350],
+  halfling: [20, 150], gnome: [40, 425], dragonborn: [15, 80], 'half-orc': [14, 75], orc: [12, 80], tiefling: [18, 100], aasimar: [18, 160],
+  goliath: [18, 100], firbolg: [30, 500], tabaxi: [18, 100], aarakocra: [3, 30], kenku: [12, 60], tortle: [15, 50], lizardfolk: [14, 80],
+  goblin: [8, 60], hobgoblin: [18, 100], bugbear: [16, 80], kobold: [6, 120], triton: [15, 200], warforged: [2, 150], changeling: [18, 100],
+  harengon: [18, 100], owlin: [18, 100], satyr: [18, 120], centaur: [15, 100], minotaur: [17, 150], genasi: [18, 120], 'yuan-ti': [18, 100],
+};
+export function speciesAge(raceName) {
+  const k = speciesOf(raceName).key;
+  const [adult, max] = AGES[k] || AGES.human;
+  return { adult, max };
+}
+export function isMinorAge(raceName, age) { return (age ?? 30) < speciesAge(raceName).adult; }
+
 const pick = (v, table) => { for (const [max, txt] of table) if (v <= max) return txt; return table[table.length - 1][1]; };
 
 // Looks: the model tends to make everyone pretty, so the low end has to be very explicit.
@@ -168,15 +183,25 @@ export function buildPrompt(d, ch, p, opts = {}) {
   const st = STYLES.find(s => s[0] === p.style) || STYLES[0];
   const parts = [];
   const g = p.gender === 'female' ? 'woman' : p.gender === 'nonbinary' ? 'androgynous person' : 'man';
-  const age = pick(p.age, [[25, 'young adult'], [40, 'adult'], [55, 'middle-aged'], [70, 'older, with grey streaks and wrinkles'], [100, 'elderly, white hair and deep wrinkles']]);
+  const sa = speciesAge(d?.race?.name || 'Human');
+  const years = p.age ?? 30;
+  const minor = years < sa.adult;
+  // age relative to the species: an elf with 300 is a young adult, a human with 300 is ancient
+  const f = (years - sa.adult) / Math.max(1, sa.max - sa.adult);
+  const age = minor
+    ? (years < sa.adult * 0.55 ? 'young child (' + years + ' years old) with childlike proportions,' : 'teenager (' + years + ' years old) with youthful proportions,')
+    : pick(f, [[0.12, 'young adult'], [0.35, 'adult'], [0.55, 'middle-aged'], [0.75, 'older, with grey streaks and wrinkles'], [1, 'elderly, white hair and deep wrinkles'], [9e9, 'ancient, extremely old, deeply wrinkled']]);
   const styleText = st[0] === 'custom' ? (p.customStyle || '').trim() || STYLES[0][2] : st[2];
   // the style goes first (Z-Image weighs the beginning most, otherwise the style only reaches the face) and again at the end
   if (!opts.multi) parts.push(styleText);
   const pose = toEn(p.pose);
   parts.push(opts.multi ? MULTI_VIEW : pose ? fr[2].replace('standing pose', '').replace(/,\s*,/g, ',') + ', pose: ' + pose : fr[2]);
-  if (opts.emphasis?.length) parts.push('IMPORTANT, clearly visible body shape: ' + opts.emphasis.join(', '));
+  if (opts.emphasis?.length && !minor) parts.push('IMPORTANT, clearly visible body shape: ' + opts.emphasis.join(', '));
   const skin = toEn(p.skin);
-  parts.push(`${age} ${g}, ${sp.text}${skin ? `, with ${skin} skin color on the whole body` : ''}`);
+  const who = minor ? (p.gender === 'female' ? 'girl' : p.gender === 'nonbinary' ? 'child' : 'boy') : g;
+  parts.push(`${age} ${who}, ${sp.text}${skin ? `, with ${skin} skin color on the whole body` : ''}`);
+  // children / teens: no body shaping or attractiveness wording at all
+  if (minor) p = { ...p, body: {}, curvy: 40, attract: Math.min(p.attract ?? 50, 58), sfwLock: true };
   const ext = bodyText(p, null, 'extreme');
   if (ext.length) parts.push('IMPORTANT exaggerated body proportions: ' + ext.join(', '));
   // clothing early and explicit: otherwise the model often leaves the upper body bare
@@ -205,7 +230,7 @@ export function buildPrompt(d, ch, p, opts = {}) {
   if (p.features) parts.push(toEn(p.features));
   parts.push(sfw ? 'fully clothed, modest outfit, safe for work' : 'safe for work');
   if (p.extra) parts.push(toEn(p.extra));
-  parts.push(opts.multi ? 'plain flat light grey background, no scenery, no text, no labels, no frames between the views' : p.removeBg ? 'plain simple studio background, no scenery, no text' : 'atmospheric fantasy background, no text');
+  parts.push(opts.multi ? 'plain flat light grey background, no scenery, no text, no labels, no frames between the views' : p.removeBg ? 'plain flat uniform light grey studio background, no shadow on the floor, no scenery, no text' : 'atmospheric fantasy background, no text');
   parts.push(styleText);
   return parts.filter(Boolean).join(', ');
 }
@@ -271,7 +296,7 @@ export function freePrompt(p, opts = {}) {
   parts.push((p.freePrompt || '').trim());
   if (opts.emphasis?.length) parts.push('IMPORTANT, clearly visible body shape: ' + opts.emphasis.join(', '));
   if (opts.multi) parts.push('plain flat light grey background, no scenery, no text, no labels');
-  else if (p.removeBg && p.freeBg !== false) parts.push('plain simple studio background, no scenery, no text');
+  else if (p.removeBg && p.freeBg !== false) parts.push('plain flat uniform light grey studio background, no shadow on the floor, no scenery, no text');
   if (p.sfwLock !== false) parts.push('fully clothed, ' + SFW_COVER + ', safe for work');
   if (p.freeAppendStyle) parts.push(st[0] === 'custom' ? (p.customStyle || '').trim() : st[2]);
   return parts.filter(Boolean).join(', ');

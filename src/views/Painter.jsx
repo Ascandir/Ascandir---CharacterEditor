@@ -5,7 +5,7 @@ import { useJob, useJobs, finishJob, cancelJob, fmtTime } from '../ai/jobs.js';
 import { promptDialog, confirmDialog } from '../components/Dialog.jsx';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
-import { freePrompt, buildPrompt, frameSize, removeBackground, STYLES, FRAMINGS, DEFAULT_PAINTER, typicalHeight, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize } from '../ai/prompt.js';
+import { freePrompt, buildPrompt, frameSize, removeBackground, STYLES, FRAMINGS, DEFAULT_PAINTER, typicalHeight, speciesAge, isMinorAge, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize } from '../ai/prompt.js';
 import { RINGS, composeToken } from '../three/token.js';
 import AiSetup from '../components/AiSetup.jsx';
 
@@ -150,7 +150,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
       const prev = selMeta?.params;
       const changed = mode === 'refine' ? BODY_PARTS.map(b => b[0]).filter(k => (prev?.body?.[k] ?? 50) !== (p.body?.[k] ?? 50)) : [];
       const shapeChanged = changed.length > 0 || (mode === 'refine' && prev && ['build', 'curvy', 'muscle', 'height', 'attract'].some(k => prev[k] !== p[k]));
-      const emphasis = changed.length ? bodyText({ ...p, body: Object.fromEntries(changed.map(k => [k, p.body?.[k] ?? 50])) }, changed).filter(x => !/^exaggerated stylised/.test(x)) : [];
+      const emphasis = changed.length && !isMinorAge(d?.race?.name, p.age) ? bodyText({ ...p, body: Object.fromEntries(changed.map(k => [k, p.body?.[k] ?? 50])) }, changed).filter(x => !/^exaggerated stylised/.test(x)) : [];
       const usedPrompt = multi ? multiPrompt : (mode === 'refine' && emphasis.length && (isFree || p.promptOverride == null) ? (isFree ? freePrompt(p, { emphasis }) : buildPrompt(d, ch, p, { emphasis })) : prompt);
       const params = { prompt: usedPrompt, seed, width, height, batch: multi ? 1 : mode === 'refine' ? Math.min(count, 2) : count, removeBg: (multi || p.removeBg) && hasBiRef };
       if (!multi && upscaleSize(p) && hasUpscale) params.upscale = upscaleSize(p);
@@ -178,6 +178,11 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             params.prompt = `Use the character in <image1> as the exact reference: same face, body, proportions, outfit, colors and art style. Create ${multiPrompt}`;
           }
         }
+        // Qwen Image 2.1 can paint a transparent background itself (RGBA): cleaner than cutting it out afterwards
+        if (params.removeBg !== undefined && (multi || p.removeBg) && !params.upscale && p.qwenAlpha !== false) {
+          params.prompt = `This is an RGBA format image with transparency. ${params.prompt.replace(/,?\s*plain flat (uniform light grey studio|light grey) background[^,]*(, no shadow on the floor)?(, no scenery)?(, no text)?(, no labels)?(, no frames between the views)?/g, '')}. The image has an alpha channel and a transparent background.`;
+          params.removeBg = false; params.nativeAlpha = true;
+        }
       } else {
       if (mode === 'refine' && selImg) { params.initImage = await onGrey(selImg); params.denoise = Math.max(shapeChanged ? 0.68 : 0.15, Math.min(0.9, p.strength / 100)); }
       if (multi && selImg && p.multiFromSel !== false && selMeta?.kind !== 'multi') { params.initImage = await multiInit(await onGrey(selImg)); params.denoise = Math.max(0.4, Math.min(0.95, (p.multiStrength ?? 78) / 100)); }
@@ -185,7 +190,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
       const res = await api.ai.generate(params);
       const saved = [];
       for (const [i, raw] of res.images.entries()) {
-        const url = (multi || p.removeBg) && !hasBiRef ? await removeBackground(raw) : raw;
+        const url = (multi || p.removeBg) && !hasBiRef && !params.nativeAlpha ? await removeBackground(raw) : raw;
         const name = await api.saveImage(ch.id, url);
         setCache(c => ({ ...c, [name]: url }));
         saved.push({ name, seed: seed + i, prompt: params.prompt, model: useQwen ? 'qwen' : 'zimage', ts: Date.now(), seconds: res.seconds, params: JSON.parse(JSON.stringify(p)), ...(multi ? { kind: 'multi' } : {}) });
@@ -269,7 +274,14 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         {slider('curvy', t.pCurvy, 0, 100, t.pStraight, t.pCurvyHi)}
         {slider('muscle', t.muscle, 0, 100, t.little, t.much)}
         {slider('attract', t.pAttract, 0, 100, t.pPlain, t.pStunning)}
-        {slider('age', t.age, 18, 100, t.young, t.old)}
+        {(() => { const sa = speciesAge(d?.race?.name); const a = p.age ?? 30; return (
+          <div>
+            <div className="row" style={{ justifyContent: 'space-between' }}><label htmlFor="pt-age" className="bold small">{t.age}</label>
+              <input type="number" min={5} max={1000} value={a} onChange={e => set('age', Math.max(5, Math.min(1000, Number(e.target.value) || 5)))} style={{ width: 80, padding: '2px 6px' }} aria-label={t.age} /></div>
+            <input id="pt-age" type="range" min={5} max={1000} value={a} onChange={e => set('age', Number(e.target.value))} />
+            <div className="muted small">{t.ageSpecies(d?.race?.name || 'Human', sa.adult, sa.max)}</div>
+            {isMinorAge(d?.race?.name, a) && <div className="small" style={{ color: 'var(--accent2)' }}>{t.ageMinor}</div>}
+          </div>); })()}
         <div className="col" style={{ gap: 8 }}>
           <button className="btn sm ghost" onClick={() => setShowBody(!showBody)}>{t.pBody} {showBody ? '▾' : '▸'}{Object.values(p.body || {}).some(v => v !== 50) ? ' •' : ''}</button>
           {showBody && <>
@@ -341,6 +353,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
           </div>
         )}
         <label className="row small" title={t.pSfwHint}><input type="checkbox" checked={p.sfwLock !== false} onChange={e => set('sfwLock', e.target.checked)} />{t.pSfw}</label>
+        {useQwen && p.removeBg && <label className="row small" title={t.pQwenAlphaHint} style={{ marginLeft: 22 }}><input type="checkbox" checked={p.qwenAlpha !== false} onChange={e => set('qwenAlpha', e.target.checked)} />{t.pQwenAlpha}</label>}
         <label className="row small"><input type="checkbox" checked={p.removeBg} onChange={e => set('removeBg', e.target.checked)} />{t.pRemoveBg}</label>
         <label className="col" style={{ gap: 4 }}><span className="muted small">{t.pExtra}</span>
           <textarea rows={2} value={p.extra || ''} onChange={e => set('extra', e.target.value)} /></label>

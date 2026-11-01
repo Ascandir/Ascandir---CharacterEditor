@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.5
+- **Alter** von 5 bis 1000 Jahren (Regler plus Eingabefeld). Darunter steht, ab wann das gewählte Volk erwachsen ist und wie alt es meist wird (z. B. Elf: erwachsen ab 100, lebt etwa 750 Jahre). Das Alter wird relativ zum Volk beschrieben: Ein 300-jähriger Elf ist ein junger Erwachsener, ein 300-jähriger Mensch uralt
+- Bei Kindern und Jugendlichen werden Körperdetails, Kurven und Attraktivität ignoriert und die Kleidung ist immer bedeckt
+- **Hintergrund mit Qwen**: Qwen Image 2.1 malt das Bild jetzt direkt mit transparentem Hintergrund, statt ihn hinterher auszuschneiden (abschaltbar; bei 2K/4K wird weiter ausgeschnitten)
+- Z-Image: einheitlich hellgrauer Hintergrund ohne Bodenschatten, damit das Ausschneiden sauberer wird
+
 ## 0.7.4
 - Körperdetails: Oberweite bei 100 noch deutlich übertriebener (cartoonhaft riesig, mit Größenvergleich zum Kopf), weiterhin bekleidet
 
