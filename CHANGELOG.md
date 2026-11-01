@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.10
+- „Bild bearbeiten“: Ganz oben in der linken Spalte gibt es jetzt den Knopf **„← Zurück zum Charakter-Designer“**. Die gewählte Ansicht bleibt außerdem erhalten. Vorher sprang der Designer jedes Mal wieder in „Bild bearbeiten“, solange ein importiertes Bild ausgewählt war
+
 ## 0.8.9
 - KI-Maler: Neue Oberfläche **„Bild bearbeiten“** (✎). Importierte Bilder öffnen sich direkt darin, jedes andere Bild über den Knopf „✎ Bild bearbeiten“. Hier wird **nichts** aus dem Charakterbogen, dem Grafikstil oder den normalen Reglern und Feldern benutzt
 - Eigene Regler, die alle in der Mitte auf „unverändert“ stehen (links = weniger, rechts = mehr): Größe, Körperbau, Muskeln, Kurven, Attraktivität, Alter und alle Körperdetails. Dazu Felder für Haare, Augen, Hautfarbe, Kleidung, Gesichtsausdruck, Pose, Hintergrund und „Weitere Änderung“. Leere Felder bleiben unverändert

@@ -94,7 +94,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
     setCache(x => ({ ...x, [name]: url }));
     update(x => {
       // imported pictures open in the edit view (own sliders, nothing from the character sheet)
-      x.painter = { ...DEFAULT_PAINTER, ...(x.painter || {}), edit: {} };
+      x.painter = { ...DEFAULT_PAINTER, ...(x.painter || {}), edit: {}, editView: true };
       const all = [{ name, seed: 0, prompt: '', ts: Date.now(), kind: 'import', file: file.name, rel: true }, ...(x.paintings || [])];
       for (const old of all.slice(MAX_PAINTINGS)) api.deleteImage(x.id, old.name);
       x.paintings = all.slice(0, MAX_PAINTINGS); x.selectedPainting = name; return x;
@@ -102,8 +102,9 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   };
 
   // edit view: imported pictures (and results of edits) are changed only by the edit sliders, nothing from the character sheet
-  const [editOn, setEditOn] = useState(!!selMeta?.rel);
-  useEffect(() => { setEditOn(!!selMeta?.rel); }, [selName]);
+  // remembered per character: leaving and coming back keeps the chosen view
+  const editOn = !!p.editView;
+  const setEditOn = (on) => set('editView', !!on);
   const edit = p.edit || {};
   const setEdit = (k, v) => set('edit', { ...edit, [k]: v });
   const editList = editChanges(edit, p.tr || {}, { minor: isMinorAge(d?.race?.name, p.age) });
@@ -318,6 +319,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
     <div className="page" style={{ alignItems: 'stretch' }}>
       <section className="card col" style={{ flex: '1 1 300px', maxWidth: 360, gap: 12 }}>
         {editOn && selImg ? <>
+          <button className="btn" onClick={() => setEditOn(false)}>← {t.pEditBack}</button>
           <div className="col" style={{ gap: 4 }}>
             <b>✎ {t.pEditTitle}</b>
             <span className="muted small">{t.pEditIntro}</span>
@@ -555,7 +557,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
               <button className="btn primary" disabled={!!busy} onClick={() => generate('new')}>{t.pGenerate}</button>
               <button className="btn" disabled={!!busy || !selImg} onClick={() => generate('refine')} title={t.pRefineHint}>{t.pRefine}</button>
               <button className="btn" disabled={!!busy} onClick={() => generate('multi')} title={t.pMultiHint}>{t.pMulti}</button>
-              <button className="btn" disabled={!!busy || !selImg} onClick={() => { update(c => { c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), edit: {} }; return c; }); setEditOn(true); }} title={t.pEditOpenHint}>✎ {t.pEditOpen}</button>
+              <button className="btn" disabled={!!busy || !selImg} onClick={() => update(c => { c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), edit: {}, editView: true }; return c; })} title={t.pEditOpenHint}>✎ {t.pEditOpen}</button>
             </>}
           </div>
         )}
@@ -637,7 +639,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         {paintings.length > 0 && (
           <div className="row" style={{ gap: 8, overflowX: 'auto', flexWrap: 'nowrap', paddingBottom: 4 }}>
             {paintings.map(pt => (
-              <button key={pt.name} className="checker" onClick={() => update(c => { c.selectedPainting = pt.name; return c; })}
+              <button key={pt.name} className="checker" onClick={() => update(c => { c.selectedPainting = pt.name; c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), editView: !!pt.rel }; return c; })}
                 style={{ position: 'relative', flex: 'none', width: 74, height: 100, borderRadius: 8, border: '2px solid ' + (pt.name === selName ? 'var(--accent)' : 'var(--line)'), padding: 0, overflow: 'hidden' }} aria-label={'#' + pt.seed}>
                 {cache[pt.name] && <img src={cache[pt.name]} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />}
                 {pt.kind && <span className="badge" style={{ position: 'absolute', left: 3, top: 3 }}>{pt.kind === 'multi' ? '4×' : pt.kind === 'edit' ? '✎' : '⇪'}</span>}
