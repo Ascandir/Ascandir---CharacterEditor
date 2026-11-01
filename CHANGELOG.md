@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.1
+- KI-Maler: Die Bildvorschau lässt sich nicht mehr von Hand in der Höhe ziehen, sie passt sich nur noch automatisch an die Fenstergröße an
+
 ## 0.7.0
 - **Körperdetails** erweitert: neu sind Unterarme, Bauch, Oberschenkel und Waden (Armdicke heißt jetzt Oberarme). Die Enden sind deutlich übertriebener, bei 0 bzw. 100 bewusst unrealistisch und cartoonhaft. Werte unter 15 oder über 85 stehen jetzt ganz vorne in der KI-Anweisung und wirken dadurch stärker
 - **Grafikstil** steht jetzt am Anfang (und am Ende) der Anweisung und wirkt dadurch aufs ganze Bild statt nur aufs Gesicht

@@ -5,7 +5,8 @@ const HKEY = 'ace.zoomview.height';
 function savedHeight() { try { const v = Number(localStorage.getItem(HKEY)); return v > 150 ? v : null; } catch { return null; } }
 
 export default function ZoomView({ src, empty, labels = {}, reserve = 170 }) {
-  const [hgt, setHgt] = useState(savedHeight); // null = follow window size
+  const hgt = null; // height follows the window (manual resizing was removed)
+  const setHgt = () => {};
   const resizing = useRef(null);
   const startResize = e => {
     e.preventDefault(); e.stopPropagation();
@@ -66,10 +67,6 @@ export default function ZoomView({ src, empty, labels = {}, reserve = 170 }) {
       {src ? (
         <img src={src} alt="" draggable={false} style={{ position: 'absolute', left: '50%', top: '50%', maxWidth: '100%', maxHeight: '100%', transform: `translate(-50%, -50%) translate(${v.x}px, ${v.y}px) scale(${v.s})`, transformOrigin: 'center' }} />
       ) : <span className="muted" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{empty}</span>}
-      <div title={labels.resize} onPointerDown={startResize} onDoubleClick={e => { e.stopPropagation(); resetHeight(); }}
-        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 10, cursor: 'ns-resize', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2 }}>
-        <div style={{ width: 48, height: 4, borderRadius: 2, background: 'var(--line)' }} />
-      </div>
       {src && (
         <div className="row" style={{ position: 'absolute', right: 10, bottom: 14, gap: 4, background: 'rgba(15,17,21,.75)', borderRadius: 10, padding: 4 }} onPointerDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}>
           <button className="btn sm" aria-label="zoom out" onClick={() => zoomAt(1 / 1.25, 0, 0)}>−</button>
