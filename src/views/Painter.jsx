@@ -116,7 +116,9 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   const hasBiRef = !!st?.models?.birefnet?.present;
   const hasUpscale = !!st?.models?.upscale?.present;
   const hasQwen = !!st?.models?.['qwen-image-21']?.present;
-  const useQwen = hasQwen && p.model === 'qwen';
+  const hasQwenTurbo = !!st?.models?.['qwen-image-21-turbo']?.present;
+  const qTurbo = hasQwenTurbo && p.model === 'qwenturbo';
+  const useQwen = (hasQwen && p.model === 'qwen') || qTurbo;
   const installModel = async (id) => {
     setBgInstall('…'); setErr(null);
     const off = api.ai.on('ai:progress', pr => setBgInstall((pr.pct ?? 0) + ' %'));
@@ -154,7 +156,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
       if (useQwen) {
         // Qwen Image 2.1: native up to 2K, edit/reference mode instead of img2img
         const neg = (p.style === 'custom' ? (p.customNegative || '') : '').trim();
-        Object.assign(params, { model: 'qwen', negative: neg, cfg: neg ? 4 : 1, steps: p.qSteps || 30 });
+        Object.assign(params, qTurbo ? { model: 'qwen', turbo: true, negative: '', cfg: 1, steps: 8 } : { model: 'qwen', negative: neg, cfg: neg ? 4 : 1, steps: p.qSteps || 30 });
         if (!multi && ['2k', '4k'].includes(p.res)) { const k = 2048 / Math.max(width, height); params.width = Math.round(width * k / 32) * 32; params.height = Math.round(height * k / 32) * 32; if (p.res === '2k') delete params.upscale; }
         // GPU-friendly mode: Qwen paints at most ~1 MP; bigger sizes are reached with the upscaler (driver resets otherwise)
         if (!multi && (st?.gpuMode || 'safe') === 'safe' && params.width * params.height > 1.15e6) {
@@ -308,7 +310,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
           </div>
           {p.style === 'custom' && <>
             <textarea rows={3} value={p.customStyle || ''} aria-label={t.pCustomStyle} placeholder={t.pCustomStyleHint} onChange={e => set('customStyle', e.target.value)} />
-            <textarea rows={2} value={p.customNegative || ''} aria-label={t.pNegative} placeholder={t.pNegativeHint} onChange={e => set('customNegative', e.target.value)} />
+            <textarea rows={2} value={p.customNegative || ''} aria-label={t.pNegative} placeholder={qTurbo ? t.pNegativeTurbo : t.pNegativeHint} onChange={e => set('customNegative', e.target.value)} />
             <div className="row" style={{ gap: 6 }}>
               {curSaved && (curSaved.text !== (p.customStyle || '') || (curSaved.negative || '') !== (p.customNegative || '')) && <button className="btn sm" onClick={() => saveSettings({ ...globalSettings, customStyles: savedStyles.map(y => (y.id === curSaved.id ? { ...y, text: p.customStyle || '', negative: p.customNegative || '' } : y)) })}>{t.pStyleUpdate(curSaved.name)}</button>}
               <button className="btn sm" disabled={!(p.customStyle || '').trim()} onClick={async () => {
@@ -330,7 +332,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
           <div className="row wrap" style={{ gap: 6 }}>{RESOLUTIONS.map(([k, l]) => <button key={k} className={'chip' + ((p.res || 'std') === k ? ' on' : '')} onClick={() => set('res', k)}>{l[lang]}</button>)}</div>
           <span className="muted small">{t.pResHint}</span>
         </div>
-        {useQwen && (
+        {useQwen && !qTurbo && (
           <div className="col" style={{ gap: 6 }}>
             <span className="bold small">{t.pSteps}</span>
             <div className="row wrap" style={{ gap: 6 }}>{[[20, t.pStepsFast], [30, t.pStepsStd], [45, t.pStepsBest]].map(([n, l]) => <button key={n} className={'chip' + ((p.qSteps || 30) === n ? ' on' : '')} onClick={() => set('qSteps', n)}>{l} · {n}</button>)}</div>
@@ -378,10 +380,11 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             </>}
           </div>
         )}
-        {ready && !hasQwen && (
+        {ready && (!hasQwen || !hasQwenTurbo) && (
           <div className="row small wrap" style={{ gap: 10, padding: '0 4px' }}>
             <span className="muted grow">{t.pQwenHint}</span>
-            <button className="btn sm" disabled={!!bgInstall} onClick={() => installModel('qwen-image-21')}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : t.pQwenLoad}</button>
+            {!hasQwenTurbo && <button className="btn sm" disabled={!!bgInstall} onClick={() => installModel('qwen-image-21-turbo')}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : (hasQwen ? t.pQwenTurboLoadShared : t.pQwenTurboLoad)}</button>}
+            {!hasQwen && <button className="btn sm" disabled={!!bgInstall} onClick={() => installModel('qwen-image-21')}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : (hasQwenTurbo ? t.pQwenLoadShared : t.pQwenLoad)}</button>}
           </div>
         )}
         {ready && useQwen && selImg && (

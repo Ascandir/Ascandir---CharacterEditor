@@ -86,6 +86,7 @@ export default function App() {
   useEffect(() => { api.ai?.status().then(s => { if (s.supported && !s.setupDone && !s.setupSkipped) setAiFirstRun(true); }).catch(() => {}); }, []);
   useEffect(() => { api.hardware().then(info => { const g = primaryGpu(info); if (g?.status === 'old') setDriverWarn(g); }).catch(() => {}); }, []);
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
+  useEffect(() => { document.title = ch ? `${ch.name || t.untitled} – ${t.appName}` : t.appName; }, [ch?.name, t]);
 
   const db = useMemo(() => {
     if (!official) return null;
@@ -202,7 +203,7 @@ export default function App() {
       <DbCtx.Provider value={db}>
       <div className="app">
         <header className="topbar">
-          <div className="brand serif">{t.appName}</div>
+          <div className="brand serif" title={t.appName}>{ch ? (ch.name || t.untitled) : t.appName}</div>
           <nav className="nav">
             {tabs.map(([k, l]) => <button key={k} className={view === k || (k === 'sheet' && (view === 'wizard' || view === 'levelup')) ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}
           </nav>

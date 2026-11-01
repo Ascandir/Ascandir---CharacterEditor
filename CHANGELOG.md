@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.13
+- Neues Bildmodell **Qwen Image 2.1 Turbo**: 8 statt 30–45 Schritte, also etwa 2 statt 7–10 Minuten, bei kaum schlechterer Qualität. Malen, Verfeinern mit Änderungswunsch und Mehrfachansicht funktionieren wie bei Qwen Image 2.1. Text-Modell und VAE werden geteilt, wer Qwen Image 2.1 schon hat, lädt nur noch ca. 13 GB
+- Oben links steht jetzt der **Name des aktuellen Charakters** statt des Programmnamens (auch im Fenstertitel)
+
 ## 0.6.12
 - KI-Maler: Der Token-Bereich ist vorerst entfernt und wird später neu gemacht. Die Bildvorschau bekommt dadurch mehr Platz
 

@@ -48,6 +48,15 @@ const DEFAULT_CATALOG = {
       ],
     },
     {
+      id: 'qwen-image-21-turbo', name: 'Qwen Image 2.1 Turbo', version: '1', recommended: false, minVramGB: 16, kind: 'image',
+      note: { de: 'Schnelle Fassung von Qwen Image 2.1: 8 statt 30–45 Schritte, kaum schlechter. Teilt Text-Modell und VAE mit Qwen Image 2.1.', en: 'Fast version of Qwen Image 2.1: 8 instead of 30-45 steps, barely worse. Shares text encoder and VAE with Qwen Image 2.1.' },
+      files: [
+        { url: 'https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_turbo_bf16.safetensors', dest: 'models/diffusion_models/qwen_image_2.1_turbo_bf16.safetensors', size: 13250000000 },
+        { url: 'https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_bf16.safetensors', dest: 'models/text_encoders/qwen3vl_8b_bf16.safetensors', size: 16330000000 },
+        { url: 'https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors', dest: 'models/vae/qwen_image_2.1_vae_bf16.safetensors', size: 644200000 },
+      ],
+    },
+    {
       id: 'upscale', name: 'Real-ESRGAN x4', version: '1', recommended: true, minVramGB: 2, kind: 'upscale',
       note: { de: 'Hochskalierer für 2K/4K-Bilder', en: 'Upscaler for 2K/4K pictures' },
       files: [
@@ -216,6 +225,8 @@ async function install({ dir, gpu, models: modelIds, comfy: doComfy = true }) {
       for (const f of m.files) {
         const dest = path.join(root, 'ComfyUI', f.dest);
         if (fs.existsSync(dest) && cfg.models[id]?.version === m.version) continue; // .part files are renamed only when complete
+        // shared file already installed by another model (e.g. Qwen text encoder): keep it
+        if (fs.existsSync(dest) && Object.entries(cfg.models).some(([oid, im]) => oid !== id && (im.files || []).includes(f.dest))) continue;
         if (fs.existsSync(dest)) await fsp.rm(dest, { force: true });
         await download(f.url, dest, m.name + ' – ' + path.basename(f.dest), signal);
       }
@@ -357,9 +368,9 @@ function zImageWorkflow({ prompt, seed, width = 832, height = 1216, steps = 8, b
 }
 
 // Qwen Image 2.1 (ComfyUI core nodes): text-to-image, or edit / reference mode when refs are given
-function qwenWorkflow({ prompt, negative = '', seed, width = 1024, height = 1024, steps = 40, cfg = 1, batch = 1, refs = [], editLatent = false, resolution = 1024, removeBg = false, upscale = null }) {
+function qwenWorkflow({ prompt, negative = '', seed, width = 1024, height = 1024, steps = 40, cfg = 1, batch = 1, refs = [], editLatent = false, resolution = 1024, removeBg = false, upscale = null, turbo = false }) {
   const w = {
-    101: { class_type: 'UNETLoader', inputs: { unet_name: 'qwen_image_2.1_bf16.safetensors', weight_dtype: 'default' } },
+    101: { class_type: 'UNETLoader', inputs: { unet_name: turbo ? 'qwen_image_2.1_turbo_bf16.safetensors' : 'qwen_image_2.1_bf16.safetensors', weight_dtype: 'default' } },
     102: { class_type: 'QwenImage21Cache', inputs: { model: ['101', 0], device: 'auto', dtype: 'default' } },
     103: { class_type: 'CLIPLoader', inputs: { clip_name: 'qwen3vl_8b_bf16.safetensors', type: 'qwen_image', device: 'default' } },
     104: { class_type: 'VAELoader', inputs: { vae_name: 'qwen_image_2.1_vae_bf16.safetensors' } },
@@ -378,6 +389,15 @@ function qwenWorkflow({ prompt, negative = '', seed, width = 1024, height = 1024
   else { w[106] = { class_type: 'EmptyLatentImage', inputs: { width, height, batch_size: editLatent ? 1 : batch } }; lat = ['106', 0]; }
   if (editLatent && batch > 1) { w[107] = { class_type: 'RepeatLatentBatch', inputs: { samples: lat, amount: batch } }; lat = ['107', 0]; }
   w[3].inputs.latent_image = lat;
+  if (turbo) {
+    // distilled for 8 steps with a fixed schedule (official template), no CFG
+    const pos = w[3].inputs.positive, neg = w[3].inputs.negative;
+    w[120] = { class_type: 'RandomNoise', inputs: { noise_seed: seed } };
+    w[121] = { class_type: 'KSamplerSelect', inputs: { sampler_name: 'euler' } };
+    w[122] = { class_type: 'ManualSigmas', inputs: { sigmas: '1.0, 0.978453, 0.95418, 0.926626, 0.89508, 0.845148, 0.704534, 0.414568, 0' } };
+    w[123] = { class_type: 'CFGGuider', inputs: { model: ['102', 0], positive: pos, negative: neg, cfg: 1 } };
+    w[3] = { class_type: 'SamplerCustomAdvanced', inputs: { noise: ['120', 0], guider: ['123', 0], sampler: ['121', 0], sigmas: ['122', 0], latent_image: lat } };
+  }
   addPost(w, { removeBg, upscale });
   return w;
 }
@@ -442,7 +462,7 @@ async function generate(params) {
   const body = await r.json().catch(() => ({}));
   if (!r.ok || !body.prompt_id) {
     const txt = JSON.stringify(body.error || body.node_errors || body);
-    if (/TextEncodeQwenImage21|QwenImage21Cache/.test(txt) && /not found|does not exist|invalid_prompt/i.test(txt)) throw new Error('COMFY_TOO_OLD');
+    if (/TextEncodeQwenImage21|QwenImage21Cache|ManualSigmas/.test(txt) && /not found|does not exist|invalid_prompt/i.test(txt)) throw new Error('COMFY_TOO_OLD');
     throw new Error('ComfyUI: ' + txt.slice(0, 500));
   }
   const id = body.prompt_id;

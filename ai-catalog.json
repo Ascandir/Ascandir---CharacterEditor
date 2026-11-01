@@ -83,6 +83,35 @@
       ]
     },
     {
+      "id": "qwen-image-21-turbo",
+      "name": "Qwen Image 2.1 Turbo",
+      "version": "1",
+      "recommended": false,
+      "minVramGB": 16,
+      "kind": "image",
+      "note": {
+        "de": "Schnelle Fassung von Qwen Image 2.1: 8 statt 30–45 Schritte, kaum schlechter. Teilt Text-Modell und VAE mit Qwen Image 2.1.",
+        "en": "Fast version of Qwen Image 2.1: 8 instead of 30-45 steps, barely worse. Shares text encoder and VAE with Qwen Image 2.1."
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_turbo_bf16.safetensors",
+          "dest": "models/diffusion_models/qwen_image_2.1_turbo_bf16.safetensors",
+          "size": 13250000000
+        },
+        {
+          "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_bf16.safetensors",
+          "dest": "models/text_encoders/qwen3vl_8b_bf16.safetensors",
+          "size": 16330000000
+        },
+        {
+          "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors",
+          "dest": "models/vae/qwen_image_2.1_vae_bf16.safetensors",
+          "size": 644200000
+        }
+      ]
+    },
+    {
       "id": "upscale",
       "name": "Real-ESRGAN x4",
       "version": "1",

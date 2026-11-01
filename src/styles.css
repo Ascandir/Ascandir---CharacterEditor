@@ -141,3 +141,4 @@ h1, h2, h3 { margin: 0; }
 .autosaved { white-space: nowrap; }
 @media (max-width: 1500px) { .autosaved { display: none; } }
 .jobchip { margin-left: 0; white-space: nowrap; }
+.brand { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -31,9 +31,10 @@ export default function Designer(props) {
         {mode === 'painter' && (
           <label className="row small" style={{ gap: 8 }}>
             <span className="muted">{t.pModel}</span>
-            <select value={models['qwen-image-21']?.present && ch.painter?.model === 'qwen' ? 'qwen' : 'zimage'} aria-label={t.pModel}
+            <select value={({ qwen: 'qwen-image-21', qwenturbo: 'qwen-image-21-turbo' }[ch.painter?.model] && models[{ qwen: 'qwen-image-21', qwenturbo: 'qwen-image-21-turbo' }[ch.painter?.model]]?.present) ? ch.painter.model : 'zimage'} aria-label={t.pModel}
               onChange={e => update(c => { c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), model: e.target.value }; return c; })}>
               <option value="zimage">Z-Image Turbo · {t.pFast}</option>
+              <option value="qwenturbo" disabled={!models['qwen-image-21-turbo']?.present}>Qwen Image 2.1 Turbo · {t.pQwenTurbo}{models['qwen-image-21-turbo']?.present ? '' : ' (' + t.pNotLoaded + ')'}</option>
               <option value="qwen" disabled={!models['qwen-image-21']?.present}>Qwen Image 2.1 · {t.pBest}{models['qwen-image-21']?.present ? '' : ' (' + t.pNotLoaded + ')'}</option>
             </select>
           </label>
