@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.7
+- KI-Maler: Die Häkchen „Freizügigkeit sperren“, „Hintergrund entfernen“ und „Qwen malt den Hintergrund gleich transparent“ sind sauber ausgerichtet. Die Qwen-Option steht jetzt eingerückt unter „Hintergrund entfernen“, zu dem sie gehört
+
 ## 0.7.6
 - KI-Berater: Strata startete nicht, wenn der Preset-Name Leerzeichen enthält (z. B. „IQ3_S 64K“). Der Startbefehl wird jetzt richtig in Anführungszeichen gesetzt
 

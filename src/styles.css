@@ -142,3 +142,7 @@ h1, h2, h3 { margin: 0; }
 @media (max-width: 1500px) { .autosaved { display: none; } }
 .jobchip { margin-left: 0; white-space: nowrap; }
 .brand { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.checkline { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; line-height: 1.35; }
+.checkline input { flex: none; margin-top: 1px; }
+.checkline span { flex: 1; min-width: 0; }
+.checkline.sub { padding-left: 28px; margin-top: -4px; }

@@ -352,9 +352,9 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             <span className="muted small">{t.pStepsHint}</span>
           </div>
         )}
-        <label className="row small" title={t.pSfwHint}><input type="checkbox" checked={p.sfwLock !== false} onChange={e => set('sfwLock', e.target.checked)} />{t.pSfw}</label>
-        {useQwen && p.removeBg && <label className="row small" title={t.pQwenAlphaHint} style={{ marginLeft: 22 }}><input type="checkbox" checked={p.qwenAlpha !== false} onChange={e => set('qwenAlpha', e.target.checked)} />{t.pQwenAlpha}</label>}
-        <label className="row small"><input type="checkbox" checked={p.removeBg} onChange={e => set('removeBg', e.target.checked)} />{t.pRemoveBg}</label>
+        <label className="checkline small" title={t.pSfwHint}><input type="checkbox" checked={p.sfwLock !== false} onChange={e => set('sfwLock', e.target.checked)} /><span>{t.pSfw}</span></label>
+        <label className="checkline small"><input type="checkbox" checked={p.removeBg} onChange={e => set('removeBg', e.target.checked)} /><span>{t.pRemoveBg}</span></label>
+        {useQwen && p.removeBg && <label className="checkline small sub" title={t.pQwenAlphaHint}><input type="checkbox" checked={p.qwenAlpha !== false} onChange={e => set('qwenAlpha', e.target.checked)} /><span>{t.pQwenAlpha}</span></label>}
         <label className="col" style={{ gap: 4 }}><span className="muted small">{t.pExtra}</span>
           <textarea rows={2} value={p.extra || ''} onChange={e => set('extra', e.target.value)} /></label>
         <button className="btn sm ghost" onClick={() => setShowPrompt(!showPrompt)}>{t.pPrompt} {showPrompt ? '▾' : '▸'}</button>
