@@ -70,6 +70,7 @@ const browser = {
     });
   },
   async openExternal(u) { window.open(u, '_blank'); return true; },
+  async tdr() { return window.__ACE_MOCK_TDR || { supported: false }; }, async setTdr(v) { if (window.__ACE_MOCK_TDR) window.__ACE_MOCK_TDR.delay = v || null; return true; },
   async hardware() { return { platform: 'browser', gpus: [], ramGB: null }; },
   async version() { return 'dev'; },
   async checkUpdate() { return window.__ACE_MOCK_UPDATE || { available: false, current: 'dev', version: 'dev' }; },

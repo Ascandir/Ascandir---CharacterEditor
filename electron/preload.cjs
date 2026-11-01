@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('ace', {
   saveFilesToDir: (o) => ipcRenderer.invoke('file:saveDir', o),
   openExternal: (u) => ipcRenderer.invoke('sys:openExternal', u),
   hardware: () => ipcRenderer.invoke('sys:hardware'),
+  tdr: () => ipcRenderer.invoke('sys:tdr'),
+  setTdr: (s) => ipcRenderer.invoke('sys:setTdr', s),
   version: () => ipcRenderer.invoke('app:version'),
   checkUpdate: () => ipcRenderer.invoke('update:check'),
   ai: {

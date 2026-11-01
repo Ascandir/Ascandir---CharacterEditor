@@ -152,6 +152,28 @@ ipcMain.handle('sys:openExternal', async (_e, url) => {
 });
 
 // GPU + driver detection (Windows). Never installs or updates anything.
+// Windows GPU timeout (TDR): long compute kernels (big AI models) can exceed the default 2 s and reset the driver.
+const TDR_KEY = 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers';
+ipcMain.handle('sys:tdr', async () => {
+  if (process.platform !== 'win32') return { supported: false };
+  const { execFile } = require('child_process');
+  const q = (name) => new Promise(r => execFile('reg', ['query', TDR_KEY, '/v', name], { windowsHide: true }, (err, out) => {
+    const m = /REG_DWORD\s+0x([0-9a-f]+)/i.exec(String(out || '')); r(m ? parseInt(m[1], 16) : null);
+  }));
+  return { supported: true, delay: await q('TdrDelay'), ddiDelay: await q('TdrDdiDelay') };
+});
+ipcMain.handle('sys:setTdr', async (_e, seconds) => {
+  if (process.platform !== 'win32') return false;
+  const { spawn } = require('child_process');
+  const ps = seconds
+    ? `New-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers' -Name TdrDelay -Value ${Number(seconds)} -PropertyType DWord -Force; New-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers' -Name TdrDdiDelay -Value ${Number(seconds)} -PropertyType DWord -Force`
+    : `Remove-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers' -Name TdrDelay,TdrDdiDelay -ErrorAction SilentlyContinue`;
+  // elevated PowerShell (Windows asks for admin rights); wait for it to finish
+  const enc = Buffer.from(ps, 'utf16le').toString('base64');
+  const outer = `Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile','-EncodedCommand','${enc}'`;
+  await new Promise(r => { const p = spawn('powershell.exe', ['-NoProfile', '-Command', outer], { windowsHide: true }); p.on('exit', r); p.on('error', r); });
+  return true;
+});
 ipcMain.handle('sys:hardware', async () => {
   const info = { platform: process.platform, gpus: [], ramGB: Math.round(require('os').totalmem() / 1024 ** 3) };
   if (process.platform !== 'win32') return info;

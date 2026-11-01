@@ -3,6 +3,30 @@ import { api } from '../platform.js';
 import { useT } from '../i18n.js';
 import AiSetup, { useAiProgress } from './AiSetup.jsx';
 
+function TdrBox() {
+  const { t } = useT();
+  const [tdr, setTdr] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const load = () => api.tdr?.().then(setTdr).catch(() => setTdr(null));
+  useEffect(() => { load(); }, []);
+  if (!tdr?.supported) return null;
+  const raised = (tdr.delay || 0) >= 10;
+  const apply = async (v) => { setBusy(true); try { await api.setTdr(v); } catch { /* declined */ } const r = await api.tdr().catch(() => null); setTdr(r ? { ...r, changed: (r.delay || null) !== (tdr.delay || null) } : null); setBusy(false); };
+  return (
+    <div className="col" style={{ gap: 6, padding: 10, borderRadius: 10, background: 'var(--panel2)' }}>
+      <span className="bold small">{t.tdrTitle}</span>
+      <span className="muted small">{t.tdrHint}</span>
+      <span className="small">{t.tdrNow(tdr.delay ?? 2)}{raised ? '' : ' ' + t.tdrDefault}</span>
+      <div className="row" style={{ gap: 8 }}>
+        {!raised && <button className="btn sm primary" disabled={busy} onClick={() => apply(60)}>{t.tdrRaise}</button>}
+        {raised && <button className="btn sm" disabled={busy} onClick={() => apply(0)}>{t.tdrReset}</button>}
+      </div>
+      {busy && <span className="muted small">{t.tdrBusy}</span>}
+      {tdr.changed && <span className="small" style={{ color: 'var(--accent2)' }}>{t.tdrReboot}</span>}
+    </div>
+  );
+}
+
 export default function AiPanel() {
   const { t } = useT();
   const [st, setSt] = useState(null);
@@ -39,6 +63,7 @@ export default function AiPanel() {
               <option value="safe">{t.gpuSafe}</option><option value="balanced">{t.gpuBalanced}</option><option value="fast">{t.gpuFast}</option>
             </select></label>
           <span className="muted small">{t.gpuModeHint}</span>
+          <TdrBox />
           <label className="row small">{t.aiIdle}
             <select value={st.idleMinutes} onChange={async e => { await api.ai.setIdle(Number(e.target.value)); refresh(); }}>{[0, 5, 10, 30, 60].map(n => <option key={n} value={n}>{n}</option>)}</select></label>
           <div className="row">

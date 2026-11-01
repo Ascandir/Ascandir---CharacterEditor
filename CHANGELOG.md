@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.10
+- Einstellungen → KI: Knopf, um die **Windows-Zeitgrenze für den Grafiktreiber (TDR)** von 2 auf 60 Sekunden zu erhöhen (und wieder zurückzusetzen). Verhindert Treiber-Resets bei langen KI-Berechnungen. Windows fragt nach Administratorrechten, danach ist ein Neustart nötig
+
 ## 0.6.9
 - **Abbrechen-Knopf** beim KI-Malen: Das laufende Bild wird sofort gestoppt und aus der Warteschlange genommen, ComfyUI bleibt dabei an. Klappt auch, wenn ComfyUI gerade noch startet
 - Abbrechen auch beim 3D-Erzeugen mit TRELLIS
