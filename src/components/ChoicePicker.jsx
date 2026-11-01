@@ -101,6 +101,7 @@ function MultiPick({ c, onChange, t, lang, scores, totalLevel }) {
           </div>
         )) : <div className="optgrid">{opts.map(renderOpt)}</div>}
       </div>
+      {c.already?.length > 0 && <div className="muted small" style={{ marginTop: 6 }}>{t.skillAlready(c.already.map(v => skillName(v, lang)).join(', '))}</div>}
       {detail?.entity && (
         <div className="feat">
           <div className="row"><b>{detail.label}</b><span className="muted small">{detail.entity.level != null && detail.entity.school ? spellMeta(detail.entity) : detail.src}</span>

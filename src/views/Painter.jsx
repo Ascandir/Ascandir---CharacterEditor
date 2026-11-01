@@ -5,7 +5,7 @@ import { useJob, useJobs, finishJob, cancelJob, fmtTime } from '../ai/jobs.js';
 import { promptDialog, confirmDialog } from '../components/Dialog.jsx';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
-import { freePrompt, toEn, buildPrompt, frameSize, removeBackground, STYLES, FRAMINGS, DEFAULT_PAINTER, typicalHeight, speciesAge, isMinorAge, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize } from '../ai/prompt.js';
+import { freePrompt, toEn, buildPrompt, frameSize, removeBackground, STYLES, MIX_PARTS, MIX_MODS, PRESET_MIX, mixStyleText, styleOf, FRAMINGS, DEFAULT_PAINTER, typicalHeight, speciesAge, isMinorAge, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize } from '../ai/prompt.js';
 import { RINGS, composeToken } from '../three/token.js';
 import AiSetup from '../components/AiSetup.jsx';
 
@@ -66,6 +66,10 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   const [big, setBig] = useState(false);
   const savedStyles = globalSettings?.customStyles || [];
   const curSaved = p.style === 'custom' ? savedStyles.find(x => x.id === p.savedStyleId) : null;
+  const mixMode = p.styleMode === 'mix';
+  const mix = p.mix || {};
+  const curMixSaved = mixMode ? savedStyles.find(x => x.id === p.mixSavedId && x.mix) : null;
+  const sameMix = (a, b) => [...MIX_PARTS, ...MIX_MODS].every(([k]) => (a?.[k] ?? (MIX_PARTS.some(x => x[0] === k) ? 0 : 50)) === (b?.[k] ?? (MIX_PARTS.some(x => x[0] === k) ? 0 : 50)));
   const tokenRef = useRef(null);
   const paintings = ch.paintings || [];
   const selName = ch.selectedPainting || paintings[0]?.name;
@@ -175,7 +179,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
       if (!multi && upscaleSize(p) && hasUpscale) params.upscale = upscaleSize(p);
       if (useQwen) {
         // Qwen Image 2.1: native up to 2K, edit/reference mode instead of img2img
-        const neg = (p.style === 'custom' ? (p.customNegative || '') : '').trim();
+        const neg = styleOf(p).negative;
         Object.assign(params, qTurbo ? { model: 'qwen', turbo: true, negative: '', cfg: 1, steps: 8 } : { model: 'qwen', negative: neg, cfg: neg ? 4 : 1, steps: p.qSteps || 30 });
         if (!multi && ['2k', '4k'].includes(p.res)) { const k = 2048 / Math.max(width, height); params.width = Math.round(width * k / 32) * 32; params.height = Math.round(height * k / 32) * 32; if (p.res === '2k') delete params.upscale; }
         // GPU-friendly mode: Qwen paints at most ~1 MP; bigger sizes are reached with the upscaler (driver resets otherwise)
@@ -350,13 +354,64 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         {text('clothing', t.pClothing, lang === 'de' ? 'z. B. long ragged leather coat' : 'e.g. long ragged leather coat')}
         </>}
         <div className="col" style={{ gap: 6 }}>
-          <span className="bold small">{t.style}</span>
+          <div className="row" style={{ justifyContent: 'space-between', gap: 8 }}>
+            <span className="bold small">{t.style}</span>
+            <div className="seg">
+              <button className={!mixMode ? 'on' : ''} onClick={() => set('styleMode', 'preset')}>{t.pStylePreset}</button>
+              <button className={mixMode ? 'on' : ''} onClick={() => update(c => {
+                const cur = { ...DEFAULT_PAINTER, ...(c.painter || {}) };
+                // first switch: start the sliders from the current preset (or the saved slider style)
+                const init = cur.mix || (cur.style === 'custom' ? savedStyles.find(x => x.id === cur.savedStyleId)?.mix : PRESET_MIX[cur.style]) || PRESET_MIX.painted;
+                c.painter = { ...cur, styleMode: 'mix', mix: init };
+                return c;
+              })}>{t.pStyleMix}</button>
+            </div>
+          </div>
+          {mixMode && <>
+            {MIX_PARTS.map(([k, l]) => {
+              const v = mix[k] ?? 0;
+              return (
+                <div key={k}>
+                  <div className="row" style={{ justifyContent: 'space-between' }}><label htmlFor={'mx-' + k} className="small">{l[lang]}</label><span className="muted small">{v ? v + ' %' : t.pMixOff}</span></div>
+                  <input id={'mx-' + k} type="range" min={0} max={100} step={5} value={v} onChange={e => set('mix', { ...mix, [k]: Number(e.target.value) })} onDoubleClick={() => set('mix', { ...mix, [k]: 0 })} />
+                </div>
+              );
+            })}
+            {MIX_MODS.map(([k, l, ends]) => {
+              const v = mix[k] ?? 50;
+              return (
+                <div key={k}>
+                  <div className="row" style={{ justifyContent: 'space-between' }}><label htmlFor={'mx-' + k} className="small">{l[lang]}</label><span className="muted small">{v === 50 ? t.pNormal : v < 50 ? ends[lang][0] : ends[lang][1]}</span></div>
+                  <input id={'mx-' + k} type="range" min={0} max={100} step={5} value={v} onChange={e => set('mix', { ...mix, [k]: Number(e.target.value) })} onDoubleClick={() => set('mix', { ...mix, [k]: 50 })} />
+                </div>
+              );
+            })}
+            <span className="muted small">{t.pMixHint}</span>
+            <div className="small" style={{ background: 'var(--panel2, rgba(127,127,127,.08))', borderRadius: 6, padding: '6px 8px', wordBreak: 'break-word' }}><span className="muted">{t.pMixPreview}: </span>{mixStyleText(mix) || <span className="muted">{t.pMixEmpty}</span>}</div>
+            <textarea rows={2} value={p.mixNegative || ''} aria-label={t.pNegative} placeholder={qTurbo ? t.pNegativeTurbo : t.pNegativeHint} onChange={e => set('mixNegative', e.target.value)} />
+            <div className="row wrap" style={{ gap: 6 }}>
+              <button className="btn sm" onClick={() => set('mix', {})}>{t.pMixReset}</button>
+              {curMixSaved && (!sameMix(curMixSaved.mix, mix) || (curMixSaved.negative || '') !== (p.mixNegative || '')) && <button className="btn sm" onClick={() => saveSettings({ ...globalSettings, customStyles: savedStyles.map(y => (y.id === curMixSaved.id ? { ...y, mix: { ...mix }, text: mixStyleText(mix), negative: p.mixNegative || '' } : y)) })}>{t.pStyleUpdate(curMixSaved.name)}</button>}
+              <button className="btn sm" disabled={!mixStyleText(mix)} onClick={async () => {
+                const name = await promptDialog(t.pStyleName, curMixSaved ? curMixSaved.name + ' 2' : '');
+                if (!name) return;
+                const id = 's' + Date.now().toString(36);
+                saveSettings({ ...globalSettings, customStyles: [...savedStyles, { id, name, text: mixStyleText(mix), negative: p.mixNegative || '', mix: { ...mix } }] });
+                set('mixSavedId', id);
+              }}>{t.pMixSave}</button>
+            </div>
+            {savedStyles.some(x => x.mix) && <div className="row wrap" style={{ gap: 6 }}>
+              <span className="muted small">{t.pMixLoad}:</span>
+              {savedStyles.filter(x => x.mix).map(x => <button key={x.id} className={'chip' + (p.mixSavedId === x.id ? ' on' : '')} onClick={() => update(c => { c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), mix: { ...x.mix }, mixNegative: x.negative || '', mixSavedId: x.id }; return c; })}>★ {x.name}</button>)}
+            </div>}
+          </>}
+          {!mixMode && <>
           <div className="row wrap" style={{ gap: 6 }}>
             {STYLES.filter(x => x[0] !== 'custom').map(([k, l]) => <button key={k} className={'chip' + (p.style === k ? ' on' : '')} onClick={() => set('style', k)}>{l[lang]}</button>)}
             {savedStyles.map(x => (
               <span key={x.id} className={'chip' + (p.style === 'custom' && p.savedStyleId === x.id ? ' on' : '')} style={{ display: 'inline-flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}
-                onClick={() => update(c => { c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), style: 'custom', customStyle: x.text, customNegative: x.negative || '', savedStyleId: x.id }; return c; })} title={x.text}>
-                ★ {x.name}
+                onClick={() => update(c => { c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), style: 'custom', customStyle: x.text, customNegative: x.negative || '', savedStyleId: x.id, ...(x.mix ? { mix: { ...x.mix }, mixSavedId: x.id } : {}) }; return c; })} title={x.text}>
+                {x.mix ? '🎚' : '★'} {x.name}
                 <span role="button" aria-label={t.delete} style={{ opacity: .6 }} onClick={async e => { e.stopPropagation(); if (await confirmDialog(t.pStyleDelete(x.name))) saveSettings({ ...globalSettings, customStyles: savedStyles.filter(y => y.id !== x.id) }); }}>×</span>
               </span>
             ))}
@@ -375,6 +430,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
                 set('savedStyleId', id);
               }}>{t.pStyleSave}</button>
             </div>
+          </>}
           </>}
         </div>
         <div className="col" style={{ gap: 6 }}>

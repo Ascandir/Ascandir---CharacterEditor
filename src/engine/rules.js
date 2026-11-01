@@ -187,7 +187,7 @@ export function derive(db, settings, ch) {
     if (typeof v === 'string' && ['pick', 'skill', 'abil', 'feat', 'lang'].includes(c.kind)) { const o = (c.options || []).find(o => lc(o.value) === lc(v).trim()); v = o ? [o.value] : undefined; } // migrate old free-text answers
     c.value = v; choices.push(c); return v;
   };
-  const skillProf = new Set(); const expertise = new Set();
+  const skillProf = new Set(); const expertise = new Set(); const skillFixed = new Set();
   const abilBonus = Object.fromEntries(ABILS.map(a => [a, 0]));
   const notes = { resist: new Set(), languages: new Set(), tools: new Set(), armor: new Set(), weapons: new Set() };
   const feats = []; // {feat, ctx}
@@ -237,7 +237,7 @@ export function derive(db, settings, ch) {
     }
     // skills
     const rs = skillChoiceFromSets(race.skillProficiencies);
-    rs.fixed.forEach(s => skillProf.add(s));
+    rs.fixed.forEach(s => { skillProf.add(s); skillFixed.add(s); });
     rs.chooses.forEach((c, i) => {
       const v = add({ id: 'race:skill:' + i, group: 'race', label: 'Skill Proficiency', kind: 'skill', count: c.count, required: true,
         options: c.from.map(s => ({ value: s, label: s })) });
@@ -295,7 +295,7 @@ export function derive(db, settings, ch) {
       }
     }
     const bs = skillChoiceFromSets(bg.skillProficiencies);
-    bs.fixed.forEach(s => skillProf.add(s));
+    bs.fixed.forEach(s => { skillProf.add(s); skillFixed.add(s); });
     bs.chooses.forEach((c, i) => {
       const v = add({ id: 'bg:skill:' + i, group: 'background', label: 'Skill Proficiency', kind: 'skill', count: c.count, required: true,
         options: c.from.map(s => ({ value: s, label: s })) });
@@ -342,7 +342,7 @@ export function derive(db, settings, ch) {
     if (n === 1) {
       if (isFirstOverall) {
         const cs = skillChoiceFromSets(cls.startingProficiencies?.skills);
-        cs.fixed.forEach(s => skillProf.add(s));
+        cs.fixed.forEach(s => { skillProf.add(s); skillFixed.add(s); });
         cs.chooses.forEach((c, i) => {
           const v = addL({ id: 'class:skill:' + L.classUid + ':' + i, group: 'class', label: cls.name + ' – Skills', kind: 'skill', count: c.count, required: true,
             options: c.from.map(s => ({ value: s, label: s })) });
@@ -354,7 +354,7 @@ export function derive(db, settings, ch) {
       } else {
         const pg = cls.multiclassing?.proficienciesGained;
         const cs = skillChoiceFromSets(pg?.skills);
-        cs.fixed.forEach(s => skillProf.add(s));
+        cs.fixed.forEach(s => { skillProf.add(s); skillFixed.add(s); });
         cs.chooses.forEach((c, i) => {
           const v = addL({ id: 'mc:skill:' + L.classUid + ':' + i, group: 'class', label: cls.name + ' – Skills', kind: 'skill', count: c.count, required: true,
             options: c.from.map(s => ({ value: s, label: s })) });
@@ -463,14 +463,14 @@ export function derive(db, settings, ch) {
       });
     }
     const fs = skillChoiceFromSets(feat.skillProficiencies);
-    fs.fixed.forEach(s => skillProf.add(s));
+    fs.fixed.forEach(s => { skillProf.add(s); skillFixed.add(s); });
     features.push({ name: feat.name, from: 'Feat', kind: 'feat', entries: feat.entries });
   }
 
   // ----- extras (outside the rules) -----
   for (const x of ch.extras || []) {
     if (x.type === 'ability' && ABILS.includes(x.ability)) abilBonus[x.ability] += Number(x.amount) || 0;
-    if (x.type === 'skill' && SKILLS[x.skill]) skillProf.add(x.skill);
+    if (x.type === 'skill' && SKILLS[x.skill]) { skillProf.add(x.skill); skillFixed.add(x.skill); }
     if (x.type === 'feat') {
       const ft = db.byUid.feat.get(x.uid);
       if (ft) {
@@ -517,6 +517,16 @@ export function derive(db, settings, ch) {
     if (!c.pool || !pools[c.pool]) continue;
     const taken = new Set(pools[c.pool].filter(([id]) => id !== c.id).map(([, v]) => v));
     c.options = c.options.filter(o => !taken.has(o.value) || o.entity?.repeatable);
+  }
+  // skills: a skill you already get elsewhere (species, background, class, feat) is not offered again
+  const skillChoices = choices.filter(c => c.kind === 'skill');
+  for (const c of skillChoices) {
+    const own = new Set(Array.isArray(c.value) ? c.value : []);
+    const elsewhere = new Set(skillFixed);
+    for (const o of skillChoices) if (o !== c && Array.isArray(o.value)) o.value.forEach(v => elsewhere.add(v));
+    const left = c.options.filter(o => own.has(o.value) || !elsewhere.has(o.value));
+    const dropped = c.options.filter(o => !own.has(o.value) && elsewhere.has(o.value)).map(o => o.value);
+    if (left.length >= (c.count || 1)) { c.options = left; if (dropped.length) c.already = dropped; }
   }
   // open decisions
   out.open = choices.filter(c => c.required && !isComplete(c));

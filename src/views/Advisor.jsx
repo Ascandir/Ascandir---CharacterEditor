@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
-import { DEFAULT_PAINTER, STYLES, BODY_PARTS } from '../ai/prompt.js';
+import { DEFAULT_PAINTER, STYLES, BODY_PARTS, styleOf } from '../ai/prompt.js';
 import Markdown from '../components/Markdown.jsx';
 
 const DEFAULT_URL = 'http://127.0.0.1:8080/v1';
@@ -100,7 +100,7 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
   const savedStyles = globalSettings?.customStyles || [];
   const advStyle = ch.advisor?.style ?? 'painter';
   const pp = { ...DEFAULT_PAINTER, ...(ch.painter || {}) };
-  const painterStyleText = pp.style === 'custom' ? (pp.customStyle || '') : (STYLES.find(x => x[0] === pp.style) || STYLES[0])[2];
+  const painterStyleText = styleOf(pp).text;
   const styleText = advStyle === 'free' ? '' : advStyle === 'painter' ? painterStyleText
     : advStyle.startsWith('saved:') ? (savedStyles.find(x => 'saved:' + x.id === advStyle)?.text || '') : ((STYLES.find(x => x[0] === advStyle) || [])[2] || '');
   const advMode = ch.advisor?.mode || 'sliders';

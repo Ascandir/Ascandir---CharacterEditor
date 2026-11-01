@@ -171,3 +171,20 @@ test('weapon mastery + 2014 ranger choices', () => {
   const r14 = R.derive(db, S14, { ...mk('ranger|phb', 1), raceUid: 'human|phb', backgroundUid: 'soldier|phb' });
   assert.ok(r14.choices.some(c => /:fe$/.test(c.id)) && r14.choices.some(c => /:ne$/.test(c.id)));
 });
+
+test('skills from species/background are not offered again for the class', () => {
+  const ch = { base: { str: 10, dex: 15, con: 14, int: 8, wis: 13, cha: 10 }, raceUid: 'elf|xphb', backgroundUid: 'soldier|xphb',
+    levels: [{ classUid: 'ranger|xphb' }], choices: {}, extras: [], inventory: [] };
+  let d = R.derive(db, S24, ch);
+  ch.choices['race:version'] = [d.choices.find(c => c.id === 'race:version').options[0].value];
+  d = R.derive(db, S24, ch);
+  const rc = d.choices.find(c => c.kind === 'skill' && c.group === 'race');
+  assert.ok(rc, 'elf skill choice');
+  ch.choices[rc.id] = ['survival'];
+  d = R.derive(db, S24, ch);
+  const cc = d.choices.find(c => c.kind === 'skill' && c.group === 'class');
+  const vals = cc.options.map(o => o.value);
+  assert.ok(!vals.includes('survival'), 'survival hidden');
+  assert.ok(!vals.includes('athletics'), 'background athletics hidden');
+  assert.ok(cc.already.includes('survival'));
+});

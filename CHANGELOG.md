@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.3
+- KI-Maler: **Grafikstil per Regler**. Unter „Grafikstil“ wählst du jetzt zwischen **Preset** (wie bisher: feste Stile und eigene Stil-Prompts) und **Regler**. Mit den Reglern mischst du Realismus, Gemalt, 3D-Render, Comic, Anime, Cartoon, Handgezeichnet, Tusche und Aquarell in Prozent. Dazu kommen Detailgrad, Farbsättigung (bis schwarz-weiß) und Licht & Stimmung (düster bis hell). Darunter siehst du, was daraus im Prompt wird
+- Ein Regler-Stil lässt sich mit „Als Stil-Preset speichern“ unter einem Namen sichern (optional mit Negativ-Prompt). Er erscheint dann bei den Presets (🎚) und kann in den Reglern wieder geladen und weiter angepasst werden. Beim ersten Wechsel auf „Regler“ starten die Regler passend zum gerade gewählten Preset
+- Der KI-Berater kennt auch den Regler-Stil
+- Charaktererstellung: Fertigkeiten, die du schon vom Volk, vom Hintergrund oder aus einer anderen Wahl hast (z. B. Überlebenskunst beim Elfen), werden bei der Klasse nicht mehr angeboten. Unter der Auswahl steht, welche deshalb ausgeblendet sind
+
 ## 0.8.2
 - KI-Maler: Nach einem Qwen-Bild hält ComfyUI das Modell im Arbeitsspeicher, damit das nächste Bild schneller startet. Die Speicherprüfung hat das fälschlich als „zu wenig frei“ gewertet. Jetzt wird das geladene Modell einfach wiederverwendet. Beim Wechsel zwischen Z-Image und Qwen gibt ComfyUI das alte Modell vorher frei, ohne dass du es von Hand beenden musst
 

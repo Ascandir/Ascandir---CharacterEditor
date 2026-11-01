@@ -68,6 +68,60 @@ export const STYLES = [
   ['custom', { de: 'Eigener Stil', en: 'Custom style' }, ''],
 ];
 
+// Style mixer: share of each look in % (sliders) plus a few modifiers (50 = neutral)
+export const MIX_PARTS = [
+  ['realism', { de: 'Realismus', en: 'Realism' }, 'photorealistic, realistic skin and materials, photographic lighting'],
+  ['painted', { de: 'Gemalt', en: 'Painted' }, 'digital painting, visible painterly brushwork, oil paint texture'],
+  ['render3d', { de: '3D-Render', en: '3D render' }, '3D rendered video game character, PBR materials'],
+  ['comic', { de: 'Comic', en: 'Comic' }, 'western comic book art, bold ink outlines, flat colors'],
+  ['anime', { de: 'Anime', en: 'Anime' }, 'anime style, cel shading, clean line art'],
+  ['cartoon', { de: 'Cartoon', en: 'Cartoon' }, 'stylized cartoon, exaggerated simplified shapes'],
+  ['sketch', { de: 'Handgezeichnet', en: 'Hand-drawn' }, 'hand-drawn pencil sketch, visible pencil strokes, graphite shading'],
+  ['ink', { de: 'Tusche', en: 'Ink' }, 'pen and ink illustration, cross-hatching'],
+  ['watercolor', { de: 'Aquarell', en: 'Watercolor' }, 'watercolor painting, soft washes, bleeding pigment'],
+];
+export const MIX_MODS = [
+  ['detail', { de: 'Detailgrad', en: 'Detail' }, { de: ['schlicht', 'sehr detailliert'], en: ['simple', 'very detailed'] }],
+  ['saturation', { de: 'Farbsättigung', en: 'Saturation' }, { de: ['schwarz-weiß', 'knallig'], en: ['black & white', 'vivid'] }],
+  ['light', { de: 'Licht & Stimmung', en: 'Light & mood' }, { de: ['düster', 'hell'], en: ['dark', 'bright'] }],
+];
+// slider values the built-in presets correspond to (used when switching to the sliders)
+export const PRESET_MIX = {
+  painted: { painted: 85, realism: 25 }, realistic: { realism: 90, painted: 10 }, game: { render3d: 85, realism: 30 },
+  comic: { comic: 90 }, ink: { ink: 85, sketch: 30 }, watercolor: { watercolor: 85, sketch: 20 }, anime: { anime: 90 },
+};
+export function mixStyleText(mix = {}) {
+  const parts = MIX_PARTS.map(([k, , txt]) => [k, mix[k] ?? 0, txt]).filter(x => x[1] >= 10).sort((a, b) => b[1] - a[1]);
+  const out = [];
+  if (parts.length) {
+    const sum = parts.reduce((a, x) => a + x[1], 0);
+    const pct = x => Math.round(x[1] / sum * 100);
+    if (parts.length === 1) out.push(parts[0][2]);
+    else {
+      out.push('art style blend: ' + parts.map((x, i) => {
+        const sh = pct(x);
+        const lead = i === 0 ? (sh >= 60 ? 'predominantly ' : 'mainly ') : sh >= 30 ? 'strongly mixed with ' : sh >= 15 ? 'blended with ' : 'with a subtle touch of ';
+        return lead + x[2] + ' (about ' + sh + '%)';
+      }).join(', '));
+    }
+  }
+  const d = mix.detail ?? 50, s = mix.saturation ?? 50, l = mix.light ?? 50;
+  if (d < 20) out.push('very simple shapes, minimal detail'); else if (d < 40) out.push('simplified, low detail');
+  else if (d > 85) out.push('extremely detailed, intricate fine details'); else if (d > 62) out.push('highly detailed');
+  if (s < 8) out.push('black and white, monochrome, no color'); else if (s < 30) out.push('muted desaturated colors');
+  else if (s > 85) out.push('extremely vivid, highly saturated colors'); else if (s > 65) out.push('vibrant saturated colors');
+  if (l < 20) out.push('very dark, grim low-key lighting, deep shadows'); else if (l < 40) out.push('moody dim lighting');
+  else if (l > 80) out.push('very bright high-key lighting, light airy atmosphere'); else if (l > 60) out.push('bright cheerful lighting');
+  return out.join(', ');
+}
+// the effective style (text + negative prompt) of the painter settings
+export function styleOf(p) {
+  if (p.styleMode === 'mix') return { text: mixStyleText(p.mix || {}) || STYLES[0][2], negative: (p.mixNegative || '').trim() };
+  const st = STYLES.find(s => s[0] === p.style) || STYLES[0];
+  if (st[0] === 'custom') return { text: (p.customStyle || '').trim() || STYLES[0][2], negative: (p.customNegative || '').trim() };
+  return { text: st[2], negative: '' };
+}
+
 export const FRAMINGS = [
   ['full', { de: 'Ganzkörper', en: 'Full body' }, 'full body shot, the entire figure is visible from head to feet, standing pose, centered', 832, 1216],
   ['three', { de: 'Dreiviertel', en: 'Three-quarter' }, 'three-quarter shot from head to knees, centered', 896, 1152],
@@ -199,7 +253,7 @@ export function buildPrompt(d, ch, p, opts = {}) {
   const age = minor
     ? (years < sa.adult * 0.55 ? 'young child (' + years + ' years old) with childlike proportions,' : 'teenager (' + years + ' years old) with youthful proportions,')
     : pick(f, [[0.12, 'young adult'], [0.35, 'adult'], [0.55, 'middle-aged'], [0.75, 'older, with grey streaks and wrinkles'], [1, 'elderly, white hair and deep wrinkles'], [9e9, 'ancient, extremely old, deeply wrinkled']]);
-  const styleText = st[0] === 'custom' ? (p.customStyle || '').trim() || STYLES[0][2] : st[2];
+  const styleText = styleOf(p).text;
   // the style goes first (Z-Image weighs the beginning most, otherwise the style only reaches the face) and again at the end
   if (!opts.multi) parts.push(styleText);
   const pose = toEn(p.pose, p.tr);
@@ -307,6 +361,6 @@ export function freePrompt(p, opts = {}) {
   if (opts.multi) parts.push('plain flat light grey background, no scenery, no text, no labels');
   else if (p.removeBg && p.freeBg !== false) parts.push('plain flat uniform light grey studio background, no shadow on the floor, no scenery, no text');
   if (p.sfwLock !== false) parts.push('fully clothed, ' + SFW_COVER + ', safe for work');
-  if (p.freeAppendStyle) parts.push(st[0] === 'custom' ? (p.customStyle || '').trim() : st[2]);
+  if (p.freeAppendStyle) parts.push(styleOf(p).text);
   return parts.filter(Boolean).join(', ');
 }
