@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.8
+- KI-Maler: **Zentauren** werden deutlich zuverlässiger als ein einziges Wesen gemalt statt als Mensch, der ein Pferd reitet. Die Beschreibung ist viel genauer (menschlicher Oberkörper wächst an Stelle von Hals und Kopf aus dem Pferdekörper, vier Hufe, kein Sattel, kein Reiter) und wird am Ende des Prompts noch einmal betont
+- Ganzkörperbilder von Zentauren werden im **Querformat** gemalt. Im Hochformat passt der lange Pferdekörper schlecht hinein, und die Modelle weichen dann gern auf „Reiter auf Pferd“ aus
+- Kleidung und Rüstung beziehen sich bei Zentauren nur auf den Oberkörper. Die Regler für Beinlänge, Oberschenkel, Waden, Hüfte und Po werden ignoriert, weil sie sonst menschliche Beine erzeugen
+- Mit eigenem Negativ-Prompt (Qwen Image 2.1) wird automatisch „Reiter, Sattel, Zügel, menschliche Beine“ ergänzt
+
 ## 0.8.7
 - KI-Maler: ComfyUI wird jetzt **nach jedem fertigen Bild automatisch beendet** (auch nach Fehlern oder Abbruch). Der Arbeitsspeicher (bei Qwen 30–40 GB) ist damit sofort wieder frei. Das nächste Bild startet etwas langsamer, weil das Modell neu geladen wird. Abschalten lässt sich das unter Einstellungen → KI → „KI nach jedem fertigen Bild beenden“
 

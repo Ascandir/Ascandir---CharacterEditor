@@ -34,7 +34,7 @@ const SPECIES = [
   ['harengon', 165, () => 'a harengon, an anthropomorphic rabbit folk: a rabbit head with long upright ears and a twitching nose, the body covered in soft fur, large rabbit feet'],
   ['owlin', 170, () => 'an owlin, an anthropomorphic owl folk, NOT a human: a full owl head with large round eyes and a small beak, the entire body covered in owl feathers, feathered wings on the back, bird talons'],
   ['satyr', 170, () => 'a satyr with goat legs and small horns'],
-  ['centaur', 210, () => 'a centaur with a human upper body and a horse body'],
+  ['centaur', 210, () => 'a centaur, ONE single creature, NOT a person riding a horse: from the waist up a human torso with arms and a human head, from the waist down the body of a horse with four horse legs, four hooves and a horse tail; the human torso grows directly out of the front of the horse body where the horse neck and head would be, there is no horse head and no horse neck'],
   ['minotaur', 210, () => 'a minotaur, NOT a human: a full bull head with a broad muzzle and large curved horns on a huge muscular body covered in short fur, hooves'],
   ['genasi', 172, (c) => `a ${c ? c.toLowerCase() + ' ' : ''}genasi, an elemental-touched humanoid`],
   ['yuan-ti', 172, () => 'a yuan-ti, a snake-blooded humanoid with scaly patches and serpent eyes'],
@@ -134,6 +134,19 @@ export const DEFAULT_PAINTER = {
   style: 'painted', framing: 'full', removeBg: true, strength: 45, promptOverride: null,
   crop: { size: 42, x: 50, y: 16 },
 };
+
+// species whose body is not human-shaped below the waist (special wording, no human leg sliders)
+const TAUR = {
+  centaur: {
+    who: g => (g === 'man' ? 'male centaur' : g === 'woman' ? 'female centaur' : 'centaur'),
+    framing: t => t.replace('from head to feet', 'from the head to the four hooves').replace('standing pose', 'standing on its four horse legs'),
+    clothing: 'clothing and armor only on the human upper body, the horse body is bare with natural horse coat',
+    reminder: 'IMPORTANT: a single centaur creature, the human upper body is fused to the horse body at the waist, four horse legs, no human legs, no rider, no saddle, no reins, not riding a horse, no separate horse',
+    noBody: ['legLen', 'legThick', 'calf', 'butt', 'hips'],
+    negative: 'person riding a horse, rider, saddle, reins, separate horse, horse head, human legs',
+  },
+};
+export function speciesNegative(raceName) { return TAUR[speciesOf(raceName).key]?.negative || ''; }
 
 function speciesOf(raceName) {
   const n = lc(raceName || 'human');
@@ -288,10 +301,13 @@ export function buildPrompt(d, ch, p, opts = {}) {
   // the style goes first (Z-Image weighs the beginning most, otherwise the style only reaches the face) and again at the end
   if (!opts.multi) parts.push(styleText);
   const pose = toEn(p.pose, p.tr);
-  parts.push(opts.multi ? MULTI_VIEW : pose ? fr[2].replace('standing pose', '').replace(/,\s*,/g, ',') + ', pose: ' + pose : fr[2]);
+  const taur = TAUR[sp.key];
+  const frText = taur ? taur.framing(fr[2]) : fr[2];
+  parts.push(opts.multi ? MULTI_VIEW : pose ? frText.replace(/standing pose|standing on its four horse legs/, '').replace(/,\s*,/g, ',') + ', pose: ' + pose : frText);
   if (opts.emphasis?.length && !minor) parts.push('IMPORTANT, clearly visible body shape: ' + opts.emphasis.join(', '));
   const skin = toEn(p.skin, p.tr);
-  const who = minor ? (p.gender === 'female' ? 'girl' : p.gender === 'nonbinary' ? 'child' : 'boy') : g;
+  const who = minor ? (p.gender === 'female' ? 'girl' : p.gender === 'nonbinary' ? 'child' : 'boy') + (taur ? ' ' + sp.key : '') : taur ? taur.who(g) : g;
+  if (taur?.noBody) p = { ...p, body: Object.fromEntries(Object.entries(p.body || {}).filter(([k]) => !taur.noBody.includes(k))) };
   parts.push(`${age} ${who}, ${sp.text}${skin ? `, with ${skin} skin color on the whole body` : ''}`);
   // children / teens: no body shaping or attractiveness wording at all
   if (minor) p = { ...p, body: {}, curvy: 40, attract: Math.min(p.attract ?? 50, 58), sfwLock: true };
@@ -307,7 +323,7 @@ export function buildPrompt(d, ch, p, opts = {}) {
   }
   if (p.clothing) gear.push(toEn(p.clothing, p.tr));
   const sfw = p.sfwLock !== false;
-  parts.push((gear.length ? 'wearing ' + gear.join(', ') : 'wearing practical fantasy adventurer clothing') + (sfw ? ', ' + SFW_COVER : ''));
+  parts.push((gear.length ? 'wearing ' + gear.join(', ') : 'wearing practical fantasy adventurer clothing') + (taur ? ', ' + taur.clothing : '') + (sfw ? ', ' + (taur ? 'the human chest, torso and arms are completely covered by the outfit, no cleavage, no revealing armor' : SFW_COVER) : ''));
   parts.push(pick(p.attract, LOOKS));
   parts.push(...bodyText(p, null, 'normal'));
   parts.push(pick(p.build, [[12, 'very thin, gaunt build'], [32, 'slim build'], [58, 'average build'], [74, 'stocky, slightly heavy build'], [89, 'heavyset, overweight with a round belly'], [100, 'very fat, obese body']]));
@@ -322,6 +338,7 @@ export function buildPrompt(d, ch, p, opts = {}) {
   if (p.eyes) { const e2 = toEn(p.eyes, p.tr); parts.push(/eye/i.test(e2) ? e2 : e2 + ' eyes'); }
   if (p.features) parts.push(toEn(p.features, p.tr));
   parts.push(sfw ? 'fully clothed, modest outfit, safe for work' : 'safe for work');
+  if (taur) parts.push(taur.reminder);
   if (p.extra) parts.push(toEn(p.extra, p.tr));
   parts.push(opts.multi ? 'plain flat light grey background, no scenery, no text, no labels, no frames between the views' : p.removeBg ? 'plain flat uniform light grey studio background, no shadow on the floor, no scenery, no text' : 'atmospheric fantasy background, no text');
   parts.push(styleText);
@@ -347,8 +364,11 @@ export function frameSize(p) {
   const fr = FRAMINGS.find(f => f[0] === p.framing) || FRAMINGS[0];
   const r = RESOLUTIONS.find(x => x[0] === p.res) || RESOLUTIONS[1];
   const k = Math.sqrt(r[2]);
-  return { width: Math.round(fr[3] * k / 64) * 64, height: Math.round(fr[4] * k / 64) * 64 };
+  // horse-bodied species are wider than tall: landscape picture for full body (portrait format makes the model draw a rider)
+  const [w, h] = p.wide && fr[0] === 'full' ? [fr[4], fr[3]] : [fr[3], fr[4]];
+  return { width: Math.round(w * k / 64) * 64, height: Math.round(h * k / 64) * 64 };
 }
+export function isWideSpecies(raceName) { return !!TAUR[speciesOf(raceName).key]; }
 
 // Fallback background removal (when the BiRefNet model is not installed):
 // region growing from the borders that follows smooth gradients/vignettes.

@@ -6,7 +6,7 @@ import { useJob, useJobs, finishJob, cancelJob, fmtTime, jobPct } from '../ai/jo
 import { promptDialog, confirmDialog } from '../components/Dialog.jsx';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
-import { freePrompt, toEn, buildPrompt, frameSize, removeBackground, STYLES, MIX_PARTS, MIX_MODS, PRESET_MIX, mixStyleText, styleOf, FRAMINGS, DEFAULT_PAINTER, typicalHeight, speciesAge, isMinorAge, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize, relChanges, IMPORT_BASE } from '../ai/prompt.js';
+import { freePrompt, toEn, buildPrompt, frameSize, removeBackground, STYLES, MIX_PARTS, MIX_MODS, PRESET_MIX, mixStyleText, styleOf, FRAMINGS, DEFAULT_PAINTER, typicalHeight, speciesAge, isMinorAge, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize, relChanges, IMPORT_BASE, speciesNegative, isWideSpecies } from '../ai/prompt.js';
 import { RINGS, composeToken } from '../three/token.js';
 import AiSetup from '../components/AiSetup.jsx';
 
@@ -51,7 +51,7 @@ async function multiInit(dataUrl) {
 
 export default function Painter({ ch, d, update, globalSettings, saveSettings }) {
   const { t, lang } = useT();
-  const p = { ...DEFAULT_PAINTER, ...(ch.painter || {}), crop: { ...DEFAULT_PAINTER.crop, ...(ch.painter?.crop || {}) } };
+  const p = { ...DEFAULT_PAINTER, ...(ch.painter || {}), crop: { ...DEFAULT_PAINTER.crop, ...(ch.painter?.crop || {}) }, wide: isWideSpecies(d?.race?.name) };
   const tk = { tokenRing: 'gold', tokenColor: '#E3A74B', tokenBg: '#2a2e36', tokenTransparent: false, ...(ch.appearance || {}) };
   const set = (k, v) => update(c => { c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), [k]: v }; return c; });
   const setTk = (k, v) => update(c => { c.appearance = { ...(c.appearance || {}), [k]: v }; return c; });
@@ -189,7 +189,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
       if (!multi && upscaleSize(p) && hasUpscale) params.upscale = upscaleSize(p);
       if (useQwen) {
         // Qwen Image 2.1: native up to 2K, edit/reference mode instead of img2img
-        const neg = styleOf(p).negative;
+        const neg = [styleOf(p).negative, styleOf(p).negative ? speciesNegative(d?.race?.name) : ''].filter(Boolean).join(', ');
         Object.assign(params, qTurbo ? { model: 'qwen', turbo: true, negative: '', cfg: 1, steps: 8 } : { model: 'qwen', negative: neg, cfg: neg ? 4 : 1, steps: p.qSteps || 30 });
         if (!multi && ['2k', '4k'].includes(p.res)) { const k = 2048 / Math.max(width, height); params.width = Math.round(width * k / 32) * 32; params.height = Math.round(height * k / 32) * 32; if (p.res === '2k') delete params.upscale; }
         // GPU-friendly mode: Qwen paints at most ~1 MP; bigger sizes are reached with the upscaler (driver resets otherwise)
