@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import BigText from '../components/BigText.jsx';
 import ZoomView, { ImageModal } from '../components/ZoomView.jsx';
 import { splitViews } from '../ai/images.js';
 import { useJob, useJobs, finishJob, cancelJob, fmtTime } from '../ai/jobs.js';
@@ -302,7 +303,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         </div>
         {isFree && (
           <div className="col" style={{ gap: 6 }}>
-            <textarea rows={12} value={p.freePrompt || ''} aria-label={t.pSourceFree} placeholder={t.pFreeHint} onChange={e => set('freePrompt', e.target.value)} style={{ resize: 'vertical', fontSize: 13, minHeight: 120 }} />
+            <BigText rows={12} value={p.freePrompt || ''} aria-label={t.pSourceFree} placeholder={t.pFreeHint} onChange={e => set('freePrompt', e.target.value)} style={{ resize: 'vertical', fontSize: 13, minHeight: 120 }} />
             <div className="row small" style={{ gap: 8 }}>
               <button className="btn sm" onClick={() => update(c => { c.designerMode = 'advisor'; return c; })}>{t.pToAdvisor}</button>
               <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={!!p.freeAppendStyle} onChange={e => set('freeAppendStyle', e.target.checked)} />{t.pFreeStyle}</label>
@@ -388,7 +389,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             })}
             <span className="muted small">{t.pMixHint}</span>
             <div className="small" style={{ background: 'var(--panel2, rgba(127,127,127,.08))', borderRadius: 6, padding: '6px 8px', wordBreak: 'break-word' }}><span className="muted">{t.pMixPreview}: </span>{mixStyleText(mix) || <span className="muted">{t.pMixEmpty}</span>}</div>
-            <textarea rows={2} value={p.mixNegative || ''} aria-label={t.pNegative} placeholder={qTurbo ? t.pNegativeTurbo : t.pNegativeHint} onChange={e => set('mixNegative', e.target.value)} />
+            <BigText rows={2} value={p.mixNegative || ''} aria-label={t.pNegative} placeholder={qTurbo ? t.pNegativeTurbo : t.pNegativeHint} onChange={e => set('mixNegative', e.target.value)} />
             <div className="row wrap" style={{ gap: 6 }}>
               <button className="btn sm" onClick={() => set('mix', {})}>{t.pMixReset}</button>
               {curMixSaved && (!sameMix(curMixSaved.mix, mix) || (curMixSaved.negative || '') !== (p.mixNegative || '')) && <button className="btn sm" onClick={() => saveSettings({ ...globalSettings, customStyles: savedStyles.map(y => (y.id === curMixSaved.id ? { ...y, mix: { ...mix }, text: mixStyleText(mix), negative: p.mixNegative || '' } : y)) })}>{t.pStyleUpdate(curMixSaved.name)}</button>}
@@ -418,8 +419,8 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             <button className={'chip' + (p.style === 'custom' && !p.savedStyleId ? ' on' : '')} onClick={() => update(c => { c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), style: 'custom', savedStyleId: null }; return c; })}>+ {STYLES.find(x => x[0] === 'custom')[1][lang]}</button>
           </div>
           {p.style === 'custom' && <>
-            <textarea rows={3} value={p.customStyle || ''} aria-label={t.pCustomStyle} placeholder={t.pCustomStyleHint} onChange={e => set('customStyle', e.target.value)} />
-            <textarea rows={2} value={p.customNegative || ''} aria-label={t.pNegative} placeholder={qTurbo ? t.pNegativeTurbo : t.pNegativeHint} onChange={e => set('customNegative', e.target.value)} />
+            <BigText rows={3} value={p.customStyle || ''} aria-label={t.pCustomStyle} placeholder={t.pCustomStyleHint} onChange={e => set('customStyle', e.target.value)} />
+            <BigText rows={2} value={p.customNegative || ''} aria-label={t.pNegative} placeholder={qTurbo ? t.pNegativeTurbo : t.pNegativeHint} onChange={e => set('customNegative', e.target.value)} />
             <div className="row" style={{ gap: 6 }}>
               {curSaved && (curSaved.text !== (p.customStyle || '') || (curSaved.negative || '') !== (p.customNegative || '')) && <button className="btn sm" onClick={() => saveSettings({ ...globalSettings, customStyles: savedStyles.map(y => (y.id === curSaved.id ? { ...y, text: p.customStyle || '', negative: p.customNegative || '' } : y)) })}>{t.pStyleUpdate(curSaved.name)}</button>}
               <button className="btn sm" disabled={!(p.customStyle || '').trim()} onClick={async () => {
@@ -453,11 +454,11 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         <label className="checkline small"><input type="checkbox" checked={p.removeBg} onChange={e => set('removeBg', e.target.checked)} /><span>{t.pRemoveBg}</span></label>
         {useQwen && p.removeBg && <label className="checkline small sub" title={t.pQwenAlphaHint}><input type="checkbox" checked={p.qwenAlpha !== false} onChange={e => set('qwenAlpha', e.target.checked)} /><span>{t.pQwenAlpha}</span></label>}
         <label className="col" style={{ gap: 4 }}><span className="muted small">{t.pExtra}</span>
-          <textarea rows={2} value={p.extra || ''} onChange={e => set('extra', e.target.value)} onBlur={() => translate('extra')} />{p.extra && p.tr?.[String(p.extra).trim()] && <span className="muted small">EN: {p.tr[String(p.extra).trim()]}</span>}</label>
+          <BigText rows={2} title={t.pExtra} value={p.extra || ''} onChange={e => set('extra', e.target.value)} onBlur={() => translate('extra')} />{p.extra && p.tr?.[String(p.extra).trim()] && <span className="muted small">EN: {p.tr[String(p.extra).trim()]}</span>}</label>
         <button className="btn sm ghost" onClick={() => setShowPrompt(!showPrompt)}>{t.pPrompt} {showPrompt ? '▾' : '▸'}</button>
         {showPrompt && (
           <div className="col" style={{ gap: 6 }}>
-            <textarea rows={7} value={prompt} onChange={e => set('promptOverride', e.target.value)} aria-label={t.pPrompt} style={{ fontSize: 12 }} />
+            <BigText rows={7} value={prompt} onChange={e => set('promptOverride', e.target.value)} aria-label={t.pPrompt} style={{ fontSize: 12, resize: 'vertical' }} />
             {p.promptOverride != null && <button className="btn sm" onClick={() => set('promptOverride', null)}>{t.pPromptReset}</button>}
           </div>
         )}

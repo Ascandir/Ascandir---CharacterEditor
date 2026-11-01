@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.4
+- Alle Textfelder im KI-Maler und im KI-Berater (KI-Anweisung, eigener Prompt, Stil-Prompt, Negativ-Prompt, Zusätze, Eingabe im Berater) haben oben rechts einen **⤢-Knopf**. Er öffnet den Text in einem großen Fenster zum bequemen Lesen und Bearbeiten, mit Zeichen- und Wortzählung und „Kopieren“. Änderungen wirken sofort, „Fertig“ oder Esc schließt das Fenster
+
 ## 0.8.3
 - KI-Maler: **Grafikstil per Regler**. Unter „Grafikstil“ wählst du jetzt zwischen **Preset** (wie bisher: feste Stile und eigene Stil-Prompts) und **Regler**. Mit den Reglern mischst du Realismus, Gemalt, 3D-Render, Comic, Anime, Cartoon, Handgezeichnet, Tusche und Aquarell in Prozent. Dazu kommen Detailgrad, Farbsättigung (bis schwarz-weiß) und Licht & Stimmung (düster bis hell). Darunter siehst du, was daraus im Prompt wird
 - Ein Regler-Stil lässt sich mit „Als Stil-Preset speichern“ unter einem Namen sichern (optional mit Negativ-Prompt). Er erscheint dann bei den Presets (🎚) und kann in den Reglern wieder geladen und weiter angepasst werden. Beim ersten Wechsel auf „Regler“ starten die Regler passend zum gerade gewählten Preset

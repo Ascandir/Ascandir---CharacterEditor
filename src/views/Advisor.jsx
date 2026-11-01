@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import BigText from '../components/BigText.jsx';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
 import { DEFAULT_PAINTER, STYLES, BODY_PARTS, styleOf } from '../ai/prompt.js';
@@ -258,7 +259,7 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
               {savedStyles.map(x => <option key={x.id} value={'saved:' + x.id}>★ {x.name}</option>)}
             </select></label>
         </div>
-        <textarea rows={3} value={input} placeholder={t.advPlaceholder} aria-label={t.advPlaceholder} style={{ resize: 'vertical', minHeight: 70 }}
+        <BigText rows={3} value={input} placeholder={t.advPlaceholder} aria-label={t.advPlaceholder} style={{ resize: 'vertical', minHeight: 70 }}
           onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(); }} />
         <div className="row small" style={{ gap: 10 }}>
           <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={withSheet} onChange={e => setWithSheet(e.target.checked)} />{t.advWithSheet}</label>
