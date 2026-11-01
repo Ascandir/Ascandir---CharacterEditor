@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.3
+- KI-Maler: Die Auswahl „Anzahl“ ist weg, es wird immer genau ein Bild gemalt
+
 ## 0.7.2
 - KI-Maler: Ein Klick aufs Bild öffnet eine **große Ansicht** im Popup. Dort zoomst du mit dem Mausrad und verschiebst mit gedrückter Maustaste. Schließen per ✕, Esc oder Klick daneben. In der normalen Vorschau gehen Zoomen und Verschieben weiterhin
 

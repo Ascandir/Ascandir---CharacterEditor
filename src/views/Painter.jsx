@@ -59,7 +59,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   const lastDone = useJobs().done;
   const [err, setErr] = useState(null);
   const [cache, setCache] = useState({});
-  const [count, setCount] = useState(2);
+  const count = 1; // always one picture per run
   const [showSetup, setShowSetup] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
   const [showBody, setShowBody] = useState(false);
@@ -365,8 +365,6 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             <span className="dot" style={{ background: st.running ? 'var(--ok)' : st.starting ? 'var(--accent)' : 'var(--dim)' }} />
             <span className="small">{st.running ? t.aiRunning : st.starting ? t.aiStarting : t.aiStopped}</span>
             <div className="grow" />
-            <label className="row small" style={{ gap: 6 }}>{t.pCount}
-              <select value={count} onChange={e => setCount(Number(e.target.value))}>{[1, 2, 4].map(n => <option key={n} value={n}>{n}</option>)}</select></label>
             <button className="btn primary" disabled={!!busy} onClick={() => generate('new')}>{t.pGenerate}</button>
             <button className="btn" disabled={!!busy || !selImg} onClick={() => generate('refine')} title={t.pRefineHint}>{t.pRefine}</button>
             <button className="btn" disabled={!!busy} onClick={() => generate('multi')} title={t.pMultiHint}>{t.pMulti}</button>
