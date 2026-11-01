@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.2
+- KI-Maler: Nach einem Qwen-Bild hält ComfyUI das Modell im Arbeitsspeicher, damit das nächste Bild schneller startet. Die Speicherprüfung hat das fälschlich als „zu wenig frei“ gewertet. Jetzt wird das geladene Modell einfach wiederverwendet. Beim Wechsel zwischen Z-Image und Qwen gibt ComfyUI das alte Modell vorher frei, ohne dass du es von Hand beenden musst
+
 ## 0.8.1
 - 3D: Die **Texturen** der TRELLIS-Modelle werden jetzt in der Vorschau angezeigt. Sie waren immer in der GLB-Datei enthalten, die Vorschau durfte sie wegen einer Sicherheitseinstellung aber nicht laden und zeigte das Modell weiß
 

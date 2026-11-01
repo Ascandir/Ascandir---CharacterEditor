@@ -135,7 +135,13 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
     if (useQwen && !skipRamCheck) {
       const lc = globalSettings?.llm || {};
       if (lc.stopBeforePaint !== false) { try { await api.strata.stop({ cmd: lc.cmd }); } catch { /* not running */ } }
-      const mem = await api.mem?.().catch(() => null);
+      // ComfyUI keeps the last model in RAM: the same model is simply reused, so no check is needed;
+      // a different model is unloaded first, then the free RAM is checked
+      const want = qTurbo ? 'qwenturbo' : 'qwen';
+      const cur = await api.ai.status().catch(() => null);
+      const reuse = cur?.running && cur.lastModel === want;
+      if (!reuse && cur?.running && cur.lastModel) await api.ai.free?.();
+      const mem = reuse ? null : await api.mem?.().catch(() => null);
       if (mem && mem.freeGB < 30) {
         let strata = false; try { await api.llm.models({ url: lc.url, key: lc.key }); strata = true; } catch { /* not running */ }
         setRamWarn({ mode, freeGB: mem.freeGB, totalGB: mem.totalGB, strata });

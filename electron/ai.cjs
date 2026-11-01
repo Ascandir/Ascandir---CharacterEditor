@@ -113,7 +113,7 @@ async function status() {
   return {
     platform: process.platform, supported: process.platform === 'win32',
     dir: cfg.dir || null, defaultDir: await suggestedDir() || path.join(app.getPath('userData'), 'ai'), programModelsDir: await suggestedDir(), gpu: cfg.gpu || null,
-    comfyInstalled: !!root, comfyVersion: cfg.comfyVersion || null, models, running, starting: !!proc && !running,
+    comfyInstalled: !!root, comfyVersion: cfg.comfyVersion || null, models, running, lastModel: running ? lastModel : null, starting: !!proc && !running,
     freeGB: cfg.dir ? await freeSpaceGB(cfg.dir) : await freeSpaceGB(app.getPath('userData')),
     setupDone: !!cfg.setupDone, setupSkipped: !!cfg.setupSkipped, idleMinutes: cfg.idleMinutes ?? 10, gpuMode: cfg.gpuMode || 'safe',
   };
@@ -330,6 +330,13 @@ async function touch() {
   if (mins > 0) idleTimer = setTimeout(check, mins * 60000 + 1000);
 }
 let generating = false;
+let lastModel = null; // which image model ComfyUI currently keeps in memory
+// unload everything ComfyUI keeps cached (models in RAM/VRAM) without stopping it
+async function freeComfy() {
+  if (!proc && !EXTERNAL) return false;
+  try { await fetch(`http://127.0.0.1:${port}/free`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ unload_models: true, free_memory: true }) }); } catch { return false; }
+  lastModel = null; await new Promise(r => setTimeout(r, 2500)); return true;
+}
 
 // ---------- workflows ----------
 function addPost(w, { removeBg, upscale }) {
@@ -457,6 +464,10 @@ async function generateInner(params) {
   cancelRequested = false;
   await start();
   touch();
+  // switching between Z-Image and Qwen: drop the other model first, two of them do not fit into RAM together
+  const want = params.model === 'qwen' ? (params.turbo ? 'qwenturbo' : 'qwen') : 'zimage';
+  if (lastModel && lastModel !== want) await freeComfy();
+  lastModel = want;
   const t0 = Date.now();
   let workflow;
   if (params.model === 'qwen') {
@@ -543,6 +554,7 @@ function register(mainWindowGetter) {
   ipcMain.handle('ai:stop', () => stop());
   ipcMain.handle('ai:generate', async (_e, params) => { win = mainWindowGetter(); return generate(params); });
   ipcMain.handle('ai:cancelGen', () => cancelGenerate());
+  ipcMain.handle('ai:free', () => freeComfy());
   ipcMain.handle('ai:log', () => procLog.slice(-120).join(''));
   ipcMain.handle('ai:skip', async () => { const c = await readCfg(); c.setupSkipped = true; await writeCfg(c); return true; });
   ipcMain.handle('ai:setGpuMode', async (_e, mode) => { const c = await readCfg(); if (c.gpuMode !== mode) { c.gpuMode = mode; await writeCfg(c); await stop(); } return true; });

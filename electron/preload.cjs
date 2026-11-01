@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('ace', {
     stop: () => ipcRenderer.invoke('ai:stop'),
     generate: (p) => ipcRenderer.invoke('ai:generate', p),
     cancelGen: () => ipcRenderer.invoke('ai:cancelGen'),
+    free: () => ipcRenderer.invoke('ai:free'),
     log: () => ipcRenderer.invoke('ai:log'),
     skip: () => ipcRenderer.invoke('ai:skip'),
     setIdle: (m) => ipcRenderer.invoke('ai:setIdle', m),
