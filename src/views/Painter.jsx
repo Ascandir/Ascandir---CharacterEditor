@@ -128,8 +128,21 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   };
   const [bgInstall, setBgInstall] = useState(null);
 
-  const generate = async (mode) => {
+  const [ramWarn, setRamWarn] = useState(null); // {mode, freeGB, strata}
+  const generate = async (mode, skipRamCheck = false) => {
     if (busy) return;
+    // Qwen keeps ~30 GB of model data in RAM (16 GB card): check free memory first (Strata alone can take 40+ GB)
+    if (useQwen && !skipRamCheck) {
+      const lc = globalSettings?.llm || {};
+      if (lc.stopBeforePaint !== false) { try { await api.strata.stop({ cmd: lc.cmd }); } catch { /* not running */ } }
+      const mem = await api.mem?.().catch(() => null);
+      if (mem && mem.freeGB < 30) {
+        let strata = false; try { await api.llm.models({ url: lc.url, key: lc.key }); strata = true; } catch { /* not running */ }
+        setRamWarn({ mode, freeGB: mem.freeGB, totalGB: mem.totalGB, strata });
+        return;
+      }
+    }
+    setRamWarn(null);
     const jobChar = ch.id;
     // the job keeps running when this view is left: results go to the character it was started for
     const applyTo = (fn) => update(c => {
@@ -205,7 +218,8 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
       let m = String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
       if (/stopped unexpectedly|ran out of memory/.test(m) && useQwen) {
         let llmUp = false; try { await api.llm.models({ url: globalSettings?.llm?.url, key: globalSettings?.llm?.key }); llmUp = true; } catch { /* not running */ }
-        m = (llmUp ? t.pCrashLlm + '\n\n' : t.pCrashQwen + '\n\n') + m;
+        const mem = await api.mem?.().catch(() => null);
+        m = (llmUp ? t.pCrashLlm + '\n\n' : (mem && mem.freeGB < 30 ? t.pCrashQwen + '\n\n' : t.pCrashQwenGpu + '\n\n')) + m;
       }
       if (!/CANCELLED/.test(m)) { setErr(/COMFY_TOO_OLD/.test(m) ? 'COMFY_TOO_OLD' : m); failMsg = m; } else failMsg = 'CANCELLED';
     }
@@ -409,6 +423,14 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             <label htmlFor="pt-strength" className="muted">{t.pStrength}</label>
             <input id="pt-strength" type="range" min={15} max={90} value={p.strength} onChange={e => set('strength', Number(e.target.value))} style={{ maxWidth: 240 }} />
             <span className="muted">{p.strength} % – {p.strength < 40 ? t.pSmall : p.strength < 65 ? t.pMedium : t.pBig}</span>
+          </div>
+        )}
+        {ramWarn && (
+          <div className="banner" style={{ margin: 0 }}>
+            <span className="small grow">{t.pRamLow(ramWarn.freeGB.toFixed(1), Math.round(ramWarn.totalGB))}{ramWarn.strata ? ' ' + t.pRamStrata : ''}</span>
+            {ramWarn.strata && <button className="btn sm primary" onClick={async () => { const lc = globalSettings?.llm || {}; await api.strata.stop({ cmd: lc.cmd, force: true }); setTimeout(() => generate(ramWarn.mode), 4000); setRamWarn(null); }}>{t.pRamStopStrata}</button>}
+            <button className="btn sm" onClick={() => generate(ramWarn.mode, true)}>{t.pRamAnyway}</button>
+            <button className="btn sm ghost" onClick={() => setRamWarn(null)}>{t.cancel}</button>
           </div>
         )}
         {ready && !isFree && p.promptOverride != null && <div className="banner" style={{ margin: 0 }}><span className="small grow">{t.pOverrideWarn}</span><button className="btn sm" onClick={() => set('promptOverride', null)}>{t.pPromptReset}</button></div>}

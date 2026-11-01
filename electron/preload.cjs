@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('ace', {
   openExternal: (u) => ipcRenderer.invoke('sys:openExternal', u),
   hardware: () => ipcRenderer.invoke('sys:hardware'),
   tdr: () => ipcRenderer.invoke('sys:tdr'),
+  mem: () => ipcRenderer.invoke('sys:mem'),
   setTdr: (s) => ipcRenderer.invoke('sys:setTdr', s),
   version: () => ipcRenderer.invoke('app:version'),
   checkUpdate: () => ipcRenderer.invoke('update:check'),

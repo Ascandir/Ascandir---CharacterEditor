@@ -154,6 +154,7 @@ ipcMain.handle('sys:openExternal', async (_e, url) => {
 // GPU + driver detection (Windows). Never installs or updates anything.
 // Windows GPU timeout (TDR): long compute kernels (big AI models) can exceed the default 2 s and reset the driver.
 const TDR_KEY = 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers';
+ipcMain.handle('sys:mem', () => ({ freeGB: require('os').freemem() / 1024 ** 3, totalGB: require('os').totalmem() / 1024 ** 3 }));
 ipcMain.handle('sys:tdr', async () => {
   if (process.platform !== 'win32') return { supported: false };
   const { execFile } = require('child_process');

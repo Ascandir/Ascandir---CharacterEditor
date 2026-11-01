@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.9
+- Qwen: Vor dem Malen prüft das Programm den freien **Arbeitsspeicher**. Qwen Image 2.1 hält im schonenden Modus rund 30 GB Modelldaten im RAM. Ist weniger frei (z. B. weil Strata läuft), erscheint ein Hinweis mit „Strata beenden und malen“ bzw. „Trotzdem malen“, statt dass ComfyUI mittendrin abbricht
+- Absturzmeldungen unterscheiden jetzt zwischen „Arbeitsspeicher voll“ und „Treiber-Reset“ und nennen den freien Arbeitsspeicher
+
 ## 0.7.8
 - KI-Berater: Der Berater weiß jetzt, für welches **Bildmodell** er schreibt (Z-Image Turbo, Qwen Image 2.1 Turbo oder Qwen Image 2.1), und bekommt dazu Tipps, was das Modell gut kann (z. B. keine Negativ-Prompts bei Z-Image, lange genaue Beschreibungen bei Qwen). Das Modell steht über dem Eingabefeld
 - Neue Auswahl **Grafikstil** im Berater: wie im KI-Maler eingestellt, ein fester Stil, einer deiner gespeicherten Stile oder „Berater schlägt vor“. Ein fester Stil wird genau so übernommen
