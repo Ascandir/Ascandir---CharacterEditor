@@ -5,7 +5,7 @@ import { useJob, useJobs, finishJob, cancelJob, fmtTime } from '../ai/jobs.js';
 import { promptDialog, confirmDialog } from '../components/Dialog.jsx';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
-import { freePrompt, buildPrompt, frameSize, removeBackground, STYLES, FRAMINGS, DEFAULT_PAINTER, typicalHeight, speciesAge, isMinorAge, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize } from '../ai/prompt.js';
+import { freePrompt, toEn, buildPrompt, frameSize, removeBackground, STYLES, FRAMINGS, DEFAULT_PAINTER, typicalHeight, speciesAge, isMinorAge, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize } from '../ai/prompt.js';
 import { RINGS, composeToken } from '../three/token.js';
 import AiSetup from '../components/AiSetup.jsx';
 
@@ -254,10 +254,30 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
       <div className="row muted small" style={{ justifyContent: 'space-between' }}><span>{lo}</span><span>{hi}</span></div>
     </div>
   );
-  const text = (k, label, ph) => (
-    <label key={k} className="col" style={{ gap: 4 }}><span className="muted small">{label}</span>
-      <input value={p[k] || ''} placeholder={ph} onChange={e => set(k, e.target.value)} /></label>
-  );
+  // German input: translated to English for the prompt (by the local text model if it is running, otherwise a word list)
+  const translate = async (k) => {
+    const v = String(p[k] || '').trim();
+    if (!v || p.tr?.[v] || /^[\x20-\x7e]*$/.test(v) && toEn(v) === v) return;
+    const lc = globalSettings?.llm || {};
+    try {
+      const m = await api.llm.models({ url: lc.url, key: lc.key });
+      const r = await api.llm.chat({ url: lc.url, key: lc.key, model: m[0], reasoning: 'off', id: -1, messages: [
+        { role: 'system', content: 'Translate the user text into concise natural English for an image generation prompt. Keep the meaning exactly, use common hairstyle/clothing/anatomy terms. Output only the translation, nothing else.' },
+        { role: 'user', content: v }] });
+      const en = String(r.text || '').trim().replace(/^["']|["']$/g, '').split('\n')[0];
+      if (en) update(c => { c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), tr: { ...(c.painter?.tr || {}), [v]: en } }; return c; });
+    } catch { /* no text model running: the word list is used */ }
+  };
+  const text = (k, label, ph) => {
+    const v = String(p[k] || '').trim();
+    const en = v ? (p.tr?.[v] || toEn(v)) : '';
+    return (
+      <label key={k} className="col" style={{ gap: 4 }}><span className="muted small">{label}</span>
+        <input value={p[k] || ''} placeholder={ph} onChange={e => set(k, e.target.value)} onBlur={() => translate(k)} />
+        {v && en && en.toLowerCase() !== v.toLowerCase() && <span className="muted small" title={t.pEnHint}>EN: {en}</span>}
+      </label>
+    );
+  };
 
   return (
     <div className="page" style={{ alignItems: 'stretch' }}>
@@ -312,7 +332,8 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
           </>}
         </div>
         <label className="col" style={{ gap: 4 }}><span className="muted small">{t.pPose}</span>
-          <input value={p.pose || ''} placeholder={lang === 'de' ? 'z. B. kniet, zieht das Schwert, blickt über die Schulter' : 'e.g. kneeling, drawing a sword, looking over the shoulder'} onChange={e => set('pose', e.target.value)} /></label>
+          <input value={p.pose || ''} placeholder={lang === 'de' ? 'z. B. kniet, zieht das Schwert, blickt über die Schulter' : 'e.g. kneeling, drawing a sword, looking over the shoulder'} onChange={e => set('pose', e.target.value)} onBlur={() => translate('pose')} />
+          {p.pose && p.tr?.[String(p.pose).trim()] && <span className="muted small">EN: {p.tr[String(p.pose).trim()]}</span>}</label>
         <div className="grid g2">
           {text('hair', t.hair, lang === 'de' ? 'z. B. long black, braided' : 'e.g. long black, braided')}
           {text('eyes', t.pEyes, lang === 'de' ? 'z. B. amber' : 'e.g. amber')}
@@ -370,7 +391,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         <label className="checkline small"><input type="checkbox" checked={p.removeBg} onChange={e => set('removeBg', e.target.checked)} /><span>{t.pRemoveBg}</span></label>
         {useQwen && p.removeBg && <label className="checkline small sub" title={t.pQwenAlphaHint}><input type="checkbox" checked={p.qwenAlpha !== false} onChange={e => set('qwenAlpha', e.target.checked)} /><span>{t.pQwenAlpha}</span></label>}
         <label className="col" style={{ gap: 4 }}><span className="muted small">{t.pExtra}</span>
-          <textarea rows={2} value={p.extra || ''} onChange={e => set('extra', e.target.value)} /></label>
+          <textarea rows={2} value={p.extra || ''} onChange={e => set('extra', e.target.value)} onBlur={() => translate('extra')} />{p.extra && p.tr?.[String(p.extra).trim()] && <span className="muted small">EN: {p.tr[String(p.extra).trim()]}</span>}</label>
         <button className="btn sm ghost" onClick={() => setShowPrompt(!showPrompt)}>{t.pPrompt} {showPrompt ? '▾' : '▸'}</button>
         {showPrompt && (
           <div className="col" style={{ gap: 6 }}>

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0
+- **KI-Berater füllt die Regler aus**: Neue Auswahl „Ergebnis: Regler ausfüllen / eigener Prompt“ (Standard: Regler). Der Berater setzt Geschlecht, Alter, Größe, Körperbau, Kurven, Muskeln, Attraktivität, Körperdetails, Haare, Haut, Augen, Merkmale, Kleidung, Pose und Ausschnitt. Mit „In die Regler übernehmen“ landet alles im KI-Maler, wo du danach weiter an den Reglern schieben kannst
+- **Deutsche Beschreibungen** in Haare, Haut, Augen, Merkmale, Kleidung, Pose und Zusätze: Beim Verlassen des Feldes übersetzt dein Textmodell (Strata, falls es läuft) den Text ins Englische. Unter dem Feld steht „EN: …“, so wie es im Prompt landet. Ohne laufendes Textmodell hilft eine deutlich erweiterte Wortliste (u. a. Frisuren wie Pferdeschwanz, Dutt, Zöpfe, Irokese, Locken, schulterlang)
+
 ## 0.7.11
 - Fenstertitel und Taskleiste zeigen wieder nur „Ascandir - CharacterEditor“ (der Charaktername steht weiterhin oben links im Programm)
 - Irreführender Hinweis auf einen Treiber-Reset bei Abstürzen entfernt

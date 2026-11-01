@@ -168,9 +168,17 @@ const DE_EN = [
   ['lila', 'purple'], ['violett', 'violet'], ['gelb', 'yellow'], ['orange', 'orange'], ['braun', 'brown'], ['rosa', 'pink'], ['türkis', 'turquoise'], ['bronze', 'bronze'], ['kupfer', 'copper'],
   ['blond', 'blonde'], ['brünett', 'brunette'], ['blass', 'pale'], ['gebräunt', 'tanned'], ['dunkel', 'dark'], ['hell', 'light'], ['schuppen', 'scales'], ['schuppig', 'scaly'],
   ['lang', 'long'], ['kurz', 'short'], ['lockig', 'curly'], ['glatt', 'straight'], ['geflochten', 'braided'], ['zopf', 'braid'], ['glatze', 'bald head'], ['bart', 'beard'],
+  ['pferdeschwanz', 'ponytail'], ['zopf', 'braid'], ['zöpfe', 'braids'], ['dutt', 'bun'], ['haarknoten', 'hair bun'], ['irokese', 'mohawk'], ['undercut', 'undercut'],
+  ['locken', 'curls'], ['gelockt', 'curly'], ['gewellt', 'wavy'], ['wellig', 'wavy'], ['schulterlang', 'shoulder-length'], ['hüftlang', 'waist-length'], ['kinnlang', 'chin-length'],
+  ['kurzgeschoren', 'buzz cut'], ['rasiert', 'shaved'], ['seitenscheitel', 'side part'], ['mittelscheitel', 'middle part'], ['pony', 'bangs'], ['zurückgekämmt', 'slicked back'],
+  ['hochgesteckt', 'updo'], ['offen', 'loose'], ['zerzaust', 'messy'], ['strähnig', 'stringy'], ['strähnen', 'streaks'], ['dreadlocks', 'dreadlocks'], ['rastas', 'dreadlocks'],
+  ['seiten', 'sides'], ['auf einer seite', 'on one side'], ['hinten', 'at the back'], ['vorne', 'at the front'], ['voll', 'full'], ['dicht', 'thick'], ['dünn', 'thin'],
+  ['hörner', 'horns'], ['schwanz', 'tail'], ['flügel', 'wings'], ['krallen', 'claws'], ['federn', 'feathers'], ['fell', 'fur'], ['ohren', 'ears'], ['spitze', 'pointed'],
+  ['rüstung', 'armor'], ['mantel', 'cloak'], ['umhang', 'cape'], ['kapuze', 'hood'], ['robe', 'robe'], ['leder', 'leather'], ['kettenhemd', 'chainmail'], ['plattenrüstung', 'plate armor'],
   ['narbe', 'scar'], ['narben', 'scars'], ['tätowierung', 'tattoo'], ['tattoos', 'tattoos'], ['augen', 'eyes'], ['auge', 'eye'], ['haar', 'hair'], ['haut', 'skin'], ['und', 'and'], ['mit', 'with'],
 ];
-function toEn(text) {
+function toEn(text, tr) {
+  if (tr && text && tr[String(text).trim()]) return tr[String(text).trim()];
   let t = String(text || '');
   // German adjectives are inflected (rote, langes, ...): accept the usual endings
   for (const [de, en] of DE_EN) t = t.replace(new RegExp('(^|[^\\p{L}])' + de + '(?:e|en|er|es|em)?(?=$|[^\\p{L}])', 'giu'), (m, pre) => pre + en);
@@ -194,10 +202,10 @@ export function buildPrompt(d, ch, p, opts = {}) {
   const styleText = st[0] === 'custom' ? (p.customStyle || '').trim() || STYLES[0][2] : st[2];
   // the style goes first (Z-Image weighs the beginning most, otherwise the style only reaches the face) and again at the end
   if (!opts.multi) parts.push(styleText);
-  const pose = toEn(p.pose);
+  const pose = toEn(p.pose, p.tr);
   parts.push(opts.multi ? MULTI_VIEW : pose ? fr[2].replace('standing pose', '').replace(/,\s*,/g, ',') + ', pose: ' + pose : fr[2]);
   if (opts.emphasis?.length && !minor) parts.push('IMPORTANT, clearly visible body shape: ' + opts.emphasis.join(', '));
-  const skin = toEn(p.skin);
+  const skin = toEn(p.skin, p.tr);
   const who = minor ? (p.gender === 'female' ? 'girl' : p.gender === 'nonbinary' ? 'child' : 'boy') : g;
   parts.push(`${age} ${who}, ${sp.text}${skin ? `, with ${skin} skin color on the whole body` : ''}`);
   // children / teens: no body shaping or attractiveness wording at all
@@ -212,7 +220,7 @@ export function buildPrompt(d, ch, p, opts = {}) {
     const eq = (ch?.inventory || []).filter(i => i.equipped).map(i => i.name);
     if (eq.length) gear.push('equipped with ' + eq.join(', '));
   }
-  if (p.clothing) gear.push(toEn(p.clothing));
+  if (p.clothing) gear.push(toEn(p.clothing, p.tr));
   const sfw = p.sfwLock !== false;
   parts.push((gear.length ? 'wearing ' + gear.join(', ') : 'wearing practical fantasy adventurer clothing') + (sfw ? ', ' + SFW_COVER : ''));
   parts.push(pick(p.attract, LOOKS));
@@ -225,11 +233,11 @@ export function buildPrompt(d, ch, p, opts = {}) {
   const h = p.height || sp.avg;
   const rel = (h - sp.avg) / sp.avg;
   parts.push(pick(rel, [[-0.15, `very short for their kind (${h} cm)`], [-0.06, `short for their kind (${h} cm)`], [0.06, `average height (${h} cm)`], [0.15, `tall for their kind (${h} cm)`], [9, `very tall for their kind (${h} cm)`]]));
-  if (p.hair) { const h2 = toEn(p.hair); parts.push(/hair|bald/i.test(h2) ? h2 : h2 + ' hair'); }
-  if (p.eyes) { const e2 = toEn(p.eyes); parts.push(/eye/i.test(e2) ? e2 : e2 + ' eyes'); }
-  if (p.features) parts.push(toEn(p.features));
+  if (p.hair) { const h2 = toEn(p.hair, p.tr); parts.push(/hair|bald/i.test(h2) ? h2 : h2 + ' hair'); }
+  if (p.eyes) { const e2 = toEn(p.eyes, p.tr); parts.push(/eye/i.test(e2) ? e2 : e2 + ' eyes'); }
+  if (p.features) parts.push(toEn(p.features, p.tr));
   parts.push(sfw ? 'fully clothed, modest outfit, safe for work' : 'safe for work');
-  if (p.extra) parts.push(toEn(p.extra));
+  if (p.extra) parts.push(toEn(p.extra, p.tr));
   parts.push(opts.multi ? 'plain flat light grey background, no scenery, no text, no labels, no frames between the views' : p.removeBg ? 'plain flat uniform light grey studio background, no shadow on the floor, no scenery, no text' : 'atmospheric fantasy background, no text');
   parts.push(styleText);
   return parts.filter(Boolean).join(', ');
@@ -289,6 +297,7 @@ export async function removeBackground(dataUrl, localTol = 9, globalTol = 170) {
 }
 
 // prompt written by the user / the AI advisor ("free" mode in the painter)
+export { toEn };
 export function freePrompt(p, opts = {}) {
   const st = STYLES.find(s => s[0] === p.style) || STYLES[0];
   const parts = [];

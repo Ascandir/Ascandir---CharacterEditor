@@ -1,7 +1,7 @@
 {
   "name": "ascandir-charactereditor",
   "productName": "Ascandir - CharacterEditor",
-  "version": "0.7.11",
+  "version": "0.8.0",
   "description": "D&D 5e Character Editor with 5e.tools data and 3D designer",
   "author": "Ascandir",
   "main": "electron/main.cjs",

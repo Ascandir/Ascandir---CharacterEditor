@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
-import { DEFAULT_PAINTER, STYLES } from '../ai/prompt.js';
+import { DEFAULT_PAINTER, STYLES, BODY_PARTS } from '../ai/prompt.js';
 import Markdown from '../components/Markdown.jsx';
 
 const DEFAULT_URL = 'http://127.0.0.1:8080/v1';
@@ -12,15 +12,22 @@ const MODEL_INFO = {
   qwen: { name: 'Qwen Image 2.1', tips: 'Qwen Image 2.1 (20B). It follows long, detailed natural-language descriptions very precisely (up to about 250 words), including exact colors, counts and positions. If useful, add a second fenced block starting with ```negative listing things to avoid (it is used with CFG).' },
 };
 
-function systemPrompt(lang, model, style, transparent) {
+function systemPrompt(lang, model, style, transparent, mode = 'sliders', bodyKeys = []) {
   const m = MODEL_INFO[model] || MODEL_INFO.zimage;
   return `You are an expert prompt designer for AI character art of Dungeons & Dragons characters.
 Talk with the user in ${lang === 'de' ? 'German' : 'English'}. Find out how their character should look: species anatomy, face, hair, body shape, age, clothing, armor, weapons, pose, mood, ${style ? '' : 'art style, '}lighting, framing.
 Ask at most 2-3 short questions at a time and make concrete suggestions. Use the character sheet facts you are given.
-Whenever you have enough information, or the user asks for it, write the final image prompt.
+Whenever you have enough information, or the user asks for it, ${mode === 'sliders' ? 'fill in the character designer of the app (see SETTINGS below).' : 'write the final image prompt.'}
+${mode === 'sliders' ? `SETTINGS: output one fenced code block that starts with \`\`\`settings and contains only JSON with these keys (leave out keys you do not know):
+{"gender":"male|female|nonbinary","age":number (years),"height":number (cm),"build":0-100 (0 very thin, 50 average, 100 very fat),"curvy":0-100,"muscle":0-100,"attract":0-100 (0 grotesquely ugly, 55 average, 100 stunning),
+"hair":"English hair description","skin":"English skin/scale/fur colour","eyes":"English eye description","features":"English (scars, tattoos, horns, jewellery ...)","clothing":"English outfit and armor","pose":"English pose","extra":"English extra details",
+"body":{${bodyKeys.map(k => '"' + k + '":0-100').join(',')}} (50 = normal, only include parts that differ),
+"framing":"full|three|portrait"}
+All text values in English. Then explain in 2-3 short sentences (in the user's language) what you set, so the user can fine-tune the sliders.
+The following rules about prompts only apply to the English text fields.` : ''}
 Target image model: ${m.name}. ${m.tips}
 Rules for the image prompt:
-- Always in English, inside a fenced code block that starts with \`\`\`prompt and ends with \`\`\`.
+- ${mode === 'sliders' ? 'Write the text fields in English.' : 'Always in English, inside a fenced code block that starts with \`\`\`prompt and ends with \`\`\`.'}
 - Natural descriptive language in flowing sentences (no keyword soup, no weights like (word:1.2)).
 - ${style ? `Art style (fixed by the user, do not change it, describe the picture in exactly this style and mention it at the start and the end of the prompt): "${style}".` : 'Suggest an art style that fits and include it at the start of the prompt.'}
 - Then the framing (e.g. "full body shot"), species and anatomy, body, face, hair, clothing and gear, pose, lighting.
@@ -44,10 +51,11 @@ function sheetFacts(ch, d) {
 }
 
 export function extractBlocks(text) {
-  const out = { prompt: null, negative: null };
+  const out = { prompt: null, negative: null, settings: null };
   const re = /```(\w*)\s*\n([\s\S]*?)```/g; let m;
   while ((m = re.exec(text || ''))) {
     const tag = m[1].toLowerCase();
+    if (tag === 'settings' || tag === 'json') { try { out.settings = JSON.parse(m[2]); } catch { /* not valid json */ } continue; }
     if (tag === 'negative') out.negative = m[2].trim();
     else if (!out.prompt || tag === 'prompt') out.prompt = m[2].trim();
   }
@@ -95,6 +103,7 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
   const painterStyleText = pp.style === 'custom' ? (pp.customStyle || '') : (STYLES.find(x => x[0] === pp.style) || STYLES[0])[2];
   const styleText = advStyle === 'free' ? '' : advStyle === 'painter' ? painterStyleText
     : advStyle.startsWith('saved:') ? (savedStyles.find(x => 'saved:' + x.id === advStyle)?.text || '') : ((STYLES.find(x => x[0] === advStyle) || [])[2] || '');
+  const advMode = ch.advisor?.mode || 'sliders';
   const setAdv = (k, v) => update(c => { c.advisor = { ...(c.advisor || {}), [k]: v }; return c; });
   const listRef = useRef(null);
   const reqId = useRef(0);
@@ -117,7 +126,7 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
     if (withImage && ch.selectedPainting) { try { image = await api.loadImage(ch.id, ch.selectedPainting); } catch { /* none */ } }
     const history = [...msgs, userMsg];
     setMsgs(() => history);
-    const system = systemPrompt(lang, curModel, styleText, !!ch.painter?.removeBg) + (withSheet ? '\n\nCharacter sheet:\n' + sheetFacts(ch, d) : '');
+    const system = systemPrompt(lang, curModel, styleText, !!ch.painter?.removeBg, advMode, BODY_PARTS.map(b => b[0])) + (withSheet ? '\n\nCharacter sheet:\n' + sheetFacts(ch, d) : '');
     const apiMsgs = [{ role: 'system', content: system }, ...history.map((m, i) => (i === history.length - 1 && image
       ? { role: m.role, content: [{ type: 'text', text: m.content }, { type: 'image_url', image_url: { url: image } }] }
       : { role: m.role, content: m.content }))];
@@ -136,6 +145,20 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
     setBusy(false); setLive(null); setSProg(null);
   };
 
+  const applySettings = (st) => update(c => {
+    const cur = { ...DEFAULT_PAINTER, ...(c.painter || {}) };
+    const num = (v, lo, hi) => (typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : undefined);
+    const nx = { ...cur, promptMode: 'sliders', promptOverride: null };
+    if (['male', 'female', 'nonbinary'].includes(st.gender)) nx.gender = st.gender;
+    for (const [k, lo, hi] of [['age', 5, 1000], ['height', 30, 400], ['build', 0, 100], ['curvy', 0, 100], ['muscle', 0, 100], ['attract', 0, 100]]) { const v = num(st[k], lo, hi); if (v != null) nx[k] = v; }
+    for (const k of ['hair', 'skin', 'eyes', 'features', 'clothing', 'pose', 'extra']) if (typeof st[k] === 'string') nx[k] = st[k];
+    if (['full', 'three', 'portrait'].includes(st.framing)) nx.framing = st.framing;
+    if (st.body && typeof st.body === 'object') {
+      const body = {}; for (const [k] of BODY_PARTS) { const v = num(st.body[k], 0, 100); if (v != null) body[k] = v; }
+      nx.body = body;
+    }
+    c.painter = nx; c.designerMode = 'painter'; return c;
+  });
   const takeOver = (block) => update(c => {
     c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), promptMode: 'free', freePrompt: block.prompt, ...(block.negative ? { customNegative: block.negative } : {}) };
     c.designerMode = 'painter'; return c;
@@ -146,6 +169,11 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
     return (
       <div key={i} className={'chatmsg ' + m.role}>
         <div className="chatbubble"><Markdown text={m.content} /></div>
+        {blocks.settings && (
+          <div className="row" style={{ gap: 8, marginTop: 6 }}>
+            <button className="btn sm primary" onClick={() => applySettings(blocks.settings)}>{t.advApply}</button>
+          </div>
+        )}
         {blocks.prompt && (
           <div className="row" style={{ gap: 8, marginTop: 6 }}>
             <button className="btn sm primary" onClick={() => takeOver(blocks)}>{t.advTake}</button>
@@ -216,6 +244,11 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
         </div>
         {err && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small">{err}</span></div>}
         <div className="row small wrap" style={{ gap: 10 }}>
+          <label className="row" style={{ gap: 6 }}>{t.advResult}
+            <select value={advMode} onChange={e => setAdv('mode', e.target.value)} aria-label={t.advResult}>
+              <option value="sliders">{t.advResultSliders}</option>
+              <option value="prompt">{t.advResultPrompt}</option>
+            </select></label>
           <span className="muted">{t.advModel}: <b>{MODEL_INFO[curModel].name}</b></span>
           <label className="row" style={{ gap: 6 }}>{t.advStyle}
             <select value={advStyle} onChange={e => setAdv('style', e.target.value)} aria-label={t.advStyle}>
