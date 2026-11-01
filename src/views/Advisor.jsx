@@ -1,23 +1,32 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
-import { DEFAULT_PAINTER } from '../ai/prompt.js';
+import { DEFAULT_PAINTER, STYLES } from '../ai/prompt.js';
 import Markdown from '../components/Markdown.jsx';
 
 const DEFAULT_URL = 'http://127.0.0.1:8080/v1';
 
-function systemPrompt(lang, imageModel) {
+const MODEL_INFO = {
+  zimage: { name: 'Z-Image Turbo', tips: 'Z-Image Turbo (6B, 8 steps). It does NOT understand negative prompts: describe only what should be visible (say "photorealistic" instead of "not anime"). It weighs the beginning of the prompt most, so put the art style and the most important features (species anatomy, body shape, outfit) first. Keep the prompt at 80-150 words; it loses details in very long prompts. It does not know uncommon D&D creatures by name, so always describe their anatomy.' },
+  qwenturbo: { name: 'Qwen Image 2.1 Turbo', tips: 'Qwen Image 2.1 Turbo (20B, 8 steps). It follows long, detailed natural-language descriptions very precisely (up to about 250 words), including exact colors, counts and positions. Negative prompts have no effect in turbo mode, so describe only what should be visible.' },
+  qwen: { name: 'Qwen Image 2.1', tips: 'Qwen Image 2.1 (20B). It follows long, detailed natural-language descriptions very precisely (up to about 250 words), including exact colors, counts and positions. If useful, add a second fenced block starting with ```negative listing things to avoid (it is used with CFG).' },
+};
+
+function systemPrompt(lang, model, style, transparent) {
+  const m = MODEL_INFO[model] || MODEL_INFO.zimage;
   return `You are an expert prompt designer for AI character art of Dungeons & Dragons characters.
-Talk with the user in ${lang === 'de' ? 'German' : 'English'}. Find out how their character should look: species anatomy, face, hair, body shape, age, clothing, armor, weapons, pose, mood, art style, lighting, framing.
+Talk with the user in ${lang === 'de' ? 'German' : 'English'}. Find out how their character should look: species anatomy, face, hair, body shape, age, clothing, armor, weapons, pose, mood, ${style ? '' : 'art style, '}lighting, framing.
 Ask at most 2-3 short questions at a time and make concrete suggestions. Use the character sheet facts you are given.
 Whenever you have enough information, or the user asks for it, write the final image prompt.
+Target image model: ${m.name}. ${m.tips}
 Rules for the image prompt:
 - Always in English, inside a fenced code block that starts with \`\`\`prompt and ends with \`\`\`.
-- One flowing paragraph of 80-200 words in natural descriptive language (no keyword soup, no weights like (word:1.2)).
-- Start with the framing (e.g. "Full body shot of ..."), then species and anatomy, body, face, hair, clothing and gear, pose, then art style, lighting and background.
+- Natural descriptive language in flowing sentences (no keyword soup, no weights like (word:1.2)).
+- ${style ? `Art style (fixed by the user, do not change it, describe the picture in exactly this style and mention it at the start and the end of the prompt): "${style}".` : 'Suggest an art style that fits and include it at the start of the prompt.'}
+- Then the framing (e.g. "full body shot"), species and anatomy, body, face, hair, clothing and gear, pose, lighting.
+- ${transparent ? 'The app removes the background itself: describe a plain empty background (no scenery).' : 'Describe a fitting background.'}
 - Non-human species must be described anatomically and explicitly (e.g. an aarakocra has a full eagle head, feathers all over the body, wings on the back, bird legs with talons; it is not a human with feathers).
 - Fully clothed, safe for work.
-- ${imageModel === 'qwen' ? 'The image model is Qwen Image 2.1. If useful, add a second fenced block starting with ```negative for things to avoid.' : 'The image model is Z-Image Turbo. It does NOT understand negative prompts, so describe only what should be visible (say "photorealistic" instead of "not anime").'}
 After the prompt, offer one or two optional variations in a single short sentence.`;
 }
 
@@ -79,6 +88,14 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
   const [withSheet, setWithSheet] = useState(true);
   const [withImage, setWithImage] = useState(false);
   const [showCfg, setShowCfg] = useState(false);
+  const curModel = ['qwen', 'qwenturbo'].includes(ch.painter?.model) ? ch.painter.model : 'zimage';
+  const savedStyles = globalSettings?.customStyles || [];
+  const advStyle = ch.advisor?.style ?? 'painter';
+  const pp = { ...DEFAULT_PAINTER, ...(ch.painter || {}) };
+  const painterStyleText = pp.style === 'custom' ? (pp.customStyle || '') : (STYLES.find(x => x[0] === pp.style) || STYLES[0])[2];
+  const styleText = advStyle === 'free' ? '' : advStyle === 'painter' ? painterStyleText
+    : advStyle.startsWith('saved:') ? (savedStyles.find(x => 'saved:' + x.id === advStyle)?.text || '') : ((STYLES.find(x => x[0] === advStyle) || [])[2] || '');
+  const setAdv = (k, v) => update(c => { c.advisor = { ...(c.advisor || {}), [k]: v }; return c; });
   const listRef = useRef(null);
   const reqId = useRef(0);
 
@@ -100,7 +117,7 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
     if (withImage && ch.selectedPainting) { try { image = await api.loadImage(ch.id, ch.selectedPainting); } catch { /* none */ } }
     const history = [...msgs, userMsg];
     setMsgs(() => history);
-    const system = systemPrompt(lang, ch.painter?.model === 'qwen' ? 'qwen' : 'zimage') + (withSheet ? '\n\nCharacter sheet:\n' + sheetFacts(ch, d) : '');
+    const system = systemPrompt(lang, curModel, styleText, !!ch.painter?.removeBg) + (withSheet ? '\n\nCharacter sheet:\n' + sheetFacts(ch, d) : '');
     const apiMsgs = [{ role: 'system', content: system }, ...history.map((m, i) => (i === history.length - 1 && image
       ? { role: m.role, content: [{ type: 'text', text: m.content }, { type: 'image_url', image_url: { url: image } }] }
       : { role: m.role, content: m.content }))];
@@ -198,6 +215,16 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
           )}
         </div>
         {err && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small">{err}</span></div>}
+        <div className="row small wrap" style={{ gap: 10 }}>
+          <span className="muted">{t.advModel}: <b>{MODEL_INFO[curModel].name}</b></span>
+          <label className="row" style={{ gap: 6 }}>{t.advStyle}
+            <select value={advStyle} onChange={e => setAdv('style', e.target.value)} aria-label={t.advStyle}>
+              <option value="painter">{t.advStylePainter}</option>
+              <option value="free">{t.advStyleFree}</option>
+              {STYLES.filter(x => x[0] !== 'custom').map(([k, l]) => <option key={k} value={k}>{l[lang]}</option>)}
+              {savedStyles.map(x => <option key={x.id} value={'saved:' + x.id}>★ {x.name}</option>)}
+            </select></label>
+        </div>
         <textarea rows={3} value={input} placeholder={t.advPlaceholder} aria-label={t.advPlaceholder} style={{ resize: 'vertical', minHeight: 70 }}
           onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(); }} />
         <div className="row small" style={{ gap: 10 }}>

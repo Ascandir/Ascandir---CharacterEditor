@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.8
+- KI-Berater: Der Berater weiß jetzt, für welches **Bildmodell** er schreibt (Z-Image Turbo, Qwen Image 2.1 Turbo oder Qwen Image 2.1), und bekommt dazu Tipps, was das Modell gut kann (z. B. keine Negativ-Prompts bei Z-Image, lange genaue Beschreibungen bei Qwen). Das Modell steht über dem Eingabefeld
+- Neue Auswahl **Grafikstil** im Berater: wie im KI-Maler eingestellt, ein fester Stil, einer deiner gespeicherten Stile oder „Berater schlägt vor“. Ein fester Stil wird genau so übernommen
+- Ist „Hintergrund entfernen“ an, beschreibt der Berater einen leeren Hintergrund
+
 ## 0.7.7
 - KI-Maler: Die Häkchen „Freizügigkeit sperren“, „Hintergrund entfernen“ und „Qwen malt den Hintergrund gleich transparent“ sind sauber ausgerichtet. Die Qwen-Option steht jetzt eingerückt unter „Hintergrund entfernen“, zu dem sie gehört
 
