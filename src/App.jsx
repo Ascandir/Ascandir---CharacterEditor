@@ -14,7 +14,7 @@ import { primaryGpu, AMD_DRIVER_URL } from './hardware.js';
 import { useUpdater, UpdateDialog } from './components/Update.jsx';
 import { DialogHost } from './components/Dialog.jsx';
 import { DbCtx, RefHost } from './components/Entries.jsx';
-import { useJobs, wireJobs, cancelJob, fmtTime } from './ai/jobs.js';
+import { useJobs, wireJobs, cancelJob, dismissDone, fmtTime } from './ai/jobs.js';
 import AiSetup from './components/AiSetup.jsx';
 
 export const DEFAULT_SETTINGS = { lang: 'de', rules: '2024', disabledSources: [], homebrew: [], profiles: {}, activeProfile: 'Standard' };
@@ -216,10 +216,14 @@ export default function App() {
               {!jobs[k].cancelling && <button className="jobx" aria-label={t.cancel} title={t.cancel} onClick={() => cancelJob(k)}>✕</button>}
             </span>
           ))}
-          {jobs.done && !jobs.paint && !jobs.model3d && jobs.done.msg !== 'CANCELLED' && (
-            <span className={'jobchip ' + (jobs.done.ok ? 'ok' : 'bad')}>{jobs.done.ok ? '✓ ' + (jobs.done.kind === 'paint' ? t.jobPaintDone : t.jobModelDone) : '✕ ' + t.jobFailed}</span>
-          )}
-          <div className="grow" />
+          {jobs.done && !jobs.paint && !jobs.model3d && (
+            <span className={'jobchip ' + (jobs.done.ok ? 'ok' : 'bad')} role="status">
+              <button className="linklike" onClick={() => { setView('designer'); if (ch) update(c => { c.designerMode = jobs.done.kind === 'paint' ? 'painter' : 'trellis'; return c; }); dismissDone(); }}>
+                {jobs.done.ok ? '✓ ' + (jobs.done.kind === 'paint' ? t.jobPaintDone : t.jobModelDone) : '✕ ' + t.jobFailed}{jobs.done.ok && jobs.done.seconds ? ' · ' + fmtTime(jobs.done.seconds) : ''}
+              </button>
+              <button className="jobx" aria-label={t.close} title={t.close} onClick={dismissDone}>✕</button>
+            </span>
+          )}          <div className="grow" />
           {['available', 'downloading', 'installing'].includes(upd.state) && (
             <button className="btn update-btn" onClick={() => setShowUpd(true)}
               title={upd.info ? t.updateAvail(upd.info.version) : ''} aria-label={upd.info ? t.updateAvail(upd.info.version) : 'Update'}>

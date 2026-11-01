@@ -7,15 +7,17 @@ const subs = new Set();
 const emit = () => subs.forEach(f => f());
 export function setJob(kind, v) {
   const prev = state[kind];
+  if (!prev && v && typeof v !== 'function') state = { ...state, done: null }; // a new job replaces the old result
   const next = typeof v === 'function' ? v(prev) : v;
   state = { ...state, [kind]: next };
   emit();
 }
 export function finishJob(kind, ok, msg) {
-  state = { ...state, [kind]: null, done: { kind, ok, msg, at: Date.now() } };
+  // the result stays visible in the top bar until it is clicked or dismissed (a cancelled job just disappears)
+  state = { ...state, [kind]: null, done: msg === 'CANCELLED' ? state.done : { kind, ok, msg, at: Date.now(), seconds: state[kind]?.seconds } };
   emit();
-  setTimeout(() => { if (state.done && Date.now() - state.done.at >= 7900) { state = { ...state, done: null }; emit(); } }, 8000);
 }
+export function dismissDone() { state = { ...state, done: null }; emit(); }
 export function useJobs() { return useSyncExternalStore(f => { subs.add(f); return () => subs.delete(f); }, () => state); }
 export function useJob(kind) {
   const s = useJobs();
