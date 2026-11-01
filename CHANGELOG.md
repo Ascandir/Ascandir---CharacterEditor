@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.4
+- Körperdetails: Oberweite bei 100 noch deutlich übertriebener (cartoonhaft riesig, mit Größenvergleich zum Kopf), weiterhin bekleidet
+
 ## 0.7.3
 - KI-Maler: Die Auswahl „Anzahl“ ist weg, es wird immer genau ein Bild gemalt
 
