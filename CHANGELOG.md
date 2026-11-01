@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.11
+- KI-Malen und 3D-Erzeugen laufen weiter, wenn du den Reiter wechselst (z. B. zum KI-Berater oder Charakterbogen). Die Ergebnisse landen trotzdem beim richtigen Charakter
+- **Anzeige oben in der Leiste** neben „Einstellungen“: „KI malt · 2:31“ bzw. „3D-Modell wird erzeugt“ mit Zeit und ✕ zum Abbrechen. Ein Klick darauf führt zurück in den Designer. Danach steht dort kurz „Bild fertig“ oder „Fehlgeschlagen“
+
 ## 0.6.10
 - Einstellungen → KI: Knopf, um die **Windows-Zeitgrenze für den Grafiktreiber (TDR)** von 2 auf 60 Sekunden zu erhöhen (und wieder zurückzusetzen). Verhindert Treiber-Resets bei langen KI-Berechnungen. Windows fragt nach Administratorrechten, danach ist ein Neustart nötig
 

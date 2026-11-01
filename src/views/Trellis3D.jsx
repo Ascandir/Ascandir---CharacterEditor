@@ -6,6 +6,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
 import { splitViews, padSquare } from '../ai/images.js';
+import { useJob, finishJob, cancelJob, fmtTime } from '../ai/jobs.js';
 
 const VIEW_KEYS = ['front', 'right', 'back', 'left'];
 
@@ -58,7 +59,7 @@ export default function Trellis3D({ ch, update }) {
   const { t } = useT();
   const [st, setSt] = useState(null);
   const [err, setErr] = useState(null);
-  const [busy, setBusy] = useState(null);
+  const [busy, setBusy] = useJob('model3d');
   const [lastLog, setLastLog] = useState('');
   const [thumbs, setThumbs] = useState({});
   const [views, setViews] = useState(null);
@@ -79,7 +80,7 @@ export default function Trellis3D({ ch, update }) {
   useEffect(() => {
     refresh();
     const o1 = api.trellis.on('trellis:log', l => setLastLog(l));
-    const o2 = api.trellis.on('trellis:gen', g => setBusy(b => (b ? { ...b, seconds: g.seconds } : b)));
+    const o2 = () => {};
     const o3 = api.trellis.on('trellis:state', refresh);
     const o4 = api.ai.on('ai:progress', pr => setInst(x => (x && pr.phase !== 'done' ? { label: pr.label || x.label, pct: pr.pct, speed: pr.speed } : x)));
     api.trellis.updates().then(setUpd).catch(() => {});
@@ -102,13 +103,17 @@ export default function Trellis3D({ ch, update }) {
   const inputImage = srcMeta?.kind === 'multi' ? views?.[Math.max(0, VIEW_KEYS.indexOf(s3.view))] : thumbs[srcName];
 
   const generate = async () => {
-    setErr(null); setBusy({ seconds: 0 });
+    if (busy) return;
+    const jobChar = ch.id; let ok = false; let failMsg = null;
+    setErr(null); setBusy({ seconds: 0, charId: jobChar, name: ch.name });
     try {
       const image = srcMeta?.kind === 'multi' ? inputImage : await padSquare(inputImage);
-      const r = await api.trellis.generate({ charId: ch.id, image, seed: s3.seed, resolution: s3.resolution, texture: s3.texture });
-      update(c => { c.models3d = [{ name: r.name, ts: Date.now(), seed: s3.seed, resolution: s3.resolution, source: srcName, view: srcMeta?.kind === 'multi' ? s3.view : null, seconds: r.seconds, size: r.size }, ...(c.models3d || [])]; c.selectedModel3d = r.name; return c; });
-    } catch (e) { const m = String(e.message || e); if (!/CANCELLED/.test(m)) setErr(m); }
-    setBusy(null); refresh();
+      const r = await api.trellis.generate({ charId: jobChar, image, seed: s3.seed, resolution: s3.resolution, texture: s3.texture });
+      ok = true;
+      const add = (c) => { c.models3d = [{ name: r.name, ts: Date.now(), seed: s3.seed, resolution: s3.resolution, source: srcName, view: srcMeta?.kind === 'multi' ? s3.view : null, seconds: r.seconds, size: r.size }, ...(c.models3d || [])]; c.selectedModel3d = r.name; return c; };
+      update(c => { if (c.id === jobChar) return add(c); api.loadChar(jobChar).then(o => { if (o) api.saveChar(add(o)); }).catch(() => {}); return c; });
+    } catch (e) { const m = String(e.message || e); if (!/CANCELLED/.test(m)) { setErr(m); failMsg = m; } else failMsg = 'CANCELLED'; }
+    finishJob('model3d', ok, failMsg); refresh();
   };
   const fname = (ch.name || 'character').replace(/[^\w-]+/g, '_');
 
@@ -187,8 +192,8 @@ export default function Trellis3D({ ch, update }) {
         <label className="row small" style={{ gap: 6 }}>Seed <input type="number" value={s3.seed} onChange={e => set('seed', Number(e.target.value) || 0)} style={{ width: 110 }} />
           <button className="btn sm" onClick={() => set('seed', Math.floor(Math.random() * 1e6))}>🎲</button></label>
         <button className="btn primary" disabled={!!busy || !st?.installed || !inputImage} onClick={generate}>{t.t3Generate}</button>
-        {busy && <div className="banner info" style={{ margin: 0 }}><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /><span className="small grow">{t.t3Busy} · {Math.floor((busy.seconds || 0) / 60)}:{String((busy.seconds || 0) % 60).padStart(2, '0')}<br /><span className="muted">{lastLog.slice(0, 90)}</span></span>
-          <button className="btn sm" disabled={busy.cancelling} onClick={() => { setBusy(b => (b ? { ...b, cancelling: true } : b)); api.trellis.cancel?.(); }}>{t.cancel}</button></div>}
+        {busy && <div className="banner info" style={{ margin: 0 }}><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /><span className="small grow">{t.t3Busy} · {fmtTime(busy.seconds)}<br /><span className="muted">{lastLog.slice(0, 90)}</span></span>
+          <button className="btn sm" disabled={busy.cancelling} onClick={() => cancelJob('model3d')}>{t.cancel}</button></div>}
         {err && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small" style={{ whiteSpace: 'pre-wrap' }}>{err}</span></div>}
       </section>
 

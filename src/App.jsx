@@ -14,6 +14,7 @@ import { primaryGpu, AMD_DRIVER_URL } from './hardware.js';
 import { useUpdater, UpdateDialog } from './components/Update.jsx';
 import { DialogHost } from './components/Dialog.jsx';
 import { DbCtx, RefHost } from './components/Entries.jsx';
+import { useJobs, wireJobs, cancelJob, fmtTime } from './ai/jobs.js';
 import AiSetup from './components/AiSetup.jsx';
 
 export const DEFAULT_SETTINGS = { lang: 'de', rules: '2024', disabledSources: [], homebrew: [], profiles: {}, activeProfile: 'Standard' };
@@ -74,6 +75,8 @@ export default function App() {
     }
   }, []);
   useEffect(() => { loadAll(); }, [loadAll]);
+  const jobs = useJobs();
+  useEffect(() => { wireJobs(); }, []);
   const upd = useUpdater();
   const [showUpd, setShowUpd] = useState(false);
   const updChecked = useRef(false);
@@ -203,6 +206,18 @@ export default function App() {
           <nav className="nav">
             {tabs.map(([k, l]) => <button key={k} className={view === k || (k === 'sheet' && (view === 'wizard' || view === 'levelup')) ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}
           </nav>
+          {[['paint', t.jobPaint, 'painter'], ['model3d', t.jobModel3d, 'trellis']].map(([k, label, mode]) => jobs[k] && (
+            <span key={k} className="jobchip" role="status">
+              <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+              <button className="linklike" onClick={() => { setView('designer'); if (ch && ch.id === jobs[k].charId) update(c => { c.designerMode = mode; return c; }); }}>
+                {jobs[k].cancelling ? t.pCancelling : label} · {fmtTime(jobs[k].seconds)}
+              </button>
+              {!jobs[k].cancelling && <button className="jobx" aria-label={t.cancel} title={t.cancel} onClick={() => cancelJob(k)}>✕</button>}
+            </span>
+          ))}
+          {jobs.done && !jobs.paint && !jobs.model3d && jobs.done.msg !== 'CANCELLED' && (
+            <span className={'jobchip ' + (jobs.done.ok ? 'ok' : 'bad')}>{jobs.done.ok ? '✓ ' + (jobs.done.kind === 'paint' ? t.jobPaintDone : t.jobModelDone) : '✕ ' + t.jobFailed}</span>
+          )}
           <div className="grow" />
           {['available', 'downloading', 'installing'].includes(upd.state) && (
             <button className="btn update-btn" onClick={() => setShowUpd(true)}
@@ -215,7 +230,7 @@ export default function App() {
           )}
           <span className="pill">{(ch?.rules || settings.rules) === '2014' ? 'D&D 2014' : 'D&D 2024'}</span>
           <button className="btn" onClick={() => setShowChars(true)}>{t.myChars}</button>
-          {ch && <span className="muted small">{savedAt ? t.autosaved + ' · ' + savedAt.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' }) : ''}</span>}
+          {ch && <span className="muted small autosaved" title={savedAt ? t.autosaved + ' · ' + savedAt.toLocaleTimeString(lang) : ''}>{savedAt ? t.autosaved + ' · ' + savedAt.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' }) : ''}</span>}
           {ch && <button className="btn primary" onClick={saveNow}>{t.save}</button>}
         </header>
         {driverWarn && (

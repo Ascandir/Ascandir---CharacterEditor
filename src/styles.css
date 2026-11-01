@@ -20,7 +20,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); padding: 0; border
 h1, h2, h3 { margin: 0; }
 .serif { font-family: Georgia, 'Cinzel', 'Times New Roman', serif; letter-spacing: .5px; }
 .app { display: flex; flex-direction: column; height: 100%; }
-.topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; padding: 10px 22px; border-bottom: 1px solid var(--line); background: var(--bar); }
+.topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 10px 22px; border-bottom: 1px solid var(--line); background: var(--bar); }
 .brand { font-size: 19px; color: var(--accent); white-space: nowrap; }
 .nav { display: flex; gap: 4px; flex-wrap: wrap; }
 .nav button { padding: 9px 14px; border-radius: 8px; border: 0; background: transparent; color: var(--muted); font-weight: 600; }
@@ -132,3 +132,12 @@ h1, h2, h3 { margin: 0; }
 .chatbubble .entries p { margin: 4px 0; }
 .codeblock { position: relative; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 18px 12px 10px; white-space: pre-wrap; font-size: 12.5px; margin: 6px 0; }
 .codelang { position: absolute; top: 4px; right: 8px; font-size: 10px; color: var(--muted); text-transform: uppercase; }
+.jobchip { display: inline-flex; align-items: center; gap: 8px; margin-left: 10px; padding: 5px 10px; border-radius: 999px; background: var(--chip); color: var(--accent2); font-size: 12.5px; font-weight: 600; }
+.jobchip.ok { background: rgba(80, 180, 110, .2); color: #8fe0a8; }
+.jobchip.bad { background: rgba(220, 80, 80, .2); color: #f0a0a0; }
+.jobchip .linklike { background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; }
+.jobchip .jobx { background: none; border: none; color: inherit; cursor: pointer; opacity: .7; padding: 0 2px; }
+.jobchip .jobx:hover { opacity: 1; }
+.autosaved { white-space: nowrap; }
+@media (max-width: 1500px) { .autosaved { display: none; } }
+.jobchip { margin-left: 0; white-space: nowrap; }

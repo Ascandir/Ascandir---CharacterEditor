@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ZoomView from '../components/ZoomView.jsx';
 import { splitViews } from '../ai/images.js';
+import { useJob, useJobs, finishJob, cancelJob, fmtTime } from '../ai/jobs.js';
 import { promptDialog, confirmDialog } from '../components/Dialog.jsx';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
@@ -54,7 +55,8 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   const set = (k, v) => update(c => { c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), [k]: v }; return c; });
   const setTk = (k, v) => update(c => { c.appearance = { ...(c.appearance || {}), [k]: v }; return c; });
   const [st, setSt] = useState(null);
-  const [busy, setBusy] = useState(null); // {mode, seconds}
+  const [busy, setBusy] = useJob('paint'); // {mode, seconds, charId}
+  const lastDone = useJobs().done;
   const [err, setErr] = useState(null);
   const [cache, setCache] = useState({});
   const [count, setCount] = useState(2);
@@ -92,7 +94,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   };
 
   const refresh = () => api.ai.status().then(setSt).catch(() => setSt({ supported: false }));
-  useEffect(() => { refresh(); const off1 = api.ai.on('ai:gen', g => setBusy(b => (b ? { ...b, seconds: g.seconds } : b))); const off2 = api.ai.on('ai:state', refresh); return () => { off1(); off2(); }; }, []);
+  useEffect(() => { refresh(); const off2 = api.ai.on('ai:state', refresh); return () => { off2(); }; }, []);
   // load thumbnails/images lazily
   useEffect(() => {
     let alive = true;
@@ -124,7 +126,16 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   const [bgInstall, setBgInstall] = useState(null);
 
   const generate = async (mode) => {
-    setErr(null); setBusy({ mode, seconds: 0 });
+    if (busy) return;
+    const jobChar = ch.id;
+    // the job keeps running when this view is left: results go to the character it was started for
+    const applyTo = (fn) => update(c => {
+      if (c.id === jobChar) return fn(c);
+      api.loadChar(jobChar).then(o => { if (o) api.saveChar(fn(o)); }).catch(() => {});
+      return c;
+    });
+    let ok = false; let failMsg = null;
+    setErr(null); setBusy({ mode, seconds: 0, charId: jobChar, name: ch.name });
     try {
       // free the GPU: stop Strata if this app started it (setting in the AI advisor)
       const lc = globalSettings?.llm || {};
@@ -176,7 +187,8 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         setCache(c => ({ ...c, [name]: url }));
         saved.push({ name, seed: seed + i, prompt: params.prompt, model: useQwen ? 'qwen' : 'zimage', ts: Date.now(), seconds: res.seconds, params: JSON.parse(JSON.stringify(p)), ...(multi ? { kind: 'multi' } : {}) });
       }
-      update(c => {
+      ok = true;
+      applyTo(c => {
         const all = [...saved, ...(c.paintings || [])];
         for (const old of all.slice(MAX_PAINTINGS)) api.deleteImage(c.id, old.name);
         c.paintings = all.slice(0, MAX_PAINTINGS); c.selectedPainting = saved[0]?.name; return c;
@@ -187,9 +199,9 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         let llmUp = false; try { await api.llm.models({ url: globalSettings?.llm?.url, key: globalSettings?.llm?.key }); llmUp = true; } catch { /* not running */ }
         m = (llmUp ? t.pCrashLlm + '\n\n' : t.pCrashQwen + '\n\n') + m;
       }
-      if (!/CANCELLED/.test(m)) setErr(/COMFY_TOO_OLD/.test(m) ? 'COMFY_TOO_OLD' : m);
+      if (!/CANCELLED/.test(m)) { setErr(/COMFY_TOO_OLD/.test(m) ? 'COMFY_TOO_OLD' : m); failMsg = m; } else failMsg = 'CANCELLED';
     }
-    setBusy(null); refresh();
+    finishJob('paint', ok, failMsg); refresh();
   };
 
   const fname = (ch.name || 'character').replace(/[^\w-]+/g, '_');
@@ -401,8 +413,9 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             }}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : t.pBgModelBtn}</button>
           </div>
         )}
-        {busy && <div className="banner info" style={{ margin: 0 }}><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /><span className="grow">{busy.cancelling ? t.pCancelling : (st?.running ? t.pPainting : t.aiStartingFirst)} · {busy.seconds || 0} s</span>
-          <button className="btn sm" disabled={busy.cancelling} onClick={() => { setBusy(b => (b ? { ...b, cancelling: true } : b)); api.ai.cancelGen?.(); }}>{t.cancel}</button></div>}
+        {busy && <div className="banner info" style={{ margin: 0 }}><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /><span className="grow">{busy.cancelling ? t.pCancelling : (st?.running ? t.pPainting : t.aiStartingFirst)} · {fmtTime(busy.seconds)}{busy.charId !== ch.id ? ' · ' + (busy.name || '') : ''}</span>
+          <button className="btn sm" disabled={busy.cancelling} onClick={() => cancelJob('paint')}>{t.cancel}</button></div>}
+        {!err && !busy && lastDone?.kind === 'paint' && !lastDone.ok && lastDone.msg && lastDone.msg !== 'CANCELLED' && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small" style={{ whiteSpace: 'pre-wrap' }}>{lastDone.msg === 'COMFY_TOO_OLD' ? t.pComfyOld : lastDone.msg}</span></div>}
         {err && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small grow" style={{ whiteSpace: 'pre-wrap' }}>{err === 'COMFY_TOO_OLD' ? t.pComfyOld : err}</span>
           {err === 'COMFY_TOO_OLD' && <button className="btn sm primary" disabled={!!bgInstall} onClick={async () => { setBgInstall('…'); const off = api.ai.on('ai:progress', pr => setBgInstall((pr.pct ?? 0) + ' %')); try { await api.ai.install({ dir: st.dir, gpu: st.gpu, models: [], comfy: true }); setErr(null); } catch (e) { setErr(String(e.message || e)); } off(); setBgInstall(null); refresh(); }}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : t.pComfyUpdate}</button>}</div>}
         <div className="col" style={{ gap: 6 }} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); importImage(e.dataTransfer.files?.[0]); }}>
