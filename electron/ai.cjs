@@ -115,7 +115,7 @@ async function status() {
     dir: cfg.dir || null, defaultDir: await suggestedDir() || path.join(app.getPath('userData'), 'ai'), programModelsDir: await suggestedDir(), gpu: cfg.gpu || null,
     comfyInstalled: !!root, comfyVersion: cfg.comfyVersion || null, models, running, lastModel: running ? lastModel : null, starting: !!proc && !running,
     freeGB: cfg.dir ? await freeSpaceGB(cfg.dir) : await freeSpaceGB(app.getPath('userData')),
-    setupDone: !!cfg.setupDone, setupSkipped: !!cfg.setupSkipped, idleMinutes: cfg.idleMinutes ?? 10, gpuMode: cfg.gpuMode || 'safe',
+    setupDone: !!cfg.setupDone, setupSkipped: !!cfg.setupSkipped, idleMinutes: cfg.idleMinutes ?? 10, gpuMode: cfg.gpuMode || 'safe', stopAfterImage: cfg.stopAfterImage !== false,
   };
 }
 
@@ -323,6 +323,7 @@ async function waitReady(timeoutMs = 600000) {
   throw new Error('ComfyUI did not start in time');
 }
 function stop() {
+  lastModel = null;
   return new Promise(resolve => {
     if (!proc) return resolve(true);
     const pid = proc.pid;
@@ -471,7 +472,12 @@ async function cancelGenerate() {
 }
 async function generate(params) {
   generating = true;
-  try { return await generateInner(params); } finally { generating = false; lastUse = Date.now(); touch(); }
+  try { return await generateInner(params); } finally {
+    generating = false; lastUse = Date.now();
+    // default: stop ComfyUI as soon as the picture is done, so its ~30-40 GB of RAM are free again right away
+    const c = await readCfg().catch(() => ({}));
+    if (c.stopAfterImage !== false && proc && !EXTERNAL) { log('picture done: stopping ComfyUI to free the memory'); await stop(); } else touch();
+  }
 }
 async function generateInner(params) {
   cancelRequested = false;
@@ -573,6 +579,7 @@ function register(mainWindowGetter) {
   ipcMain.handle('ai:free', () => freeComfy());
   ipcMain.handle('ai:log', () => procLog.slice(-120).join(''));
   ipcMain.handle('ai:skip', async () => { const c = await readCfg(); c.setupSkipped = true; await writeCfg(c); return true; });
+  ipcMain.handle('ai:setStopAfter', async (_e, on) => { const c = await readCfg(); c.stopAfterImage = !!on; await writeCfg(c); return true; });
   ipcMain.handle('ai:setGpuMode', async (_e, mode) => { const c = await readCfg(); if (c.gpuMode !== mode) { c.gpuMode = mode; await writeCfg(c); await stop(); } return true; });
   ipcMain.handle('ai:setIdle', async (_e, mins) => { const c = await readCfg(); c.idleMinutes = mins; await writeCfg(c); return true; });
   ipcMain.handle('ai:chooseDir', async () => {

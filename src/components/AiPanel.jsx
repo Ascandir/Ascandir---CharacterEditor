@@ -64,6 +64,7 @@ export default function AiPanel() {
             </select></label>
           <span className="muted small">{t.gpuModeHint}</span>
           <TdrBox />
+          <label className="checkline small"><input type="checkbox" checked={st.stopAfterImage !== false} onChange={async e => { await api.ai.setStopAfter?.(e.target.checked); refresh(); }} /><span>{t.aiStopAfter}<br /><span className="muted">{t.aiStopAfterHint}</span></span></label>
           <label className="row small">{t.aiIdle}
             <select value={st.idleMinutes} onChange={async e => { await api.ai.setIdle(Number(e.target.value)); refresh(); }}>{[0, 5, 10, 30, 60].map(n => <option key={n} value={n}>{n}</option>)}</select></label>
           <div className="row">

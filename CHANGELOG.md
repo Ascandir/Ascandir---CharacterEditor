@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.7
+- KI-Maler: ComfyUI wird jetzt **nach jedem fertigen Bild automatisch beendet** (auch nach Fehlern oder Abbruch). Der Arbeitsspeicher (bei Qwen 30–40 GB) ist damit sofort wieder frei. Das nächste Bild startet etwas langsamer, weil das Modell neu geladen wird. Abschalten lässt sich das unter Einstellungen → KI → „KI nach jedem fertigen Bild beenden“
+
 ## 0.8.6
 - KI-Maler: **Eigene Bilder mit den Reglern anpassen**. Beim Importieren springen alle Körperregler (Körperbau, Kurven, Muskeln, Attraktivität, Größe und Körperdetails) auf ihren Normalwert. Verschiebst du danach einen Regler oder änderst ein Feld (Haare, Kleidung, Pose …), wird nur diese Änderung auf das Bild angewendet. Der Rest des Bildes (Gesicht, Kleidung, Stil) soll so bleiben
 - Über dem Bild steht, was geändert wird, mit den Knöpfen „Änderungen anwenden“ und „Regler auf Ausgangswert“. Das Ergebnis wird zum neuen Ausgangspunkt, du kannst also Schritt für Schritt weiter anpassen. Wählst du ein solches Bild in der Galerie aus, werden seine Ausgangswerte wieder geladen
