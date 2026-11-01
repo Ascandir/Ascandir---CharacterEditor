@@ -109,34 +109,58 @@ const LOOKS = [
 // body detail sliders (50 = no mention). Six steps: extreme low, strong, mild | mild, strong, extreme high.
 // Extremes are deliberately exaggerated (stylised, cartoonish proportions are fine).
 const S = (xl, l, ml, mh, h, xh) => [[8, xl], [25, l], [42, ml], [58, ''], [75, mh], [92, h], [100, xh]];
+// key, de, en, scale. Extremes are deliberately absurd (stylised fantasy caricature), the user wants a huge range.
 export const BODY_PARTS = [
-  ['shoulders', 'Schulterbreite', 'Shoulder width', S('extremely narrow sloping shoulders, tiny shoulders barely wider than the head', 'very narrow shoulders', 'narrow shoulders', 'broad shoulders', 'very broad massive shoulders', 'absurdly wide exaggerated shoulders, shoulders twice as wide as normal, huge V-shaped torso')],
-  ['armLen', 'Armlänge', 'Arm length', S('tiny stubby arms, extremely short arms that end at the waist', 'very short stubby arms', 'short arms', 'long arms', 'very long lanky arms reaching to the knees', 'absurdly long exaggerated arms, ape-like arms with hands hanging below the knees')],
-  ['armThick', 'Armdicke', 'Arm thickness', S('stick-thin skeletal arms, arms like twigs', 'very thin skinny arms', 'slender arms', 'thick strong arms', 'very thick massive arms', 'gigantic exaggerated arms, arms thicker than the head, huge bulging forearms')],
-  ['bust', 'Oberweite', 'Bust / chest', S({ f: 'completely flat chest, no bust at all', m: 'sunken narrow chest, flat thin torso' }, { f: 'very small bust, flat-chested', m: 'very narrow thin chest' }, { f: 'small bust', m: 'slim chest' }, { f: 'large bust', m: 'broad chest' }, { f: 'very large bust', m: 'very broad barrel chest' }, { f: 'enormous exaggerated bust, gigantic chest, stylised cartoonish proportions', m: 'enormous exaggerated barrel chest, gigantic torso' })],
-  ['waist', 'Taille', 'Waist', S('impossibly tiny wasp waist, extremely cinched waist', 'very narrow waist', 'slim waist', 'thick waist', 'very wide thick waist', 'enormous round wide waist, barrel-shaped torso')],
-  ['hips', 'Hüfte', 'Hips', S('completely straight narrow hips, no hips at all', 'very narrow hips', 'narrow hips', 'wide hips', 'very wide hips', 'extremely wide exaggerated hips, hips twice as wide as the waist')],
-  ['butt', 'Po', 'Buttocks', S('completely flat buttocks, flat as a board, no butt at all', 'very flat small buttocks', 'small buttocks', 'large rounded buttocks', 'very large round buttocks, big butt', 'enormous exaggerated round buttocks, gigantic protruding butt, stylised cartoonish proportions')],
-  ['legLen', 'Beinlänge', 'Leg length', S('tiny stubby legs, extremely short legs, very low center of gravity', 'very short stubby legs', 'short legs', 'long legs', 'very long legs', 'absurdly long exaggerated legs, legs make up most of the body height')],
-  ['legThick', 'Beindicke', 'Leg thickness', S('stick-thin skeletal legs, legs like twigs', 'very thin spindly legs', 'slender legs', 'thick strong legs', 'very thick massive legs', 'gigantic exaggerated thighs and legs, tree-trunk legs')],
-  ['head', 'Kopfgröße', 'Head size', S('tiny head, absurdly small head on a large body', 'very small head', 'small head', 'large head', 'very large head', 'huge oversized head, cartoonish big-head proportions')],
+  ['head', 'Kopfgröße', 'Head size', S('tiny pin head, absurdly small head on the body', 'very small head', 'small head', 'large head', 'very large head', 'huge oversized cartoon head, head twice the normal size')],
+  ['shoulders', 'Schulterbreite', 'Shoulder width', S('extremely narrow sloping shoulders, shoulders barely wider than the head', 'very narrow shoulders', 'narrow shoulders', 'broad shoulders', 'very broad massive shoulders', 'absurdly wide shoulders, shoulders twice as wide as normal, enormous V-shaped torso')],
+  ['armLen', 'Armlänge', 'Arm length', S('tiny stubby arms that end at the waist', 'very short stubby arms', 'short arms', 'long arms', 'very long lanky arms reaching to the knees', 'absurdly long ape-like arms with the hands hanging below the knees')],
+  ['armThick', 'Oberarme', 'Upper arms', S('stick-thin skeletal upper arms like twigs', 'very thin upper arms', 'slender upper arms', 'thick upper arms', 'very thick massive upper arms, huge biceps', 'gigantic upper arms thicker than the head, absurdly bulging biceps')],
+  ['forearm', 'Unterarme', 'Forearms', S('stick-thin skeletal forearms', 'very thin forearms', 'slender forearms', 'thick forearms', 'very thick massive forearms', 'gigantic Popeye-like forearms, absurdly huge forearms')],
+  ['bust', 'Oberweite', 'Bust / chest', S({ f: 'completely flat chest, no bust at all', m: 'sunken narrow flat chest' }, { f: 'very small bust, flat-chested', m: 'very narrow thin chest' }, { f: 'small bust', m: 'slim chest' }, { f: 'large bust', m: 'broad chest' }, { f: 'very large heavy bust', m: 'very broad barrel chest' }, { f: 'absurdly gigantic bust, impractically huge unrealistic chest, cartoonish exaggerated proportions', m: 'absurdly enormous barrel chest, gigantic torso' })],
+  ['waist', 'Taille', 'Waist', S('impossibly tiny wasp waist', 'very narrow waist', 'slim waist', 'thick waist', 'very wide thick waist', 'enormous round waist, barrel-shaped torso')],
+  ['belly', 'Bauch', 'Belly', S('extremely flat sunken stomach, visible ribs', 'very flat toned stomach', 'flat stomach', 'soft round belly', 'big round protruding belly', 'gigantic hugely protruding round belly, absurdly huge gut')],
+  ['hips', 'Hüfte', 'Hips', S('completely straight narrow hips, no hips at all', 'very narrow hips', 'narrow hips', 'wide hips', 'very wide hips', 'absurdly wide hips, hips twice as wide as the waist')],
+  ['butt', 'Po', 'Buttocks', S('completely flat buttocks, flat as a board', 'very flat small buttocks', 'small buttocks', 'large rounded buttocks', 'very large round buttocks', 'absurdly gigantic protruding buttocks, cartoonish exaggerated proportions')],
+  ['legLen', 'Beinlänge', 'Leg length', S('tiny stubby legs, extremely short legs', 'very short legs', 'short legs', 'long legs', 'very long legs', 'absurdly long legs that make up most of the body height')],
+  ['legThick', 'Oberschenkel', 'Thighs', S('stick-thin skeletal thighs with a big gap', 'very thin thighs', 'slender thighs', 'thick thighs', 'very thick heavy thighs', 'gigantic tree-trunk thighs, absurdly massive thighs')],
+  ['calf', 'Waden', 'Calves', S('stick-thin bony calves', 'very thin calves', 'slender calves', 'muscular calves', 'very thick heavy calves', 'gigantic bulging calves, absurdly massive lower legs')],
 ];
+const EXTREME = (v) => v != null && (v <= 15 || v >= 85);
 
-export function bodyText(p, keys) {
+export function bodyText(p, keys, only) {
   const out = []; let extreme = false;
   for (const [k, , , scale] of BODY_PARTS) {
     if (keys && !keys.includes(k)) continue;
     const v = p.body?.[k]; if (v == null || (v > 42 && v < 58)) continue;
+    if (only === 'extreme' && !EXTREME(v)) continue;
+    if (only === 'normal' && EXTREME(v)) continue;
     let txt = pick(v, scale); if (txt && typeof txt === 'object') txt = p.gender === 'male' ? txt.m : txt.f;
     if (txt) out.push(txt);
     if (v <= 25 || v >= 75) extreme = true;
   }
-  if (extreme) out.push('exaggerated stylised body proportions');
+  if (extreme && only !== 'normal') out.push('exaggerated stylised caricature body proportions');
   return out;
 }
 
 export const MULTI_VIEW = 'character turnaround reference sheet, four full body views of the exact same character side by side in one row, from left to right: front view, side view facing right, back view, side view facing left, each view from head to feet, standing in a relaxed A-pose with arms slightly away from the body, orthographic camera at chest height, even neutral lighting, identical outfit, colors and proportions in every view';
 export const MULTI_SIZE = { width: 1792, height: 1024, views: 4 };
+
+export const SFW_COVER = 'the chest, torso, arms and legs are completely covered by the outfit, no bare skin on the body, no cleavage, no bikini or revealing armor';
+const DE_EN = [
+  ['dunkelrot', 'dark red'], ['hellrot', 'light red'], ['tiefrot', 'deep red'], ['blutrot', 'blood red'], ['karmesinrot', 'crimson'], ['karmesin', 'crimson'], ['rot', 'red'],
+  ['dunkelblau', 'dark blue'], ['hellblau', 'light blue'], ['blau', 'blue'], ['dunkelgrün', 'dark green'], ['hellgrün', 'light green'], ['grün', 'green'],
+  ['schwarz', 'black'], ['weiß', 'white'], ['weiss', 'white'], ['grau', 'grey'], ['silbern', 'silver'], ['silber', 'silver'], ['golden', 'golden'], ['gold', 'gold'],
+  ['lila', 'purple'], ['violett', 'violet'], ['gelb', 'yellow'], ['orange', 'orange'], ['braun', 'brown'], ['rosa', 'pink'], ['türkis', 'turquoise'], ['bronze', 'bronze'], ['kupfer', 'copper'],
+  ['blond', 'blonde'], ['brünett', 'brunette'], ['blass', 'pale'], ['gebräunt', 'tanned'], ['dunkel', 'dark'], ['hell', 'light'], ['schuppen', 'scales'], ['schuppig', 'scaly'],
+  ['lang', 'long'], ['kurz', 'short'], ['lockig', 'curly'], ['glatt', 'straight'], ['geflochten', 'braided'], ['zopf', 'braid'], ['glatze', 'bald head'], ['bart', 'beard'],
+  ['narbe', 'scar'], ['narben', 'scars'], ['tätowierung', 'tattoo'], ['tattoos', 'tattoos'], ['augen', 'eyes'], ['auge', 'eye'], ['haar', 'hair'], ['haut', 'skin'], ['und', 'and'], ['mit', 'with'],
+];
+function toEn(text) {
+  let t = String(text || '');
+  // German adjectives are inflected (rote, langes, ...): accept the usual endings
+  for (const [de, en] of DE_EN) t = t.replace(new RegExp('(^|[^\\p{L}])' + de + '(?:e|en|er|es|em)?(?=$|[^\\p{L}])', 'giu'), (m, pre) => pre + en);
+  return t.trim();
+}
 
 export function buildPrompt(d, ch, p, opts = {}) {
   const sp = speciesOf(d?.race?.name || 'Human');
@@ -145,13 +169,29 @@ export function buildPrompt(d, ch, p, opts = {}) {
   const parts = [];
   const g = p.gender === 'female' ? 'woman' : p.gender === 'nonbinary' ? 'androgynous person' : 'man';
   const age = pick(p.age, [[25, 'young adult'], [40, 'adult'], [55, 'middle-aged'], [70, 'older, with grey streaks and wrinkles'], [100, 'elderly, white hair and deep wrinkles']]);
-  // framing first: the model weighs the beginning of the prompt most
-  const pose = (p.pose || '').trim();
+  const styleText = st[0] === 'custom' ? (p.customStyle || '').trim() || STYLES[0][2] : st[2];
+  // the style goes first (Z-Image weighs the beginning most, otherwise the style only reaches the face) and again at the end
+  if (!opts.multi) parts.push(styleText);
+  const pose = toEn(p.pose);
   parts.push(opts.multi ? MULTI_VIEW : pose ? fr[2].replace('standing pose', '').replace(/,\s*,/g, ',') + ', pose: ' + pose : fr[2]);
   if (opts.emphasis?.length) parts.push('IMPORTANT, clearly visible body shape: ' + opts.emphasis.join(', '));
-  parts.push(`${age} ${g}, ${sp.text}`);
+  const skin = toEn(p.skin);
+  parts.push(`${age} ${g}, ${sp.text}${skin ? `, with ${skin} skin color on the whole body` : ''}`);
+  const ext = bodyText(p, null, 'extreme');
+  if (ext.length) parts.push('IMPORTANT exaggerated body proportions: ' + ext.join(', '));
+  // clothing early and explicit: otherwise the model often leaves the upper body bare
+  const gear = [];
+  if (p.useGear && d) {
+    const cls = d.classInfo?.[0]?.cls?.name;
+    if (cls && CLASS_GEAR[lc(cls)]) gear.push(CLASS_GEAR[lc(cls)]);
+    const eq = (ch?.inventory || []).filter(i => i.equipped).map(i => i.name);
+    if (eq.length) gear.push('equipped with ' + eq.join(', '));
+  }
+  if (p.clothing) gear.push(toEn(p.clothing));
+  const sfw = p.sfwLock !== false;
+  parts.push((gear.length ? 'wearing ' + gear.join(', ') : 'wearing practical fantasy adventurer clothing') + (sfw ? ', ' + SFW_COVER : ''));
   parts.push(pick(p.attract, LOOKS));
-  parts.push(...bodyText(p));
+  parts.push(...bodyText(p, null, 'normal'));
   parts.push(pick(p.build, [[12, 'very thin, gaunt build'], [32, 'slim build'], [58, 'average build'], [74, 'stocky, slightly heavy build'], [89, 'heavyset, overweight with a round belly'], [100, 'very fat, obese body']]));
   const curvy = pick(p.curvy, [[18, 'straight angular figure'], [48, ''], [74, 'curvy figure'], [100, 'very curvy hourglass figure']]);
   if (curvy) parts.push(curvy);
@@ -160,24 +200,13 @@ export function buildPrompt(d, ch, p, opts = {}) {
   const h = p.height || sp.avg;
   const rel = (h - sp.avg) / sp.avg;
   parts.push(pick(rel, [[-0.15, `very short for their kind (${h} cm)`], [-0.06, `short for their kind (${h} cm)`], [0.06, `average height (${h} cm)`], [0.15, `tall for their kind (${h} cm)`], [9, `very tall for their kind (${h} cm)`]]));
-  if (p.hair) parts.push(p.hair + ' hair');
-  if (p.skin) parts.push(p.skin + ' skin');
-  if (p.eyes) parts.push(p.eyes + ' eyes');
-  if (p.features) parts.push(p.features);
-  // clothing & gear
-  const gear = [];
-  if (p.useGear && d) {
-    const cls = d.classInfo?.[0]?.cls?.name;
-    if (cls && CLASS_GEAR[lc(cls)]) gear.push(CLASS_GEAR[lc(cls)]);
-    const eq = (ch?.inventory || []).filter(i => i.equipped).map(i => i.name);
-    if (eq.length) gear.push('equipped with ' + eq.join(', '));
-  }
-  if (p.clothing) gear.push(p.clothing);
-  if (gear.length) parts.push('wearing ' + gear.join(', '));
-  parts.push('fully clothed, safe for work');
-  if (p.extra) parts.push(p.extra);
+  if (p.hair) { const h2 = toEn(p.hair); parts.push(/hair|bald/i.test(h2) ? h2 : h2 + ' hair'); }
+  if (p.eyes) { const e2 = toEn(p.eyes); parts.push(/eye/i.test(e2) ? e2 : e2 + ' eyes'); }
+  if (p.features) parts.push(toEn(p.features));
+  parts.push(sfw ? 'fully clothed, modest outfit, safe for work' : 'safe for work');
+  if (p.extra) parts.push(toEn(p.extra));
   parts.push(opts.multi ? 'plain flat light grey background, no scenery, no text, no labels, no frames between the views' : p.removeBg ? 'plain simple studio background, no scenery, no text' : 'atmospheric fantasy background, no text');
-  parts.push(st[0] === 'custom' ? (p.customStyle || '').trim() || STYLES[0][2] : st[2]);
+  parts.push(styleText);
   return parts.filter(Boolean).join(', ');
 }
 
@@ -243,6 +272,7 @@ export function freePrompt(p, opts = {}) {
   if (opts.emphasis?.length) parts.push('IMPORTANT, clearly visible body shape: ' + opts.emphasis.join(', '));
   if (opts.multi) parts.push('plain flat light grey background, no scenery, no text, no labels');
   else if (p.removeBg && p.freeBg !== false) parts.push('plain simple studio background, no scenery, no text');
+  if (p.sfwLock !== false) parts.push('fully clothed, ' + SFW_COVER + ', safe for work');
   if (p.freeAppendStyle) parts.push(st[0] === 'custom' ? (p.customStyle || '').trim() : st[2]);
   return parts.filter(Boolean).join(', ');
 }

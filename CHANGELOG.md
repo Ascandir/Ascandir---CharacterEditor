@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0
+- **Körperdetails** erweitert: neu sind Unterarme, Bauch, Oberschenkel und Waden (Armdicke heißt jetzt Oberarme). Die Enden sind deutlich übertriebener, bei 0 bzw. 100 bewusst unrealistisch und cartoonhaft. Werte unter 15 oder über 85 stehen jetzt ganz vorne in der KI-Anweisung und wirken dadurch stärker
+- **Grafikstil** steht jetzt am Anfang (und am Ende) der Anweisung und wirkt dadurch aufs ganze Bild statt nur aufs Gesicht
+- **Deutsche Eingaben** bei Haut, Haaren, Augen, Merkmalen, Kleidung und Pose werden für gängige Wörter ins Englische übersetzt (z. B. „rot“ → „red“, „lange blonde Haare“ → „long blonde hair“). Die Hautfarbe wird ausdrücklich für den ganzen Körper verlangt
+- **Kleidung** steht früher in der Anweisung und wird ausdrücklich verlangt, gegen den häufig freien Oberkörper
+- Neuer Schalter **„Freizügigkeit sperren (alles bedeckt)“** (Standard an): erzwingt Kleidung, die Oberkörper, Arme und Beine bedeckt. Wirkt auch beim eigenen Prompt
+
 ## 0.6.14
 - Ist das Malen fertig, bleibt oben grün **„✓ Fertig: Bild gemalt“** mit der benötigten Zeit stehen, bis du draufklickst (springt in den Designer) oder es mit ✕ wegklickst. Ein neuer Malauftrag ersetzt die Meldung. Fehler bleiben genauso rot stehen
 

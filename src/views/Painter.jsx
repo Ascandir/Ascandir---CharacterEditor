@@ -339,6 +339,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             <span className="muted small">{t.pStepsHint}</span>
           </div>
         )}
+        <label className="row small" title={t.pSfwHint}><input type="checkbox" checked={p.sfwLock !== false} onChange={e => set('sfwLock', e.target.checked)} />{t.pSfw}</label>
         <label className="row small"><input type="checkbox" checked={p.removeBg} onChange={e => set('removeBg', e.target.checked)} />{t.pRemoveBg}</label>
         <label className="col" style={{ gap: 4 }}><span className="muted small">{t.pExtra}</span>
           <textarea rows={2} value={p.extra || ''} onChange={e => set('extra', e.target.value)} /></label>
