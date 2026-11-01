@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.9
+- **Abbrechen-Knopf** beim KI-Malen: Das laufende Bild wird sofort gestoppt und aus der Warteschlange genommen, ComfyUI bleibt dabei an. Klappt auch, wenn ComfyUI gerade noch startet
+- Abbrechen auch beim 3D-Erzeugen mit TRELLIS
+
 ## 0.6.8
 - Grafikkarten-Modus „Schonend“ deutlich vorsichtiger: Das neue „dynamische“ Laden von ComfyUI (Pinned Memory, asynchrone Auslagerung) ist abgeschaltet. Es lief bei dir trotz der Einstellung noch aktiv und ist der wahrscheinlichste Grund für die Treiber-Resets mit ROCm unter Windows. Außerdem läuft der VAE-Teil (Bild ↔ KI-Raum umrechnen) auf dem Prozessor, und Modelle werden nach Gebrauch aus der Grafikkarte entfernt
 - Kennt ComfyUI eine dieser Optionen nicht, startet es automatisch ohne sie

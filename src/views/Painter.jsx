@@ -187,7 +187,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         let llmUp = false; try { await api.llm.models({ url: globalSettings?.llm?.url, key: globalSettings?.llm?.key }); llmUp = true; } catch { /* not running */ }
         m = (llmUp ? t.pCrashLlm + '\n\n' : t.pCrashQwen + '\n\n') + m;
       }
-      setErr(/COMFY_TOO_OLD/.test(m) ? 'COMFY_TOO_OLD' : m);
+      if (!/CANCELLED/.test(m)) setErr(/COMFY_TOO_OLD/.test(m) ? 'COMFY_TOO_OLD' : m);
     }
     setBusy(null); refresh();
   };
@@ -401,7 +401,8 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
             }}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : t.pBgModelBtn}</button>
           </div>
         )}
-        {busy && <div className="banner info" style={{ margin: 0 }}><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />{st?.running ? t.pPainting : t.aiStartingFirst} · {busy.seconds || 0} s</div>}
+        {busy && <div className="banner info" style={{ margin: 0 }}><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /><span className="grow">{busy.cancelling ? t.pCancelling : (st?.running ? t.pPainting : t.aiStartingFirst)} · {busy.seconds || 0} s</span>
+          <button className="btn sm" disabled={busy.cancelling} onClick={() => { setBusy(b => (b ? { ...b, cancelling: true } : b)); api.ai.cancelGen?.(); }}>{t.cancel}</button></div>}
         {err && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small grow" style={{ whiteSpace: 'pre-wrap' }}>{err === 'COMFY_TOO_OLD' ? t.pComfyOld : err}</span>
           {err === 'COMFY_TOO_OLD' && <button className="btn sm primary" disabled={!!bgInstall} onClick={async () => { setBgInstall('…'); const off = api.ai.on('ai:progress', pr => setBgInstall((pr.pct ?? 0) + ' %')); try { await api.ai.install({ dir: st.dir, gpu: st.gpu, models: [], comfy: true }); setErr(null); } catch (e) { setErr(String(e.message || e)); } off(); setBgInstall(null); refresh(); }}>{bgInstall ? t.aiDownloading + ' ' + bgInstall : t.pComfyUpdate}</button>}</div>}
         <div className="col" style={{ gap: 6 }} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); importImage(e.dataTransfer.files?.[0]); }}>

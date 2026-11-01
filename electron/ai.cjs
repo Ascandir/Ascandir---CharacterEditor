@@ -413,7 +413,17 @@ function crashText() {
     + clean.slice(-1200) + '\n\n(Full log: ' + path.join(app.getPath('userData'), 'comfyui-last.log') + ')';
 }
 
+let currentPrompt = null; let cancelRequested = false;
+// cancel the running picture: remove it from the queue and interrupt the sampler (ComfyUI keeps running)
+async function cancelGenerate() {
+  cancelRequested = true;
+  const id = currentPrompt;
+  try { if (id) await fetch(`http://127.0.0.1:${port}/queue`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ delete: [id] }) }); } catch { /* not running */ }
+  try { await fetch(`http://127.0.0.1:${port}/interrupt`, { method: 'POST' }); } catch { /* not running */ }
+  return true;
+}
 async function generate(params) {
+  cancelRequested = false;
   await start();
   touch();
   const t0 = Date.now();
@@ -427,6 +437,7 @@ async function generate(params) {
     if (params.initImage) initImage = await uploadImage(params.initImage, 'ascandir_init.png');
     workflow = zImageWorkflow({ ...params, initImage });
   }
+  if (cancelRequested) throw new Error('CANCELLED');
   const r = await comfyFetch(`http://127.0.0.1:${port}/prompt`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: workflow, client_id: 'ascandir' }) }, 'prompt');
   const body = await r.json().catch(() => ({}));
   if (!r.ok || !body.prompt_id) {
@@ -435,8 +446,10 @@ async function generate(params) {
     throw new Error('ComfyUI: ' + txt.slice(0, 500));
   }
   const id = body.prompt_id;
+  currentPrompt = id; cancelRequested = false;
   for (;;) {
     await new Promise(res => setTimeout(res, 1000));
+    if (cancelRequested) { await cancelGenerate(); currentPrompt = null; throw new Error('CANCELLED'); }
     send('ai:gen', { phase: 'running', seconds: Math.round((Date.now() - t0) / 1000) });
     if (!proc && !EXTERNAL) throw new Error(crashText());
     const h = await (await comfyFetch(`http://127.0.0.1:${port}/history/${id}`, undefined, 'history')).json().catch(() => ({}));
@@ -497,6 +510,7 @@ function register(mainWindowGetter) {
   ipcMain.handle('ai:start', async () => { win = mainWindowGetter(); await start(); return true; });
   ipcMain.handle('ai:stop', () => stop());
   ipcMain.handle('ai:generate', async (_e, params) => { win = mainWindowGetter(); return generate(params); });
+  ipcMain.handle('ai:cancelGen', () => cancelGenerate());
   ipcMain.handle('ai:log', () => procLog.slice(-120).join(''));
   ipcMain.handle('ai:skip', async () => { const c = await readCfg(); c.setupSkipped = true; await writeCfg(c); return true; });
   ipcMain.handle('ai:setGpuMode', async (_e, mode) => { const c = await readCfg(); if (c.gpuMode !== mode) { c.gpuMode = mode; await writeCfg(c); await stop(); } return true; });

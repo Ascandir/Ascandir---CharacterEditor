@@ -20,6 +20,7 @@ let child = null;
 let starting = null;
 let logBuf = [];
 let busy = false;
+let cancelled = false;
 let getWin = () => null;
 
 const cfgFile = () => process.env.ACE_TRELLIS_CFG || path.join(app.getPath('appData'), 'trellis-studio', 'config.json');
@@ -168,7 +169,7 @@ function multipart(fields, file) {
 
 async function generate({ charId, image, seed, resolution, texture, faces }) {
   if (busy) throw new Error('already generating');
-  busy = true; send('trellis:state', {});
+  busy = true; cancelled = false; send('trellis:state', {});
   const t0 = Date.now();
   const timer = setInterval(() => send('trellis:gen', { seconds: Math.round((Date.now() - t0) / 1000) }), 1000);
   try {
@@ -179,7 +180,10 @@ async function generate({ charId, image, seed, resolution, texture, faces }) {
     const png = Buffer.from(String(image).split(',').pop(), 'base64');
     const { body, type } = multipart({ seed: seed ?? 42, resolution: resolution || 1024, texture: texture === false ? 'off' : null, faces: faces || null }, png);
     log(`generate: res ${resolution}, seed ${seed}${texture === false ? ', no texture' : ''}`);
-    const r = await req(cfg, 'POST', '/generate', { body, headers: { 'Content-Type': type, 'Content-Length': body.length } });
+    let r;
+    try { r = await req(cfg, 'POST', '/generate', { body, headers: { 'Content-Type': type, 'Content-Length': body.length } }); }
+    catch (e) { if (cancelled) throw new Error('CANCELLED'); throw e; }
+    if (cancelled) throw new Error('CANCELLED');
     if (r.status !== 200 || !/gltf/.test(r.type)) {
       let msg = r.body.toString('utf8');
       try { msg = JSON.parse(msg).error || msg; } catch { /* plain text */ }
@@ -203,6 +207,8 @@ function register(winGetter) {
   ipcMain.handle('trellis:stop', () => { stop(); return true; });
   ipcMain.handle('trellis:log', () => logBuf.slice(-80).join('\n'));
   ipcMain.handle('trellis:generate', (_e, p) => generate(p));
+  // trellis-server has no cancel: stopping our own server aborts the request (it restarts on the next model)
+  ipcMain.handle('trellis:cancelGen', () => { cancelled = true; stop(); return true; });
   ipcMain.handle('trellis:load', async (_e, { charId, name }) => {
     const b = await fsp.readFile(path.join(modelDir(charId), path.basename(name)));
     return new Uint8Array(b.buffer, b.byteOffset, b.length);
