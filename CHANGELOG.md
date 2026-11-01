@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.10
+- **Ursache der Qwen-Abbrüche gefunden und behoben**: Die automatische Abschaltung von ComfyUI nach 10 Minuten ohne Nutzung zählte ab dem Start eines Bildes und hat lange Qwen-Bilder nach etwa 10 Minuten mitten in der Berechnung beendet. Während gemalt wird, wird ComfyUI jetzt nie mehr automatisch beendet, die Wartezeit beginnt erst, wenn das Bild fertig ist
+
 ## 0.7.9
 - Qwen: Vor dem Malen prüft das Programm den freien **Arbeitsspeicher**. Qwen Image 2.1 hält im schonenden Modus rund 30 GB Modelldaten im RAM. Ist weniger frei (z. B. weil Strata läuft), erscheint ein Hinweis mit „Strata beenden und malen“ bzw. „Trotzdem malen“, statt dass ComfyUI mittendrin abbricht
 - Absturzmeldungen unterscheiden jetzt zwischen „Arbeitsspeicher voll“ und „Treiber-Reset“ und nennen den freien Arbeitsspeicher

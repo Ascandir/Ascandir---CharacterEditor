@@ -322,8 +322,14 @@ async function touch() {
   clearTimeout(idleTimer);
   const cfg = await readCfg();
   const mins = cfg.idleMinutes ?? 10;
-  if (mins > 0) idleTimer = setTimeout(() => { if (Date.now() - lastUse >= mins * 60000) stop(); }, mins * 60000 + 1000);
+  // idle stop: never while a picture is being made (this used to kill long Qwen runs after 10 minutes)
+  const check = () => {
+    if (generating) { idleTimer = setTimeout(check, 60000); return; }
+    if (Date.now() - lastUse >= mins * 60000) stop(); else idleTimer = setTimeout(check, mins * 60000 - (Date.now() - lastUse) + 1000);
+  };
+  if (mins > 0) idleTimer = setTimeout(check, mins * 60000 + 1000);
 }
+let generating = false;
 
 // ---------- workflows ----------
 function addPost(w, { removeBg, upscale }) {
@@ -444,6 +450,10 @@ async function cancelGenerate() {
   return true;
 }
 async function generate(params) {
+  generating = true;
+  try { return await generateInner(params); } finally { generating = false; lastUse = Date.now(); touch(); }
+}
+async function generateInner(params) {
   cancelRequested = false;
   await start();
   touch();
@@ -471,6 +481,7 @@ async function generate(params) {
   for (;;) {
     await new Promise(res => setTimeout(res, 1000));
     if (cancelRequested) { await cancelGenerate(); currentPrompt = null; throw new Error('CANCELLED'); }
+    lastUse = Date.now();
     send('ai:gen', { phase: 'running', seconds: Math.round((Date.now() - t0) / 1000) });
     if (!proc && !EXTERNAL) throw new Error(crashText());
     const h = await (await comfyFetch(`http://127.0.0.1:${port}/history/${id}`, undefined, 'history')).json().catch(() => ({}));
