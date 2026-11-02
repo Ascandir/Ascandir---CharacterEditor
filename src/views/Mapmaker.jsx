@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
 import { toEn } from '../ai/prompt.js';
-import { MAP_CAMERAS, MAP_BIOMES, MAP_SITES, MAP_LIGHT, MAP_WEATHER, MAP_SEASONS, MAP_STYLES, MAP_ASSETS, ASSET_GROUPS, AMOUNTS, MAP_SIZES, DEFAULT_MAP, mapPrompt, mapSizes, foundryScene } from '../ai/mapPrompt.js';
+import { MAP_CAMERAS, MAP_BIOMES, MAP_SITES, MAP_LIGHT, MAP_WEATHER, MAP_SEASONS, MAP_STYLES, MAP_ASSETS, ASSET_GROUPS, AMOUNTS, MAP_SIZES, DEFAULT_MAP, MAP_NEGATIVE, mapPrompt, mapSizes, foundryScene } from '../ai/mapPrompt.js';
 import { useJob, finishJob, cancelJob, fmtTime, jobPct } from '../ai/jobs.js';
 import ZoomView, { ImageModal } from '../components/ZoomView.jsx';
 import BigText from '../components/BigText.jsx';
@@ -122,7 +122,8 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
       const params = { prompt: basePrompt, seed, width: gen.width, height: gen.height, batch: 1, removeBg: false };
       if (hasUpscale && final.width > gen.width) params.upscale = final;
       if (useQwen) {
-        Object.assign(params, model === 'qwenturbo' ? { model: 'qwen', turbo: true, negative: '', cfg: 1, steps: 8 } : { model: 'qwen', negative: '', cfg: 1, steps: m.qSteps || 30 });
+        const neg = m.strictTop !== false && ['top', '3d'].includes(src.camera) && mode !== 'edit' ? MAP_NEGATIVE : '';
+        Object.assign(params, model === 'qwenturbo' ? { model: 'qwen', turbo: true, negative: '', cfg: 1, steps: 8 } : { model: 'qwen', negative: neg, cfg: neg ? 4 : 1, steps: m.qSteps || 30 });
         if (mode !== 'new') {
           params.refImages = [await resized(selImg, gen.width, gen.height)];
           params.resolution = Math.round(Math.sqrt(gen.width * gen.height) / 32) * 32;
@@ -312,6 +313,7 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
               <div className="col" style={{ gap: 6 }}>
                 <span className="bold small">{t.pSteps}</span>
                 <div className="row wrap" style={{ gap: 6 }}>{[[20, t.pStepsFast], [30, t.pStepsStd], [45, t.pStepsBest]].map(([n, l]) => <button key={n} className={'chip' + ((m.qSteps || 30) === n ? ' on' : '')} onClick={() => set('qSteps', n)}>{l} · {n}</button>)}</div>
+                <label className="checkline small"><input type="checkbox" checked={m.strictTop !== false} onChange={e => set('strictTop', e.target.checked)} /><span>{t.mmStrictTop}<br /><span className="muted">{t.mmStrictTopHint}</span></span></label>
               </div>
             )}
             <button className="btn sm ghost" onClick={() => setShowPrompt(!showPrompt)}>{t.pPrompt} {showPrompt ? '▾' : '▸'}</button>

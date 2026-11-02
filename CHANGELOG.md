@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.1
+- Mapmaker: **Draufsicht deutlich strenger**. Die Kamera steht jetzt ganz vorne im Prompt („strict 90 degree overhead view, camera looks straight down, orthographic like a floor plan“), denn die Modelle gewichten den Anfang am stärksten. Am Ende wird sie noch einmal betont. Dazu kommt eine genaue Beschreibung, wie Dinge von oben aussehen: Mauern nur als Oberkante, Bäume als runde Kronen, Treppen als flache Stufenreihen, alle Linien parallel zum Bildrand
+- Kein Rahmen mehr um die Karte: Die Karte ist jetzt ein Ausschnitt, der über alle Bildränder hinausgeht
+- Qwen Image 2.1: neue Option **„Strenge Draufsicht“** (an). Sie verbietet über einen Negativ-Prompt schräge, isometrische und perspektivische Ansichten. Das verdoppelt die Rechenzeit. Bei Z-Image und Qwen Turbo wirken Negativ-Prompts technisch nicht, dort hilft nur die Beschreibung
+
 ## 0.9.0
 - **Neu: Mapmaker** (oben neben „Designer“). Damit malst du mit denselben Bildmodellen (Z-Image, Qwen Image 2.1 / Turbo) **Battlemaps für Foundry VTT**. Er funktioniert unabhängig vom gerade geöffneten Charakter
 - **Kamera**: Draufsicht (passt genau aufs Foundry-Raster), leicht schräg, isometrisch, 3D-Render von oben

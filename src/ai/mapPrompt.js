@@ -4,10 +4,10 @@ import { toEn } from './prompt.js';
 const L = (de, en) => ({ de, en });
 
 export const MAP_CAMERAS = [
-  ['top', L('Draufsicht', 'Top-down'), 'seen exactly from directly above, orthographic top-down bird\'s eye view, flat map projection with no perspective and no horizon', L('Beste Wahl für Foundry: passt genau aufs Raster', 'Best for Foundry: fits the grid exactly')],
+  ['top', L('Draufsicht', 'Top-down'), 'strict 90 degree overhead view, the camera looks straight down, orthographic top-down projection like a floor plan or satellite image, flat 2D map', L('Beste Wahl für Foundry: passt genau aufs Raster', 'Best for Foundry: fits the grid exactly')],
   ['oblique', L('Leicht schräg', 'Slightly oblique'), 'seen from high above with a slight three-quarter tilt, buildings and trees show a little of their sides', L('Mehr Tiefe, Raster passt etwas schlechter', 'More depth, grid fits a little worse')],
   ['iso', L('Isometrisch', 'Isometric'), 'isometric view at a 30 degree angle, like a classic isometric role-playing game', L('Schön zum Zeigen, nicht für das quadratische Raster', 'Nice to show, not for the square grid')],
-  ['3d', L('3D-Render von oben', '3D render from above'), 'rendered as a detailed 3D diorama seen from directly above, realistic depth, soft ambient occlusion and cast shadows', L('Draufsicht mit plastischer 3D-Optik', 'Top-down with a sculpted 3D look')],
+  ['3d', L('3D-Render von oben', '3D render from above'), 'strict 90 degree overhead view of a detailed 3D rendered diorama, the camera looks straight down, orthographic, soft ambient occlusion and short cast shadows', L('Draufsicht mit plastischer 3D-Optik', 'Top-down with a sculpted 3D look')],
 ];
 
 export const MAP_BIOMES = [
@@ -125,7 +125,7 @@ export const MAP_SIZES = [[20, 15, L('Klein 20×15', 'Small 20×15')], [30, 20, 
 export const DEFAULT_MAP = {
   camera: 'top', biome: 'forest', site: 'clearing', light: 'neutral', weather: 'clear', season: 'any', style: 'painted', customStyle: '',
   assets: { trees: 4, rocks: 3, path: 2 }, density: 50, cols: 30, rows: 20, gridPx: 100, noCreatures: true, extra: '',
-  promptMode: 'sliders', freePrompt: '', model: 'zimage', qSteps: 30, strength: 55, editText: '', bakeGrid: false, gridAlpha: 25, folder: 'battlemaps',
+  promptMode: 'sliders', freePrompt: '', strictTop: true, model: 'zimage', qSteps: 30, strength: 55, editText: '', bakeGrid: false, gridAlpha: 25, folder: 'battlemaps',
 };
 
 const amountWord = (n) => (AMOUNTS.find(a => a[0] === n) || AMOUNTS[2])[2];
@@ -141,8 +141,10 @@ export function mapPrompt(m, tr = {}) {
   const st = MAP_STYLES.find(x => x[0] === m.style) || MAP_STYLES[0];
   const style = st[0] === 'custom' ? (toEn(m.customStyle, tr) || MAP_STYLES[0][2]) : st[2];
   const parts = [];
-  parts.push(style + ', a tabletop role-playing battle map');
-  parts.push(cam[2]);
+  const flat = ['top', '3d'].includes(cam[0]);
+  // the camera goes first: the models weigh the beginning most and otherwise drift to a tilted game view
+  parts.push(cam[2] + ', a tabletop role-playing battle map for a virtual tabletop');
+  parts.push(style);
   parts.push('showing ' + biome[2] + (site?.[2] ? ' with ' + site[2] : ''));
   const assets = MAP_ASSETS.filter(([k]) => m.assets?.[k]).map(([k, , noun]) => {
     const n = m.assets[k];
@@ -157,14 +159,18 @@ export function mapPrompt(m, tr = {}) {
   if (weather?.[2]) parts.push(weather[2]);
   parts.push(light[2]);
   if (m.extra) parts.push(toEn(m.extra, tr));
-  parts.push(m.camera === 'iso' ? 'the scene fills the whole image' : 'the terrain fills the whole image edge to edge, no border, no frame, no vignette, no sky, no horizon');
+  parts.push(m.camera === 'iso' ? 'the scene fills the whole image' : 'a cropped section of a larger area, the terrain continues past all four image edges, no decorative border, no frame around the map, no vignette, no sky, no horizon');
+  if (flat) parts.push('everything is seen from straight above as on an architect\'s floor plan: walls are drawn only as their flat top surface, pillars, statues and rocks only as their tops, trees as round canopies, buildings as roofs or floor plans, stairs as flat rows of steps, all lines of the architecture run parallel to the image edges');
   if (m.noCreatures) parts.push('empty of people and creatures, ready for game tokens');
   parts.push('no grid lines, no text, no labels, no compass, no user interface');
-  parts.push(style);
+  parts.push(flat ? 'top-down 90 degree overhead orthographic view, ' + style : style);
   return parts.filter(Boolean).join(', ');
 }
 
 // generation size: about 1.1 megapixel in the map's aspect ratio; final size = squares × grid px (via upscaler, max 8192)
+// for Qwen Image 2.1 with CFG: what a top-down map must not look like
+export const MAP_NEGATIVE = 'isometric view, perspective, three-quarter view, tilted camera, side view, angled view, vanishing point, visible side walls, horizon, sky, decorative border, frame, text, grid lines, people, creatures';
+
 export function mapSizes(m) {
   const cols = Math.max(5, m.cols || 30), rows = Math.max(5, m.rows || 20);
   const k = Math.sqrt(1.1e6 / (cols * rows));
