@@ -163,8 +163,10 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
         Object.assign(params, { model: 'sdxlmap', prompt: mode === 'new' ? mapPromptSdxl(src, ms.tr || {}) : (selMeta?.sdxlPrompt || mapPromptSdxl(src, ms.tr || {})), negative: SDXL_MAP_NEGATIVE, cfg: 5, steps: 30, lora: (m.loraStrength ?? 80) / 100 });
         // SDXL works best near its training sizes: about 1 megapixel
         const zMode = m.zMode || (hasControl ? 'control' : m.refineZ === false ? 'none' : 'refine');
-        if (zMode === 'control' && hasControl) { params.control = (m.controlStrength ?? 85) / 100; params.refinePrompt = basePrompt; }
-        else if (zMode === 'refine') { params.refine = (m.refineStrength ?? 50) / 100; params.refinePrompt = basePrompt; }
+        // the outlines already fix the straight camera: Z-Image may paint with full depth, shading and detail (the "flat 2D" wording made it look cheap)
+        const zPrompt = mode === 'new' ? mapPrompt({ ...src, depth: 'deep' }, ms.tr || {}) : basePrompt;
+        if (zMode === 'control' && hasControl) { params.control = (m.controlStrength ?? 70) / 100; params.refinePrompt = zPrompt; }
+        else if (zMode === 'refine') { params.refine = (m.refineStrength ?? 50) / 100; params.refinePrompt = zPrompt; }
         if (mode !== 'new') {
           params.initImage = await resized(selImg, gen.width, gen.height);
           params.denoise = mode === 'edit' ? Math.max(0.3, Math.min(0.9, (m.strength ?? 55) / 100)) : 0.7;
@@ -408,7 +410,7 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
                 </div>
                 <span className="muted small">{zMode === 'control' ? t.mmZControlHint : zMode === 'refine' ? t.mmRefineZHint : t.mmZNoneHint}</span>
                 {zMode === 'control' && !hasControl && <button className="btn sm primary" disabled={!!inst || !!busy} onClick={() => installModel('zimage-control')}>{inst ? t.aiDownloading + ' ' + inst : t.mmZControlLoad}</button>}
-                {zMode === 'control' && hasControl && <div className="row small" style={{ gap: 8 }}><span className="muted" style={{ minWidth: 110 }}>{t.mmControlStrength}</span><input type="range" min={40} max={100} value={m.controlStrength ?? 85} onChange={e => set('controlStrength', Number(e.target.value))} /><span className="muted">{m.controlStrength ?? 85} %</span></div>}
+                {zMode === 'control' && hasControl && <div className="row small" style={{ gap: 8 }}><span className="muted" style={{ minWidth: 110 }}>{t.mmControlStrength}</span><input type="range" min={40} max={100} value={m.controlStrength ?? 70} onChange={e => set('controlStrength', Number(e.target.value))} /><span className="muted">{m.controlStrength ?? 70} %</span></div>}
                 {zMode === 'refine' && <div className="row small" style={{ gap: 8 }}><span className="muted" style={{ minWidth: 110 }}>{t.mmRefineStrength}</span><input type="range" min={15} max={80} value={m.refineStrength ?? 50} onChange={e => set('refineStrength', Number(e.target.value))} /><span className="muted">{m.refineStrength ?? 50} %</span></div>}
               </div>
               );

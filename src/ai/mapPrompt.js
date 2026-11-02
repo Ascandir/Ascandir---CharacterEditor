@@ -14,7 +14,7 @@ export const MAP_CAMERAS = [
 export const MAP_DEPTH = [
   ['flat', L('Reines 2D', 'Pure 2D'), 'pure flat 2D illustration with no depth and no height: like a printed paper map or a blueprint, flat shading, no cast shadows, no ambient occlusion, nothing sticks up out of the ground, walls are flat dark bands drawn on the ground plan', L('Ganz flach wie eine gedruckte Karte, ohne Schatten und Höhe', 'Completely flat like a printed map, no shadows or height')],
   ['soft', L('2D mit leichten Schatten', '2D with soft shadows'), 'flat 2D illustration seen straight from above with only very short soft drop shadows, no visible side faces of anything', L('Flach, aber mit dezenten Schatten für etwas Plastizität', 'Flat, with subtle shadows for a bit of shape')],
-  ['deep', L('Plastisch (2,5D)', 'Sculpted (2.5D)'), 'top-down view with depth: soft shadows and some height', L('Mehr Tiefe, Wände wirken erhöht', 'More depth, walls look raised')],
+  ['deep', L('Plastisch (2,5D)', 'Sculpted (2.5D)'), 'richly detailed painted top-down view with depth: realistic shading, soft shadows, detailed materials and textures', L('Mehr Tiefe, Wände wirken erhöht', 'More depth, walls look raised')],
 ];
 
 export const MAP_BIOMES = [
