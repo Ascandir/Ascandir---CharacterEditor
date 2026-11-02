@@ -234,3 +234,29 @@ test('background feat from a category (Mist Wanderer → Dark Gift)', () => {
   assert.ok(c.options.some(o => o.label === 'Mist Walker'));
   assert.ok(c.options.every(o => o.entity.category === 'DG'));
 });
+
+test('feat sub-choices are asked where the feat comes from', () => {
+  const base = { base: {}, raceUid: 'human|phb', levels: [{ classUid: 'fighter|phb' }], choices: {}, extras: [], inventory: [] };
+  // Astral Drifter grants Magic Initiate (PHB): spell list + spells in the background step
+  let d = R.derive(db, S14, { ...base, backgroundUid: 'astral drifter|aag' });
+  const set = d.choices.find(c => /:spellset$/.test(c.id));
+  assert.ok(set && set.group === 'background', 'spell list choice in background step');
+  const ch = { ...base, backgroundUid: 'astral drifter|aag', choices: { ...base.choices, [set.id]: [String(set.options.findIndex(o => /Cleric/.test(o.label)))] } };
+  d = R.derive(db, S14, ch);
+  const can = d.choices.find(c => c.bonusSpell && c.group === 'background' && c.options.every(o => o.spellLevel === 0));
+  assert.ok(can && can.options.some(o => o.label === 'Sacred Flame'));
+  // Skilled via the 2014 variant human feat: 3 skills/tools
+  const sr = R.derive(db, S14, { ...base, backgroundUid: 'soldier|phb' }).choices.find(c => c.id === 'race:subrace');
+  base.choices = { 'race:subrace': [sr.options.find(o => /variant/i.test(o.label)).value] };
+  const vh = R.derive(db, S14, { ...base, backgroundUid: 'soldier|phb' });
+  const featPick = vh.choices.find(c => c.id.startsWith('race:feat:'));
+  assert.ok(featPick, 'variant human feat choice');
+  const sk = R.derive(db, S14, { ...base, backgroundUid: 'soldier|phb', choices: { ...base.choices, [featPick.id]: [featPick.options.find(o => o.label === 'Skilled' && o.src === 'PHB').value] } });
+  const stl = sk.choices.find(c => c.id.startsWith('featstl:'));
+  assert.ok(stl && stl.count === 3 && stl.group === 'race');
+  const rs = R.derive(db, S14, { ...base, backgroundUid: 'soldier|phb', choices: { ...base.choices, [featPick.id]: [featPick.options.find(o => o.label === 'Resilient' && o.src === 'PHB').value] } });
+  const ab = rs.choices.find(c => c.id.startsWith('featabil:'));
+  assert.ok(ab && ab.group === 'race');
+  const rs2 = R.derive(db, S14, { ...base, backgroundUid: 'soldier|phb', choices: { ...base.choices, [featPick.id]: [featPick.options.find(o => o.label === 'Resilient' && o.src === 'PHB').value], [ab.id]: ['wis'] } });
+  assert.ok(rs2.saves.wis.prof, 'resilient wis save');
+});

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.10.2
+- Talente fragen ihre **eigenen Auswahlen** jetzt ab, und zwar dort, wo das Talent herkommt: Talente vom Volk im Schritt „Volk“, vom Hintergrund im Schritt „Hintergrund“, von Stufen und Attributserhöhungen im Schritt „Auswahlen“. Neu abgefragt bzw. berücksichtigt werden:
+  - Zauberliste und Zauber, z. B. Magic Initiate beim Hintergrund Astral Drifter (Klasse wählen, dann 2 Zaubertricks und 1 Zauber), Magic Initiate (Wizard) beim Sage und weitere
+  - Fertigkeiten (z. B. Observant, Prodigy) und Werkzeuge, z. B. Artificer Initiate
+  - Sprachen, z. B. Linguist
+  - Skilled: 3 beliebige Fertigkeiten oder Werkzeuge
+  - Expertise, z. B. Skill Expert
+  - Rettungswurf: Resilient gibt Übung im gewählten Attribut
+  - Eldritch Adept, Fighting Initiate, Martial Adept, Metamagic Adept: Auswahl der Invocation, des Kampfstils, der Manöver bzw. der Metamagie
+  - feste Waffenübungen, z. B. Gunner
+- Bisher gab es diese Auswahlen nur unter „Auswahlen“ oder gar nicht
+
 ## 0.10.1
 - Hintergründe und Völker, die ein **Talent aus einer bestimmten Kategorie** geben, fragen das jetzt ab. Beispiel: Ravenloft-Hintergründe wie Mist Wanderer („a Dark Gift feat of your choice“) zeigen die Pflichtauswahl „Dark Gift“ mit den 9 Dark Gifts. Bisher wurde das stillschweigend übersprungen. Das gilt genauso für andere Kategorien, z. B. Dragonmark oder Fighting Style
 - Die Beschreibung von Volk und Hintergrund in der Charaktererstellung ist jetzt **immer vollständig sichtbar**. Der Knopf „Details / Weniger“ ist weg. Zuklappen geht über die Titelzeile (▾)

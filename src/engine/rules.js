@@ -507,20 +507,69 @@ export function derive(db, settings, ch) {
 
   // ----- feats (ability + features) -----
   const scoresPre = computeScores(ch, abilBonus);
-  for (const { feat, ctx } of feats) {
+  const featSaves = new Set();
+  // a feat's own choices are asked where the feat comes from (species / background step), level and ASI feats in the "choices" step
+  const featGroup = (origin) => (origin === 'race' ? 'race' : origin === 'background' ? 'background' : 'feat');
+  for (const { feat, ctx, origin } of feats) {
+    const grp = featGroup(origin);
     for (const [i, set] of (feat.ability || []).entries()) {
       if (set.hidden) continue;
       if (i > 0) break;
       const { fixed, chooses } = abilityFixedAndChoices(set);
       for (const [k, n] of Object.entries(fixed)) abilBonus[k] += n;
       chooses.forEach((c, j) => {
-        const v = add({ id: 'featabil:' + ctx + ':' + j, group: 'feat', label: feat.name + ' – Ability +' + c.amount, kind: 'abil', count: c.count, required: true,
+        const v = add({ id: 'featabil:' + ctx + ':' + j, group: grp, label: feat.name + ' – Ability +' + c.amount, kind: 'abil', count: c.count, required: true,
           options: c.from.map(a => ({ value: a, label: a })) });
         (v || []).forEach(a => { abilBonus[a] += c.amount; });
       });
     }
     const fs = skillChoiceFromSets(feat.skillProficiencies);
     fs.fixed.forEach(s => { skillProf.add(s); skillFixed.add(s); });
+    fs.chooses.forEach((c, j) => {
+      const v = add({ id: 'featskill:' + ctx + ':' + j, group: grp, label: feat.name + ' – Skill Proficiency', kind: 'skill', count: c.count, required: true, options: c.from.map(x => ({ value: x, label: x })) });
+      (v || []).forEach(x => skillProf.add(x));
+    });
+    toolChoices(feat.toolProficiencies, grp, add, notes, 'feattool:' + ctx);
+    langChoices(feat.languageProficiencies, grp, add, notes, 'featlang:' + ctx);
+    // Skilled: any mix of skills and tools
+    for (const [j, set] of (feat.skillToolLanguageProficiencies || []).slice(0, 1).entries()) {
+      for (const [k, ch2] of [].concat(set.choose || []).entries()) {
+        const opts = [];
+        if (ch2.from.includes('anySkill')) opts.push(...Object.keys(SKILLS).map(x => ({ value: 'skill:' + x, label: x })));
+        if (ch2.from.includes('anyTool')) opts.push(...toolList('anyTool').map(x => ({ value: 'tool:' + x, label: x })));
+        if (ch2.from.includes('anyLanguage')) opts.push(...STANDARD_LANGS.map(x => ({ value: 'lang:' + x, label: x })));
+        const v = add({ id: 'featstl:' + ctx + ':' + j + ':' + k, group: grp, label: feat.name + ' – Skills / Tools', kind: 'pick', count: ch2.count || 1, required: true, options: opts });
+        (v || []).forEach(x => { const [t2, n] = x.split(/:(.*)/); if (t2 === 'skill') skillProf.add(n); else if (t2 === 'tool') notes.tools.add(n); else notes.languages.add(n); });
+      }
+    }
+    for (const set of (feat.expertise || []).slice(0, 1)) {
+      for (const [k, v] of Object.entries(set)) {
+        if (SKILLS[k] && v === true) expertise.add(k);
+        else if (k === 'anyProficientSkill') {
+          const val = add({ id: 'featexp:' + ctx, group: grp, label: feat.name + ' – Expertise', kind: 'skill', count: v || 1, required: true,
+            options: [...skillProf].filter(x => SKILLS[x]).map(x => ({ value: x, label: x })) });
+          (val || []).forEach(x => expertise.add(x));
+        }
+      }
+    }
+    for (const set of (feat.savingThrowProficiencies || []).slice(0, 1)) {
+      for (const [k, v] of Object.entries(set)) {
+        if (k === 'choose') {
+          // Resilient: the save follows the ability chosen for the feat if there is one
+          const abilPick = C['featabil:' + ctx + ':0'];
+          if (Array.isArray(abilPick) && abilPick[0] && (v.from || []).includes(abilPick[0])) featSaves.add(abilPick[0]);
+          else { const val = add({ id: 'featsave:' + ctx, group: grp, label: feat.name + ' – Saving Throw', kind: 'abil', count: v.count || 1, required: true, options: (v.from || ABILS).map(a => ({ value: a, label: a })) }); (val || []).forEach(a => featSaves.add(a)); }
+        } else if (ABILS.includes(k) && v) featSaves.add(k);
+      }
+    }
+    for (const set of (feat.weaponProficiencies || []).slice(0, 1)) for (const [k, v] of Object.entries(set)) if (v === true) notes.weapons.add(titleCase(k));
+    for (const op of feat.optionalfeatureProgression || []) {
+      const n = typeof op.progression === 'object' ? (op.progression['*'] || Object.values(op.progression)[0] || 1) : 1;
+      const opts = dedupeByName(db.optionalfeatures.filter(o => allowed(o) && (o.featureType || []).some(ft => op.featureType.includes(ft))), feat.source);
+      const v = add({ id: 'featof:' + ctx + ':' + op.name, group: grp, label: feat.name + ' – ' + op.name, kind: 'pick', count: n, required: true, pool: 'of:' + op.name,
+        options: opts.map(o => ({ value: uidOf(o), label: o.name, src: o.source, entity: o, prereq: optPrereqText(o.prerequisite) })) });
+      (v || []).forEach(u => { const o = db.byUid.optionalfeature.get(u); if (o) features.push({ name: o.name, from: feat.name, kind: 'optional', entries: o.entries }); });
+    }
     features.push({ name: feat.name, from: 'Feat', kind: 'feat', entries: feat.entries });
   }
 
@@ -546,7 +595,7 @@ export function derive(db, settings, ch) {
   out.scores = scores; out.mods = mods; out.abilBonus = abilBonus; out.prof = pb;
   // saves: primary class
   const primary = classInfo.find(c => c.primary);
-  const saveProf = new Set(primary?.cls.proficiency || []);
+  const saveProf = new Set([...(primary?.cls.proficiency || []), ...featSaves]);
   out.saves = Object.fromEntries(ABILS.map(a => [a, { prof: saveProf.has(a), bonus: mods[a] + (saveProf.has(a) ? pb : 0) }]));
   out.skills = Object.fromEntries(Object.entries(SKILLS).map(([k, s]) => {
     const p = skillProf.has(k); const e = expertise.has(k);
@@ -597,7 +646,7 @@ export function derive(db, settings, ch) {
   };
   if (race && !raceIncomplete) applyAdditionalSpells(race.additionalSpells, race.name, 'race', 'race', totalLevel || 1);
   if (bg) applyAdditionalSpells(bg.additionalSpells, bg.name, 'bg', 'background', totalLevel || 1);
-  for (const { feat, ctx, variant } of feats) applyAdditionalSpells(feat.additionalSpells, feat.name + (variant ? ' (' + variant.replace(/\b\w/g, m => m.toUpperCase()) + ')' : ''), 'featspell:' + ctx, 'feat', totalLevel || 1, variant);
+  for (const { feat, ctx, variant, origin } of feats) applyAdditionalSpells(feat.additionalSpells, feat.name + (variant ? ' (' + variant.replace(/\b\w/g, m => m.toUpperCase()) + ')' : ''), 'featspell:' + ctx, origin === 'race' ? 'race' : origin === 'background' ? 'background' : 'feat', totalLevel || 1, variant);
   // a spell you already have is not offered again in another spell choice
   const fixedBonus = new Set(); // spells that are not the result of a choice
   { const chosen = new Set(choices.filter(c => c.spell && Array.isArray(c.value)).flatMap(c => c.value)); for (const b of bonusSpells) { const u = uidOf(b.s); if (!chosen.has(u)) fixedBonus.add(u); } }
@@ -701,17 +750,17 @@ function mergeAbil(a, b) {
   return o;
 }
 
-function langChoices(sets, group, add, notes) {
+function langChoices(sets, group, add, notes, prefix = group) {
   const set = (sets || [])[0];
   if (!set) return;
   let i = 0;
   for (const [k, v] of Object.entries(set)) {
     if (k === 'anyStandard' || k === 'any' || k === 'anyExotic') {
-      const val = add({ id: group + ':lang:' + i++, group, label: 'Language', kind: 'lang', count: v, required: true,
+      const val = add({ id: prefix + ':lang:' + i++, group, label: 'Language', kind: 'lang', count: v, required: true,
         options: STANDARD_LANGS.map(l => ({ value: l, label: l })) });
       (val || []).forEach(l => notes.languages.add(l));
     } else if (k === 'choose') {
-      const val = add({ id: group + ':lang:' + i++, group, label: 'Language', kind: 'lang', count: v.count || 1, required: true,
+      const val = add({ id: prefix + ':lang:' + i++, group, label: 'Language', kind: 'lang', count: v.count || 1, required: true,
         options: (v.from || STANDARD_LANGS).map(l => ({ value: l, label: l.replace(/\b\w/g, c => c.toUpperCase()) })) });
       (val || []).forEach(l => notes.languages.add(l));
     } else if (v === true) notes.languages.add(k.replace(/\b\w/g, c => c.toUpperCase()));
@@ -730,7 +779,7 @@ function toolList(key) {
   if (key === 'any' || key === 'anyTool') return [...TOOLS.anyArtisansTool, ...TOOLS.anyGamingSet, ...TOOLS.anyMusicalInstrument, ...TOOLS.other];
   return [titleCase(key)];
 }
-function toolChoices(sets, group, add, notes) {
+function toolChoices(sets, group, add, notes, prefix = group) {
   const set = (sets || [])[0];
   if (!set) return;
   let i = 0;
@@ -740,7 +789,7 @@ function toolChoices(sets, group, add, notes) {
     if (k === 'choose') { from = [...new Set((v.from || []).flatMap(toolList))]; count = v.count || 1; label = 'Tool Proficiency'; }
     else if (typeof v === 'number') { from = toolList(k); count = v; label = 'Tool Proficiency: ' + (TOOL_LABEL[k] || titleCase(k)); }
     else continue;
-    const val = add({ id: group + ':tool:' + i++, group, label, kind: 'pick', count, required: true, options: from.map(x => ({ value: x, label: x })) });
+    const val = add({ id: prefix + ':tool:' + i++, group, label, kind: 'pick', count, required: true, options: from.map(x => ({ value: x, label: x })) });
     if (Array.isArray(val)) val.forEach(x => notes.tools.add(x));
     else if (typeof val === 'string' && val) notes.tools.add(val); // older saves (free text)
   }
