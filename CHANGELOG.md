@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.2
+- Mapmaker: neue Einstellung **„Tiefe“** für die Draufsicht. Standard ist **„Reines 2D“**. Die Karte wird beschrieben wie eine gedruckte Papierkarte oder ein Bauplan: flache Schattierung, keine Schlagschatten, nichts ragt aus dem Boden, Mauern sind flache Bänder auf dem Grundriss. Dazu „2D mit leichten Schatten“ und „Plastisch (2,5D)“ für alle, die mehr Tiefe wollen
+- Bei „Reines 2D“ werden Schatten auch aus der Lichtbeschreibung entfernt. Mit Qwen Image 2.1 und „Strenge Draufsicht“ verbietet der Negativ-Prompt zusätzlich 2,5D, 3D-Render, Höhe, erhöhte Mauern und Schlagschatten
+- Neuer Kartenstil **„Flach & klar (Inkarnate-Stil)“**, jetzt Standard für neue Karten. Er orientiert sich an den flachen Karten aus Inkarnate und Dungeondraft
+- Der KI-Berater kann die Tiefe ebenfalls einstellen
+
 ## 0.9.1
 - Mapmaker: **Draufsicht deutlich strenger**. Die Kamera steht jetzt ganz vorne im Prompt („strict 90 degree overhead view, camera looks straight down, orthographic like a floor plan“), denn die Modelle gewichten den Anfang am stärksten. Am Ende wird sie noch einmal betont. Dazu kommt eine genaue Beschreibung, wie Dinge von oben aussehen: Mauern nur als Oberkante, Bäume als runde Kronen, Treppen als flache Stufenreihen, alle Linien parallel zum Bildrand
 - Kein Rahmen mehr um die Karte: Die Karte ist jetzt ein Ausschnitt, der über alle Bildränder hinausgeht

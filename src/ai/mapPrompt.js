@@ -10,6 +10,13 @@ export const MAP_CAMERAS = [
   ['3d', L('3D-Render von oben', '3D render from above'), 'strict 90 degree overhead view of a detailed 3D rendered diorama, the camera looks straight down, orthographic, soft ambient occlusion and short cast shadows', L('Draufsicht mit plastischer 3D-Optik', 'Top-down with a sculpted 3D look')],
 ];
 
+// how much depth the map may show: pure 2D is what fits Foundry's grid best
+export const MAP_DEPTH = [
+  ['flat', L('Reines 2D', 'Pure 2D'), 'pure flat 2D illustration with no depth and no height: like a printed paper map or a blueprint, flat shading, no cast shadows, no ambient occlusion, nothing sticks up out of the ground, walls are flat dark bands drawn on the ground plan', L('Ganz flach wie eine gedruckte Karte, ohne Schatten und Höhe', 'Completely flat like a printed map, no shadows or height')],
+  ['soft', L('2D mit leichten Schatten', '2D with soft shadows'), 'flat 2D illustration seen straight from above with only very short soft drop shadows, no visible side faces of anything', L('Flach, aber mit dezenten Schatten für etwas Plastizität', 'Flat, with subtle shadows for a bit of shape')],
+  ['deep', L('Plastisch (2,5D)', 'Sculpted (2.5D)'), 'top-down view with depth: soft shadows and some height', L('Mehr Tiefe, Wände wirken erhöht', 'More depth, walls look raised')],
+];
+
 export const MAP_BIOMES = [
   ['forest', L('Wald', 'Forest'), 'a temperate forest'],
   ['deepforest', L('Dichter Urwald', 'Old forest'), 'an ancient overgrown forest with huge old trees and moss'],
@@ -84,6 +91,7 @@ export const MAP_SEASONS = [
 ];
 
 export const MAP_STYLES = [
+  ['flat', L('Flach & klar (Inkarnate-Stil)', 'Flat & clean (Inkarnate style)'), 'flat 2D digital map art in the style of Inkarnate and Dungeondraft maps, clean flat textures, crisp readable shapes'],
   ['painted', L('Handgemalt (klassisch)', 'Hand-painted (classic)'), 'hand-painted digital fantasy battle map, rich textures, detailed, professional virtual tabletop map art'],
   ['clean', L('Klar & sauber', 'Clean digital'), 'clean crisp digital battle map with clear readable shapes, strong outlines and flat textures'],
   ['realistic', L('Realistisch', 'Realistic'), 'photorealistic top-down terrain, realistic textures and materials'],
@@ -123,7 +131,7 @@ export const AMOUNTS = [[1, L('einzeln', 'single'), 'a single'], [2, L('wenige',
 export const MAP_SIZES = [[20, 15, L('Klein 20×15', 'Small 20×15')], [30, 20, L('Mittel 30×20', 'Medium 30×20')], [40, 30, L('Groß 40×30', 'Large 40×30')], [25, 25, L('Quadrat 25×25', 'Square 25×25')], [20, 40, L('Hochkant 20×40', 'Tall 20×40')]];
 
 export const DEFAULT_MAP = {
-  camera: 'top', biome: 'forest', site: 'clearing', light: 'neutral', weather: 'clear', season: 'any', style: 'painted', customStyle: '',
+  camera: 'top', depth: 'flat', biome: 'forest', site: 'clearing', light: 'neutral', weather: 'clear', season: 'any', style: 'flat', customStyle: '',
   assets: { trees: 4, rocks: 3, path: 2 }, density: 50, cols: 30, rows: 20, gridPx: 100, noCreatures: true, extra: '',
   promptMode: 'sliders', freePrompt: '', strictTop: true, model: 'zimage', qSteps: 30, strength: 55, editText: '', bakeGrid: false, gridAlpha: 25, folder: 'battlemaps',
 };
@@ -142,8 +150,10 @@ export function mapPrompt(m, tr = {}) {
   const style = st[0] === 'custom' ? (toEn(m.customStyle, tr) || MAP_STYLES[0][2]) : st[2];
   const parts = [];
   const flat = ['top', '3d'].includes(cam[0]);
+  const depth = cam[0] === 'top' ? (MAP_DEPTH.find(x => x[0] === m.depth) || MAP_DEPTH[0]) : null;
   // the camera goes first: the models weigh the beginning most and otherwise drift to a tilted game view
   parts.push(cam[2] + ', a tabletop role-playing battle map for a virtual tabletop');
+  if (depth) parts.push(depth[2]);
   parts.push(style);
   parts.push('showing ' + biome[2] + (site?.[2] ? ' with ' + site[2] : ''));
   const assets = MAP_ASSETS.filter(([k]) => m.assets?.[k]).map(([k, , noun]) => {
@@ -157,19 +167,20 @@ export function mapPrompt(m, tr = {}) {
   parts.push(dens < 25 ? 'sparse and open, lots of free walkable space' : dens < 60 ? 'balanced layout with open walkable areas between the features' : dens < 85 ? 'busy and detailed with many small features' : 'extremely cluttered and dense');
   if (season?.[2]) parts.push(season[2]);
   if (weather?.[2]) parts.push(weather[2]);
-  parts.push(light[2]);
+  parts.push(depth?.[0] === 'flat' ? light[2].replace(/,?\s*(crisp clear|long soft|deep) shadows/g, '') + ', flat even light without cast shadows' : light[2]);
   if (m.extra) parts.push(toEn(m.extra, tr));
   parts.push(m.camera === 'iso' ? 'the scene fills the whole image' : 'a cropped section of a larger area, the terrain continues past all four image edges, no decorative border, no frame around the map, no vignette, no sky, no horizon');
   if (flat) parts.push('everything is seen from straight above as on an architect\'s floor plan: walls are drawn only as their flat top surface, pillars, statues and rocks only as their tops, trees as round canopies, buildings as roofs or floor plans, stairs as flat rows of steps, all lines of the architecture run parallel to the image edges');
   if (m.noCreatures) parts.push('empty of people and creatures, ready for game tokens');
   parts.push('no grid lines, no text, no labels, no compass, no user interface');
-  parts.push(flat ? 'top-down 90 degree overhead orthographic view, ' + style : style);
+  parts.push(flat ? (depth?.[0] === 'flat' ? 'pure flat 2D, ' : '') + 'top-down 90 degree overhead orthographic view, ' + style : style);
   return parts.filter(Boolean).join(', ');
 }
 
 // generation size: about 1.1 megapixel in the map's aspect ratio; final size = squares × grid px (via upscaler, max 8192)
 // for Qwen Image 2.1 with CFG: what a top-down map must not look like
 export const MAP_NEGATIVE = 'isometric view, perspective, three-quarter view, tilted camera, side view, angled view, vanishing point, visible side walls, horizon, sky, decorative border, frame, text, grid lines, people, creatures';
+export const MAP_NEGATIVE_FLAT = MAP_NEGATIVE + ', 2.5D, 3D render, depth, height, raised walls, extruded walls, cast shadows, ambient occlusion, bevel';
 
 export function mapSizes(m) {
   const cols = Math.max(5, m.cols || 30), rows = Math.max(5, m.rows || 20);

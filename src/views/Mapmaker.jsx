@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
 import { toEn } from '../ai/prompt.js';
-import { MAP_CAMERAS, MAP_BIOMES, MAP_SITES, MAP_LIGHT, MAP_WEATHER, MAP_SEASONS, MAP_STYLES, MAP_ASSETS, ASSET_GROUPS, AMOUNTS, MAP_SIZES, DEFAULT_MAP, MAP_NEGATIVE, mapPrompt, mapSizes, foundryScene } from '../ai/mapPrompt.js';
+import { MAP_CAMERAS, MAP_BIOMES, MAP_SITES, MAP_LIGHT, MAP_WEATHER, MAP_SEASONS, MAP_STYLES, MAP_ASSETS, ASSET_GROUPS, AMOUNTS, MAP_SIZES, DEFAULT_MAP, MAP_NEGATIVE, MAP_NEGATIVE_FLAT, MAP_DEPTH, mapPrompt, mapSizes, foundryScene } from '../ai/mapPrompt.js';
 import { useJob, finishJob, cancelJob, fmtTime, jobPct } from '../ai/jobs.js';
 import ZoomView, { ImageModal } from '../components/ZoomView.jsx';
 import BigText from '../components/BigText.jsx';
@@ -43,7 +43,7 @@ Think like a game master: good battle maps have cover, open walkable areas, chok
 Ask at most 2-3 short questions at a time and make concrete suggestions.
 Whenever you have enough information, or the user asks for it, ${mode === 'sliders' ? 'fill in the map maker of the app (see SETTINGS below).' : 'write the final image prompt.'}
 ${mode === 'sliders' ? `SETTINGS: output one fenced code block that starts with \`\`\`settings and contains only JSON with these keys (leave out keys you do not need):
-{"camera":"${keys(MAP_CAMERAS)}","biome":"${keys(MAP_BIOMES)}","site":"${keys(MAP_SITES)}","light":"${keys(MAP_LIGHT)}","weather":"${keys(MAP_WEATHER)}","season":"${keys(MAP_SEASONS)}","style":"${keys(MAP_STYLES.filter(x => x[0] !== 'custom'))}",
+{"camera":"${keys(MAP_CAMERAS)}","depth":"${keys(MAP_DEPTH)}","biome":"${keys(MAP_BIOMES)}","site":"${keys(MAP_SITES)}","light":"${keys(MAP_LIGHT)}","weather":"${keys(MAP_WEATHER)}","season":"${keys(MAP_SEASONS)}","style":"${keys(MAP_STYLES.filter(x => x[0] !== 'custom'))}",
 "assets":{${MAP_ASSETS.map(a => '"' + a[0] + '"').join(',')}: 1-5 amount (1 = one or two / small, 5 = lots / large); only include assets that should appear},
 "density":0-100 (how cluttered),"cols":5-60,"rows":5-60 (size in grid squares),"extra":"English text: layout and special details, e.g. where the river runs, where the ruins stand"}
 Then explain in 2-3 short sentences (in the user's language) what you set.` : ''}
@@ -122,7 +122,7 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
       const params = { prompt: basePrompt, seed, width: gen.width, height: gen.height, batch: 1, removeBg: false };
       if (hasUpscale && final.width > gen.width) params.upscale = final;
       if (useQwen) {
-        const neg = m.strictTop !== false && ['top', '3d'].includes(src.camera) && mode !== 'edit' ? MAP_NEGATIVE : '';
+        const neg = m.strictTop !== false && ['top', '3d'].includes(src.camera) && mode !== 'edit' ? (src.camera === 'top' && (src.depth || 'flat') === 'flat' ? MAP_NEGATIVE_FLAT : MAP_NEGATIVE) : '';
         Object.assign(params, model === 'qwenturbo' ? { model: 'qwen', turbo: true, negative: '', cfg: 1, steps: 8 } : { model: 'qwen', negative: neg, cfg: neg ? 4 : 1, steps: m.qSteps || 30 });
         if (mode !== 'new') {
           params.refImages = [await resized(selImg, gen.width, gen.height)];
@@ -201,7 +201,7 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
     applySettings: (s) => {
       const pickKey = (list, v) => (list.some(x => x[0] === v) ? v : undefined);
       const nx = { promptMode: 'sliders' };
-      for (const [k, list] of [['camera', MAP_CAMERAS], ['biome', MAP_BIOMES], ['site', MAP_SITES], ['light', MAP_LIGHT], ['weather', MAP_WEATHER], ['season', MAP_SEASONS], ['style', MAP_STYLES]]) { const v = pickKey(list, s[k]); if (v) nx[k] = v; }
+      for (const [k, list] of [['camera', MAP_CAMERAS], ['depth', MAP_DEPTH], ['biome', MAP_BIOMES], ['site', MAP_SITES], ['light', MAP_LIGHT], ['weather', MAP_WEATHER], ['season', MAP_SEASONS], ['style', MAP_STYLES]]) { const v = pickKey(list, s[k]); if (v) nx[k] = v; }
       const num = (v, lo, hi) => (typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : undefined);
       for (const [k, lo, hi] of [['density', 0, 100], ['cols', 5, 60], ['rows', 5, 60]]) { const v = num(s[k], lo, hi); if (v != null) nx[k] = v; }
       if (typeof s.extra === 'string') nx.extra = s.extra;
@@ -256,6 +256,11 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
                 {chips(MAP_CAMERAS, 'camera')}
                 <span className="muted small">{cam[3][lang]}</span>
               </div>
+              {m.camera === 'top' && <div className="col" style={{ gap: 6 }}>
+                <span className="bold small">{t.mmDepth}</span>
+                {chips(MAP_DEPTH, 'depth')}
+                <span className="muted small">{(MAP_DEPTH.find(x => x[0] === m.depth) || MAP_DEPTH[0])[3][lang]}</span>
+              </div>}
               {sel(MAP_BIOMES, 'biome', t.mmBiome)}
               {sel(MAP_SITES, 'site', t.mmSite)}
               <div className="col" style={{ gap: 6 }}><span className="bold small">{t.mmLight}</span>{chips(MAP_LIGHT, 'light')}</div>
