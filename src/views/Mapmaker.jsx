@@ -82,6 +82,26 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
   const [cache, setCache] = useState({});
   useEffect(() => { for (const x of maps) if (!cache[x.name]) api.loadImage(DIR, x.name).then(u => setCache(c => ({ ...c, [x.name]: u }))).catch(() => {}); }, [maps.map(x => x.name).join()]);
   const selImg = selName ? cache[selName] : null;
+  // reference map: Qwen copies its camera angle, scale and art style (not its content)
+  const refName = ms.ref?.name || null;
+  useEffect(() => { if (refName && !cache[refName]) api.loadImage(DIR, refName).then(u => setCache(c => ({ ...c, [refName]: u }))).catch(() => {}); }, [refName]);
+  const refImg = refName ? cache[refName] : null;
+  const useRef_ = !!refImg && ms.ref?.on !== false;
+  const refFile = useRef(null);
+  const setRefFrom = async (dataUrl, label) => {
+    // normalise to max 1600 px PNG
+    const img = await toImg(dataUrl); const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const url = await resized(dataUrl, Math.round(img.naturalWidth * k), Math.round(img.naturalHeight * k));
+    const name = await api.saveImage(DIR, url);
+    setCache(c => ({ ...c, [name]: url }));
+    if (refName && !maps.some(x => x.name === refName)) api.deleteImage(DIR, refName);
+    saveMS(c => ({ ...c, ref: { name, label, on: true } }));
+  };
+  const importRef = async (file) => {
+    if (!file || !/^image\//.test(file.type)) return;
+    const raw = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+    setRefFrom(raw, file.name);
+  };
 
   const [busy, setBusy] = useJob('paint');
   const [err, setErr] = useState(null);
@@ -124,7 +144,12 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
       if (useQwen) {
         const neg = m.strictTop !== false && ['top', '3d'].includes(src.camera) && mode !== 'edit' ? (src.camera === 'top' && (src.depth || 'flat') === 'flat' ? MAP_NEGATIVE_FLAT : MAP_NEGATIVE) : '';
         Object.assign(params, model === 'qwenturbo' ? { model: 'qwen', turbo: true, negative: '', cfg: 1, steps: 8 } : { model: 'qwen', negative: neg, cfg: neg ? 4 : 1, steps: m.qSteps || 30 });
-        if (mode !== 'new') {
+        if (mode !== 'edit' && useRef_) {
+          const ri = await toImg(refImg); const k = Math.sqrt(1.0e6 / (ri.naturalWidth * ri.naturalHeight));
+          params.refImages = [await resized(refImg, Math.round(ri.naturalWidth * k / 32) * 32, Math.round(ri.naturalHeight * k / 32) * 32)];
+          params.resolution = Math.round(Math.sqrt(gen.width * gen.height) / 32) * 32;
+          params.prompt = `Create a completely new battle map. Copy exactly the camera of <image1>: perfectly straight top-down at 90 degrees with no tilt. Also copy its scale and its art style, textures and outlines. Do not copy the layout, the buildings or the objects of <image1>. The new map shows: ${basePrompt}`;
+        } else if (mode !== 'new') {
           params.refImages = [await resized(selImg, gen.width, gen.height)];
           params.resolution = Math.round(Math.sqrt(gen.width * gen.height) / 32) * 32;
           if (mode === 'edit') {
@@ -255,6 +280,23 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
                 <span className="bold small">{t.mmCamera}</span>
                 {chips(MAP_CAMERAS, 'camera')}
                 <span className="muted small">{cam[3][lang]}</span>
+              </div>
+              <div className="col" style={{ gap: 6 }}>
+                <span className="bold small">{t.mmRef}</span>
+                {refImg ? (
+                  <div className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
+                    <img src={refImg} alt="" style={{ width: 96, height: 64, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)' }} />
+                    <div className="col grow" style={{ gap: 4 }}>
+                      <label className="checkline small"><input type="checkbox" checked={ms.ref?.on !== false} onChange={e => saveMS(c => ({ ...c, ref: { ...(c.ref || {}), on: e.target.checked } }))} /><span>{t.mmRefUse}</span></label>
+                      <div className="row" style={{ gap: 6 }}>
+                        <button className="btn sm" onClick={() => refFile.current?.click()}>{t.mmRefOther}</button>
+                        <button className="btn sm ghost" onClick={() => saveMS(c => ({ ...c, ref: null }))}>×</button>
+                      </div>
+                    </div>
+                  </div>
+                ) : <button className="btn sm" onClick={() => refFile.current?.click()}>{t.mmRefLoad}</button>}
+                <input ref={refFile} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={e => { importRef(e.target.files?.[0]); e.target.value = ''; }} />
+                <span className="muted small">{useQwen ? t.mmRefHint : t.mmRefQwenOnly}</span>
               </div>
               {m.camera === 'top' && <div className="col" style={{ gap: 6 }}>
                 <span className="bold small">{t.mmDepth}</span>
@@ -403,6 +445,7 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
                   <button className="btn sm grow" onClick={() => exportImage('webp')}>WebP</button>
                   <button className="btn sm grow" onClick={() => exportImage('png')}>PNG</button>
                 </div>
+                <button className="btn sm" onClick={() => setRefFrom(selImg, selMeta.title)}>{t.mmRefFromSel}</button>
                 <button className="btn sm danger" onClick={deleteMap}>{t.delete}</button>
               </>}
             </div>

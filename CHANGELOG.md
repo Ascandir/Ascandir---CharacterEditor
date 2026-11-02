@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.3
+- Mapmaker: **Referenzkarte für Winkel & Stil**. Du lädst eine Karte, die genau so aussieht, wie du es willst, z. B. eine Dungeondraft- oder Forgotten-Adventures-Karte. Qwen Image 2.1 / Turbo übernimmt davon Kamerawinkel (gerade von oben), Maßstab und Grafikstil, aber nicht Aufbau und Inhalt. Eine gelungene eigene Karte lässt sich mit „Als Referenzkarte nutzen“ direkt dafür verwenden
+- Der Stil „Flach & klar (Inkarnate-Stil)“ ist ersetzt durch **„Wie Dungeondraft / Forgotten Adventures“**: halbrealistische, handgezeichnete Texturen mit feinen dunklen Umrissen, Dielen, Steinfliesen, Gras, Objekte als flache Draufsicht-Ausschnitte mit leichtem Schatten, Innenräume ohne Dach mit Mauern als schmale Bänder
+
 ## 0.9.2
 - Mapmaker: neue Einstellung **„Tiefe“** für die Draufsicht. Standard ist **„Reines 2D“**. Die Karte wird beschrieben wie eine gedruckte Papierkarte oder ein Bauplan: flache Schattierung, keine Schlagschatten, nichts ragt aus dem Boden, Mauern sind flache Bänder auf dem Grundriss. Dazu „2D mit leichten Schatten“ und „Plastisch (2,5D)“ für alle, die mehr Tiefe wollen
 - Bei „Reines 2D“ werden Schatten auch aus der Lichtbeschreibung entfernt. Mit Qwen Image 2.1 und „Strenge Draufsicht“ verbietet der Negativ-Prompt zusätzlich 2,5D, 3D-Render, Höhe, erhöhte Mauern und Schlagschatten

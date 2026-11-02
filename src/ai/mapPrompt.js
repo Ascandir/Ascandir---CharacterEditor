@@ -91,7 +91,7 @@ export const MAP_SEASONS = [
 ];
 
 export const MAP_STYLES = [
-  ['flat', L('Flach & klar (Inkarnate-Stil)', 'Flat & clean (Inkarnate style)'), 'flat 2D digital map art in the style of Inkarnate and Dungeondraft maps, clean flat textures, crisp readable shapes'],
+  ['fa', L('Wie Dungeondraft / Forgotten Adventures', 'Like Dungeondraft / Forgotten Adventures'), 'detailed virtual tabletop battle map in the style of Forgotten Adventures and Dungeondraft: hand-drawn semi-realistic textures with thin dark outlines, wooden floorboards, stone floor tiles, grass and dirt ground textures, every object drawn as a flat top-down cut-out with a subtle soft drop shadow, interiors shown with the roof removed and walls as thin bands seen from above'],
   ['painted', L('Handgemalt (klassisch)', 'Hand-painted (classic)'), 'hand-painted digital fantasy battle map, rich textures, detailed, professional virtual tabletop map art'],
   ['clean', L('Klar & sauber', 'Clean digital'), 'clean crisp digital battle map with clear readable shapes, strong outlines and flat textures'],
   ['realistic', L('Realistisch', 'Realistic'), 'photorealistic top-down terrain, realistic textures and materials'],
@@ -131,7 +131,7 @@ export const AMOUNTS = [[1, L('einzeln', 'single'), 'a single'], [2, L('wenige',
 export const MAP_SIZES = [[20, 15, L('Klein 20×15', 'Small 20×15')], [30, 20, L('Mittel 30×20', 'Medium 30×20')], [40, 30, L('Groß 40×30', 'Large 40×30')], [25, 25, L('Quadrat 25×25', 'Square 25×25')], [20, 40, L('Hochkant 20×40', 'Tall 20×40')]];
 
 export const DEFAULT_MAP = {
-  camera: 'top', depth: 'flat', biome: 'forest', site: 'clearing', light: 'neutral', weather: 'clear', season: 'any', style: 'flat', customStyle: '',
+  camera: 'top', depth: 'flat', biome: 'forest', site: 'clearing', light: 'neutral', weather: 'clear', season: 'any', style: 'fa', customStyle: '',
   assets: { trees: 4, rocks: 3, path: 2 }, density: 50, cols: 30, rows: 20, gridPx: 100, noCreatures: true, extra: '',
   promptMode: 'sliders', freePrompt: '', strictTop: true, model: 'zimage', qSteps: 30, strength: 55, editText: '', bakeGrid: false, gridAlpha: 25, folder: 'battlemaps',
 };
