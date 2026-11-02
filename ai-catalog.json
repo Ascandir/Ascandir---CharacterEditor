@@ -112,51 +112,6 @@
       ]
     },
     {
-      "id": "sdxl-map",
-      "name": "Battlemap-Modell (SDXL + LoRA)",
-      "version": "1",
-      "recommended": false,
-      "minVramGB": 8,
-      "kind": "map",
-      "note": {
-        "de": "Eigenes Modell für Battlemaps: Stable Diffusion XL mit der LoRA „DnD Battlemaps Generator“ (Civitai). Bleibt streng in der 2D-Draufsicht. Nur für den Mapmaker.",
-        "en": "Model for battle maps: Stable Diffusion XL with the LoRA “DnD Battlemaps Generator” (Civitai). Keeps a strict 2D top-down view. Mapmaker only."
-      },
-      "files": [
-        {
-          "url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors",
-          "dest": "models/checkpoints/sd_xl_base_1.0.safetensors",
-          "size": 6938078334
-        },
-        {
-          "url": "https://civitai.com/api/download/models/2437520?type=Model&format=SafeTensor",
-          "dest": "models/loras/dnd_battlemaps_sdxl.safetensors",
-          "size": 23400000,
-          "keepExisting": true,
-          "page": "https://civitai.com/models/2164519"
-        }
-      ]
-    },
-    {
-      "id": "zimage-control",
-      "name": "Z-Image ControlNet (Union)",
-      "version": "1",
-      "recommended": false,
-      "minVramGB": 12,
-      "kind": "map",
-      "note": {
-        "de": "Lässt Z-Image eine Vorlage nachzeichnen: Der Mapmaker nimmt die Linien der geraden Battlemap-Vorlage und Z-Image malt sie komplett in seinem Stil neu.",
-        "en": "Lets Z-Image follow the outlines of a template: the map maker takes the lines of the straight battle map and Z-Image repaints it fully in its own style."
-      },
-      "files": [
-        {
-          "url": "https://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union.safetensors",
-          "dest": "models/model_patches/Z-Image-Turbo-Fun-Controlnet-Union.safetensors",
-          "size": 3100000000
-        }
-      ]
-    },
-    {
       "id": "upscale",
       "name": "Real-ESRGAN x4",
       "version": "1",

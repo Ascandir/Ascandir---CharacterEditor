@@ -10,7 +10,6 @@ const DEFAULT_URL = 'http://127.0.0.1:8080/v1';
 const MODEL_INFO = {
   zimage: { name: 'Z-Image Turbo', tips: 'Z-Image Turbo (6B, 8 steps). It does NOT understand negative prompts: describe only what should be visible (say "photorealistic" instead of "not anime"). It weighs the beginning of the prompt most, so put the art style and the most important features (species anatomy, body shape, outfit) first. Keep the prompt at 80-150 words; it loses details in very long prompts. It does not know uncommon D&D creatures by name, so always describe their anatomy.' },
   qwenturbo: { name: 'Qwen Image 2.1 Turbo', tips: 'Qwen Image 2.1 Turbo (20B, 8 steps). It follows long, detailed natural-language descriptions very precisely (up to about 250 words), including exact colors, counts and positions. Negative prompts have no effect in turbo mode, so describe only what should be visible.' },
-  sdxlmap: { name: 'Battlemap model (SDXL + LoRA, then Z-Image)', tips: 'Stable Diffusion XL with a battle map LoRA, painted over by Z-Image. It understands short, tag-like descriptions best (e.g. "forest clearing, small stream, ruined tower, campfire"). Keep the extra text short and concrete.' },
   qwen: { name: 'Qwen Image 2.1', tips: 'Qwen Image 2.1 (20B). It follows long, detailed natural-language descriptions very precisely (up to about 250 words), including exact colors, counts and positions. If useful, add a second fenced block starting with ```negative listing things to avoid (it is used with CFG).' },
 };
 

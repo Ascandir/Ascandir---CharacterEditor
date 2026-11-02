@@ -38,7 +38,6 @@ contextBridge.exposeInMainWorld('ace', {
     setIdle: (m) => ipcRenderer.invoke('ai:setIdle', m),
     setGpuMode: (m) => ipcRenderer.invoke('ai:setGpuMode', m),
     setStopAfter: (on) => ipcRenderer.invoke('ai:setStopAfter', on),
-    importModelFile: (o) => ipcRenderer.invoke('ai:importModelFile', o),
     chooseDir: () => ipcRenderer.invoke('ai:chooseDir'),
     openDir: () => ipcRenderer.invoke('ai:openDir'),
     on: (ch, cb) => { const h = (_e, d) => cb(d); ipcRenderer.on(ch, h); return () => ipcRenderer.removeListener(ch, h); },

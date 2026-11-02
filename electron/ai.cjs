@@ -57,21 +57,6 @@ const DEFAULT_CATALOG = {
       ],
     },
     {
-      id: 'sdxl-map', name: 'Battlemap-Modell (SDXL + LoRA)', version: '1', recommended: false, minVramGB: 8, kind: 'map',
-      note: { de: 'Eigenes Modell für Battlemaps: Stable Diffusion XL mit der LoRA „DnD Battlemaps Generator“ (Civitai). Bleibt streng in der 2D-Draufsicht. Nur für den Mapmaker.', en: 'Model for battle maps: Stable Diffusion XL with the LoRA “DnD Battlemaps Generator” (Civitai). Keeps a strict 2D top-down view. Mapmaker only.' },
-      files: [
-        { url: 'https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors', dest: 'models/checkpoints/sd_xl_base_1.0.safetensors', size: 6938078334 },
-        { url: 'https://civitai.com/api/download/models/2437520?type=Model&format=SafeTensor', dest: 'models/loras/dnd_battlemaps_sdxl.safetensors', size: 23400000, keepExisting: true, page: 'https://civitai.com/models/2164519' },
-      ],
-    },
-    {
-      id: 'zimage-control', name: 'Z-Image ControlNet (Union)', version: '1', recommended: false, minVramGB: 12, kind: 'map',
-      note: { de: 'Lässt Z-Image eine Vorlage nachzeichnen: Der Mapmaker nimmt die Linien der geraden Battlemap-Vorlage und Z-Image malt sie komplett in seinem Stil neu.', en: 'Lets Z-Image follow the outlines of a template: the map maker takes the lines of the straight battle map and Z-Image repaints it fully in its own style.' },
-      files: [
-        { url: 'https://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union.safetensors', dest: 'models/model_patches/Z-Image-Turbo-Fun-Controlnet-Union.safetensors', size: 3100000000 },
-      ],
-    },
-    {
       id: 'upscale', name: 'Real-ESRGAN x4', version: '1', recommended: true, minVramGB: 2, kind: 'upscale',
       note: { de: 'Hochskalierer für 2K/4K-Bilder', en: 'Upscaler for 2K/4K pictures' },
       files: [
@@ -240,15 +225,10 @@ async function install({ dir, gpu, models: modelIds, comfy: doComfy = true }) {
       for (const f of m.files) {
         const dest = path.join(root, 'ComfyUI', f.dest);
         if (fs.existsSync(dest) && cfg.models[id]?.version === m.version) continue; // .part files are renamed only when complete
-        if (fs.existsSync(dest) && f.keepExisting) continue; // e.g. a LoRA the user copied in by hand
         // shared file already installed by another model (e.g. Qwen text encoder): keep it
         if (fs.existsSync(dest) && Object.entries(cfg.models).some(([oid, im]) => oid !== id && (im.files || []).includes(f.dest))) continue;
         if (fs.existsSync(dest)) await fsp.rm(dest, { force: true });
-        try { await download(f.url, dest, m.name + ' – ' + path.basename(f.dest), signal); } catch (e) {
-          // some sites (Civitai) may need a login: the user can download the file and pick it
-          if (f.page && /HTTP 4\d\d/.test(e.message)) throw new Error('MANUAL_FILE|' + id + '|' + f.page + '|' + e.message);
-          throw e;
-        }
+        await download(f.url, dest, m.name + ' – ' + path.basename(f.dest), signal);
       }
       cfg.models[id] = { version: m.version, name: m.name, files: m.files.map(f => f.dest) };
       await writeCfg(cfg);
@@ -311,7 +291,6 @@ let logFile = null;
 // progress of the running picture, read from ComfyUI's tqdm bars ("12/30 [00:40<01:00, ...]")
 let gen = null; // { phase: 'load' | 'sample' | 'post', step, total, firstAt, lastAt }
 function trackSteps(t) {
-  if (gen && /lora key not loaded/.test(t)) gen.loraMiss = true;
   if (!gen || gen.phase === 'post') return;
   let m, last = null; const re = /(\d+)\/(\d+) \[/g;
   while ((m = re.exec(t))) last = m;
@@ -389,81 +368,6 @@ function addPost(w, { removeBg, upscale }) {
     w[53] = { class_type: 'JoinImageWithAlpha', inputs: { image: img, alpha: ['52', 0] } };
     w[9].inputs.images = ['53', 0];
   }
-}
-
-// LoRAs saved by diffusers' old attention processors ("unet.….to_k.lora.down.weight") are not understood by ComfyUI
-// (every key is skipped with "lora key not loaded"). Rename the keys to the kohya format; the tensor data stays as it is.
-async function convertLora(file) {
-  if (!fs.existsSync(file)) return false;
-  const fd = await fsp.open(file, 'r');
-  let header, hlen;
-  try {
-    const b = Buffer.alloc(8); await fd.read(b, 0, 8, 0); hlen = Number(b.readBigUInt64LE(0));
-    if (hlen <= 0 || hlen > 50e6) return false;
-    const hb = Buffer.alloc(hlen); await fd.read(hb, 0, hlen, 8); header = JSON.parse(hb.toString('utf8'));
-  } finally { await fd.close(); }
-  const re = /^(unet|text_encoder_2|text_encoder)\.(.+?)\.(lora\.down|lora\.up|lora_linear_layer\.down|lora_linear_layer\.up|lora_A|lora_B)\.weight$/;
-  const keys = Object.keys(header).filter(k => k !== '__metadata__');
-  if (!keys.some(k => re.test(k))) return false;
-  const pre = { unet: 'lora_unet_', text_encoder: 'lora_te1_', text_encoder_2: 'lora_te2_' };
-  const nh = {};
-  if (header.__metadata__) nh.__metadata__ = header.__metadata__;
-  for (const k of keys) {
-    const m = re.exec(k);
-    if (!m) { nh[k] = header[k]; continue; }
-    const part = m[1] === 'unet' ? m[2] : m[2].replace(/^text_model\./, 'text_model.');
-    const dir = /down|lora_A/.test(m[3]) ? 'lora_down' : 'lora_up';
-    nh[pre[m[1]] + part.replace(/\.processor\./g, '.').replace(/\./g, '_') + '.' + dir + '.weight'] = header[k];
-  }
-  let js = Buffer.from(JSON.stringify(nh), 'utf8');
-  const pad = (8 - (js.length % 8)) % 8; if (pad) js = Buffer.concat([js, Buffer.alloc(pad, 0x20)]);
-  const lenB = Buffer.alloc(8); lenB.writeBigUInt64LE(BigInt(js.length));
-  const tmp = file + '.conv';
-  const out = fs.createWriteStream(tmp);
-  out.write(lenB); out.write(js);
-  await new Promise((res, rej) => { const rs = fs.createReadStream(file, { start: 8 + hlen }); rs.on('error', rej); out.on('error', rej); rs.pipe(out); out.on('finish', res); });
-  await fsp.rename(file, file + '.orig').catch(() => {});
-  await fsp.rename(tmp, file);
-  log('converted LoRA keys of ' + path.basename(file) + ' for ComfyUI');
-  return true;
-}
-
-// battle maps: SDXL + LoRA, optionally painted over once more with Z-Image at low strength
-function sdxlMapWorkflow({ prompt, negative = '', seed, width = 1216, height = 832, steps = 30, cfg = 5, lora = 0.8, initImage = null, denoise = 1, refine = 0, refinePrompt = '', control = 0, upscale = null }) {
-  const w = {
-    200: { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: 'sd_xl_base_1.0.safetensors' } },
-    201: { class_type: 'LoraLoader', inputs: { model: ['200', 0], clip: ['200', 1], lora_name: 'dnd_battlemaps_sdxl.safetensors', strength_model: lora, strength_clip: lora } },
-    202: { class_type: 'CLIPTextEncode', inputs: { text: prompt, clip: ['201', 1] } },
-    203: { class_type: 'CLIPTextEncode', inputs: { text: negative, clip: ['201', 1] } },
-    205: { class_type: 'KSampler', inputs: { model: ['201', 0], positive: ['202', 0], negative: ['203', 0], latent_image: ['204', 0], seed, steps, cfg, sampler_name: 'dpmpp_2m', scheduler: 'karras', denoise } },
-    206: { class_type: 'VAEDecode', inputs: { samples: ['205', 0], vae: ['200', 2] } },
-  };
-  if (initImage) {
-    w[207] = { class_type: 'LoadImage', inputs: { image: initImage } };
-    w[208] = { class_type: 'ImageScale', inputs: { image: ['207', 0], upscale_method: 'lanczos', width, height, crop: 'center' } };
-    w[204] = { class_type: 'VAEEncode', inputs: { pixels: ['208', 0], vae: ['200', 2] } };
-  } else w[204] = { class_type: 'EmptyLatentImage', inputs: { width, height, batch_size: 1 } };
-  if (control > 0) {
-    // Z-Image paints a completely new picture that follows the outlines (Canny) of the straight SDXL map:
-    // camera and layout from SDXL, the whole look from Z-Image (official ComfyUI "canny to image" chain)
-    const z = zImageWorkflow({ prompt: refinePrompt || prompt, seed, width, height, steps: 9 });
-    z[230] = { class_type: 'Canny', inputs: { image: ['206', 0], low_threshold: 0.3, high_threshold: 0.4 } };
-    z[231] = { class_type: 'ModelPatchLoader', inputs: { name: 'Z-Image-Turbo-Fun-Controlnet-Union.safetensors' } };
-    z[232] = { class_type: 'QwenImageDiffsynthControlnet', inputs: { model: ['11', 0], model_patch: ['231', 0], vae: ['29', 0], image: ['230', 0], strength: control } };
-    z[3].inputs.model = ['232', 0];
-    Object.assign(w, z);
-  } else if (refine > 0) {
-    // Z-Image paints over the SDXL map (keeps the layout and the straight top-down camera, adds its look)
-    const z = zImageWorkflow({ prompt: refinePrompt || prompt, seed, width, height, initImage: 'x', denoise: refine });
-    delete z[40]; z[41].inputs.image = ['206', 0];
-    Object.assign(w, z);
-  } else {
-    // addPost expects the final picture at node 8 and the SaveImage at node 9
-    w[8] = w[206]; delete w[206];
-    w[9] = { class_type: 'SaveImage', inputs: { images: ['8', 0], filename_prefix: 'ascandir/map' } };
-  }
-  addPost(w, { upscale });
-  return w;
 }
 
 function zImageWorkflow({ prompt, seed, width = 832, height = 1216, steps = 8, batch = 1, initImage = null, denoise = 1, removeBg = false, upscale = null }) {
@@ -580,18 +484,12 @@ async function generateInner(params) {
   await start();
   touch();
   // switching between Z-Image and Qwen: drop the other model first, two of them do not fit into RAM together
-  const want = params.model === 'qwen' ? (params.turbo ? 'qwenturbo' : 'qwen') : params.model === 'sdxlmap' ? 'sdxlmap' : 'zimage';
+  const want = params.model === 'qwen' ? (params.turbo ? 'qwenturbo' : 'qwen') : 'zimage';
   if (lastModel && lastModel !== want) await freeComfy();
   lastModel = want;
   const t0 = Date.now();
   let workflow;
-  if (params.model === 'sdxlmap') {
-    const root = await findComfyRoot((await readCfg()).dir);
-    if (root) await convertLora(path.join(root, 'ComfyUI', 'models', 'loras', 'dnd_battlemaps_sdxl.safetensors'));
-    let initImage = null;
-    if (params.initImage) initImage = await uploadImage(params.initImage, 'ascandir_init.png');
-    workflow = sdxlMapWorkflow({ ...params, initImage });
-  } else if (params.model === 'qwen') {
+  if (params.model === 'qwen') {
     const refs = [];
     for (const [i, img] of (params.refImages || []).entries()) refs.push(await uploadImage(img, `ascandir_ref${i + 1}.png`));
     workflow = qwenWorkflow({ ...params, refs });
@@ -632,7 +530,7 @@ async function generateInner(params) {
       out.push('data:image/png;base64,' + buf.toString('base64'));
     }
     touch();
-    return { images: out, seconds: Math.round((Date.now() - t0) / 1000), ...(gen?.loraMiss ? { warning: 'LORA_NOT_LOADED' } : {}) };
+    return { images: out, seconds: Math.round((Date.now() - t0) / 1000) };
   }
 }
 
@@ -668,8 +566,33 @@ async function killOrphans() {
   execFile('powershell.exe', ['-NoProfile', '-Command', `Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith('${esc}') } | Stop-Process -Force -ErrorAction SilentlyContinue`], { windowsHide: true }, () => {});
 }
 
+// the map maker was removed again (0.10.0): delete the models it downloaded (about 10 GB)
+const REMOVED_MODELS = {
+  'sdxl-map': ['models/checkpoints/sd_xl_base_1.0.safetensors', 'models/loras/dnd_battlemaps_sdxl.safetensors'],
+  'zimage-control': ['models/model_patches/Z-Image-Turbo-Fun-Controlnet-Union.safetensors'],
+};
+async function cleanupRemovedModels() {
+  try {
+    const cfg = await readCfg(); const root = await findComfyRoot(cfg.dir); if (!root) return;
+    let changed = false;
+    for (const [id, files] of Object.entries(REMOVED_MODELS)) {
+      const known = cfg.models?.[id];
+      for (const rel of files) {
+        // only what this app downloaded (installed model entry, or a leftover partial download)
+        for (const suffix of known ? ['', '.part', '.orig', '.conv'] : ['.part']) {
+          const p = path.join(root, 'ComfyUI', rel + suffix);
+          if (fs.existsSync(p)) { await fsp.rm(p, { force: true }); log('removed ' + rel + suffix); }
+        }
+      }
+      if (known) { delete cfg.models[id]; changed = true; }
+    }
+    if (changed) await writeCfg(cfg);
+  } catch { /* not important */ }
+}
+
 function register(mainWindowGetter) {
   killOrphans();
+  cleanupRemovedModels();
   ipcMain.handle('ai:status', async () => { win = mainWindowGetter(); return status(); });
   ipcMain.handle('ai:updates', () => updates());
   ipcMain.handle('ai:install', async (_e, opts) => { win = mainWindowGetter(); return install(opts); });
@@ -681,18 +604,6 @@ function register(mainWindowGetter) {
   ipcMain.handle('ai:free', () => freeComfy());
   ipcMain.handle('ai:log', () => procLog.slice(-120).join(''));
   ipcMain.handle('ai:skip', async () => { const c = await readCfg(); c.setupSkipped = true; await writeCfg(c); return true; });
-  ipcMain.handle('ai:importModelFile', async (e, { id }) => {
-    const cfg = await readCfg(); const root = await findComfyRoot(cfg.dir); if (!root) throw new Error('ComfyUI not installed');
-    const cat = await getCatalog(); const m = (cat.models || []).find(x => x.id === id) || DEFAULT_CATALOG.models.find(x => x.id === id);
-    const f = (m?.files || []).find(x => x.keepExisting); if (!f) return false;
-    const { dialog, BrowserWindow } = require('electron');
-    const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender), { properties: ['openFile'], filters: [{ name: 'SafeTensors', extensions: ['safetensors'] }] });
-    if (r.canceled || !r.filePaths.length) return false;
-    const dest = path.join(root, 'ComfyUI', f.dest);
-    await fsp.mkdir(path.dirname(dest), { recursive: true });
-    await fsp.copyFile(r.filePaths[0], dest);
-    return true;
-  });
   ipcMain.handle('ai:setStopAfter', async (_e, on) => { const c = await readCfg(); c.stopAfterImage = !!on; await writeCfg(c); return true; });
   ipcMain.handle('ai:setGpuMode', async (_e, mode) => { const c = await readCfg(); if (c.gpuMode !== mode) { c.gpuMode = mode; await writeCfg(c); await stop(); } return true; });
   ipcMain.handle('ai:setIdle', async (_e, mins) => { const c = await readCfg(); c.idleMinutes = mins; await writeCfg(c); return true; });

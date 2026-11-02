@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.0
+- **Mapmaker entfernt.** Die Bildmodelle schaffen keine Battlemaps, die zugleich exakt von oben und gut gemalt sind. Der Reiter ist wieder weg
+- Die nur dafür geladenen Modelle werden beim Start automatisch gelöscht: Stable Diffusion XL, Battlemap-LoRA und Z-Image-ControlNet, zusammen etwa 10 GB. Z-Image, Qwen, BiRefNet und der Hochskalierer bleiben
+- Bereits gemalte Karten bleiben im Ordner „images\_maps“ in den App-Daten liegen
+- Bleibt erhalten: die Absturzsicherung (Fehlermeldung statt schwarzem Fenster) und die Verbesserungen am KI-Berater
+
 ## 0.9.9
 - Mapmaker / „Neu malen nach Linien“: Z-Image bekam bisher die Anweisung „reines flaches 2D, keine Schatten, wie eine gedruckte Karte“. Dadurch sahen die Bilder billig und comichaft aus. Weil der gerade Winkel schon durch die Umrisse festgelegt ist, malt Z-Image jetzt mit voller Tiefe, Schattierung, Materialien und Details. Die Linientreue steht neu auf 70 %, damit Z-Image mehr eigenen Spielraum hat
 
