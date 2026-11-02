@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.6
+- Mapmaker / Battlemap-Modell: Die **LoRA wurde bisher gar nicht angewendet**. Die Civitai-Datei ist in einem älteren Format gespeichert, das ComfyUI nicht versteht. Laut comfyui.log wurden alle 1120 Teile mit „lora key not loaded“ übersprungen. Deshalb kam reines SDXL heraus, mit schräger Perspektive. Die App wandelt die Datei jetzt beim ersten Malen automatisch in das passende Format um. Die Originaldatei bleibt als .orig erhalten
+- Sollte ComfyUI eine LoRA einmal nicht anwenden können, erscheint jetzt ein Hinweis, statt dass stillschweigend ein falsches Bild entsteht
+
 ## 0.9.5
 - Mapmaker: Der **KI-Berater** führte zu einem leeren, schwarzen Fenster, wenn oben rechts das Battlemap-Modell (SDXL) ausgewählt war. Weil die App sich den Reiter merkt, landete man nach dem Neustart wieder dort. Behoben. Der Berater kennt das Battlemap-Modell jetzt und schreibt dafür kurze, stichwortartige Beschreibungen
 - Allgemein: Stürzt eine Ansicht wegen eines Fehlers ab, bleibt das Fenster nicht mehr schwarz. Es erscheint eine Meldung mit der Fehlerursache und einem „Zurück“-Knopf

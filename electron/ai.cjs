@@ -304,6 +304,7 @@ let logFile = null;
 // progress of the running picture, read from ComfyUI's tqdm bars ("12/30 [00:40<01:00, ...]")
 let gen = null; // { phase: 'load' | 'sample' | 'post', step, total, firstAt, lastAt }
 function trackSteps(t) {
+  if (gen && /lora key not loaded/.test(t)) gen.loraMiss = true;
   if (!gen || gen.phase === 'post') return;
   let m, last = null; const re = /(\d+)\/(\d+) \[/g;
   while ((m = re.exec(t))) last = m;
@@ -381,6 +382,43 @@ function addPost(w, { removeBg, upscale }) {
     w[53] = { class_type: 'JoinImageWithAlpha', inputs: { image: img, alpha: ['52', 0] } };
     w[9].inputs.images = ['53', 0];
   }
+}
+
+// LoRAs saved by diffusers' old attention processors ("unet.….to_k.lora.down.weight") are not understood by ComfyUI
+// (every key is skipped with "lora key not loaded"). Rename the keys to the kohya format; the tensor data stays as it is.
+async function convertLora(file) {
+  if (!fs.existsSync(file)) return false;
+  const fd = await fsp.open(file, 'r');
+  let header, hlen;
+  try {
+    const b = Buffer.alloc(8); await fd.read(b, 0, 8, 0); hlen = Number(b.readBigUInt64LE(0));
+    if (hlen <= 0 || hlen > 50e6) return false;
+    const hb = Buffer.alloc(hlen); await fd.read(hb, 0, hlen, 8); header = JSON.parse(hb.toString('utf8'));
+  } finally { await fd.close(); }
+  const re = /^(unet|text_encoder_2|text_encoder)\.(.+?)\.(lora\.down|lora\.up|lora_linear_layer\.down|lora_linear_layer\.up|lora_A|lora_B)\.weight$/;
+  const keys = Object.keys(header).filter(k => k !== '__metadata__');
+  if (!keys.some(k => re.test(k))) return false;
+  const pre = { unet: 'lora_unet_', text_encoder: 'lora_te1_', text_encoder_2: 'lora_te2_' };
+  const nh = {};
+  if (header.__metadata__) nh.__metadata__ = header.__metadata__;
+  for (const k of keys) {
+    const m = re.exec(k);
+    if (!m) { nh[k] = header[k]; continue; }
+    const part = m[1] === 'unet' ? m[2] : m[2].replace(/^text_model\./, 'text_model.');
+    const dir = /down|lora_A/.test(m[3]) ? 'lora_down' : 'lora_up';
+    nh[pre[m[1]] + part.replace(/\.processor\./g, '.').replace(/\./g, '_') + '.' + dir + '.weight'] = header[k];
+  }
+  let js = Buffer.from(JSON.stringify(nh), 'utf8');
+  const pad = (8 - (js.length % 8)) % 8; if (pad) js = Buffer.concat([js, Buffer.alloc(pad, 0x20)]);
+  const lenB = Buffer.alloc(8); lenB.writeBigUInt64LE(BigInt(js.length));
+  const tmp = file + '.conv';
+  const out = fs.createWriteStream(tmp);
+  out.write(lenB); out.write(js);
+  await new Promise((res, rej) => { const rs = fs.createReadStream(file, { start: 8 + hlen }); rs.on('error', rej); out.on('error', rej); rs.pipe(out); out.on('finish', res); });
+  await fsp.rename(file, file + '.orig').catch(() => {});
+  await fsp.rename(tmp, file);
+  log('converted LoRA keys of ' + path.basename(file) + ' for ComfyUI');
+  return true;
 }
 
 // battle maps: SDXL + LoRA, optionally painted over once more with Z-Image at low strength
@@ -532,6 +570,8 @@ async function generateInner(params) {
   const t0 = Date.now();
   let workflow;
   if (params.model === 'sdxlmap') {
+    const root = await findComfyRoot((await readCfg()).dir);
+    if (root) await convertLora(path.join(root, 'ComfyUI', 'models', 'loras', 'dnd_battlemaps_sdxl.safetensors'));
     let initImage = null;
     if (params.initImage) initImage = await uploadImage(params.initImage, 'ascandir_init.png');
     workflow = sdxlMapWorkflow({ ...params, initImage });
@@ -576,7 +616,7 @@ async function generateInner(params) {
       out.push('data:image/png;base64,' + buf.toString('base64'));
     }
     touch();
-    return { images: out, seconds: Math.round((Date.now() - t0) / 1000) };
+    return { images: out, seconds: Math.round((Date.now() - t0) / 1000), ...(gen?.loraMiss ? { warning: 'LORA_NOT_LOADED' } : {}) };
   }
 }
 

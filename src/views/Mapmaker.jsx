@@ -185,6 +185,7 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
         if (mode === 'edit') params.prompt = toEn(text, ms.tr) + ', ' + basePrompt;
       }
       const res = await api.ai.generate(params);
+      if (res.warning === 'LORA_NOT_LOADED') setErr(t.mmLoraWarn);
       const url = res.images[0];
       const name = await api.saveImage(DIR, url);
       setCache(c => ({ ...c, [name]: url }));
