@@ -8,6 +8,8 @@ const { spawn, execFile } = require('child_process');
 
 let startedByUs = false;
 let starting = null;
+let startProc = null;
+let cancelStart = false;
 let lastUse = 0;
 let idleTimer = null;
 let getWin = () => null;
@@ -71,19 +73,25 @@ async function start({ cmd: custom, preset, url, key }) {
     log('> strata launch --preset ' + preset + ' --yes --no-tui');
     const p = spawn('cmd.exe', ['/d', '/s', '/c', `""${cmd}" launch --preset ${q(preset)} --yes --no-tui"`], { windowsHide: true, windowsVerbatimArguments: true, env: { ...process.env, PYTHONUTF8: '1', NO_COLOR: '1' } });
     let exited = null;
+    const startLog = logBuf.length;
+    startProc = p; cancelStart = false;
     p.stdout.on('data', log); p.stderr.on('data', log);
-    p.on('exit', c => { exited = c; });
+    p.on('exit', c => { exited = c; log('(strata launch exited with ' + c + ')'); });
     startedByUs = true; send('strata:state', {});
     const t0 = Date.now();
     while (Date.now() - t0 < 30 * 60 * 1000) { // big models can take a while to load
+      if (cancelStart) { startedByUs = false; throw new Error('CANCELLED'); }
       if (await reachable(url, key)) { lastUse = Date.now(); send('strata:state', {}); return { started: true }; }
+      // Strata may serve on another address than the one set here: try the ones it printed
+      const seen = [...new Set(logBuf.slice(startLog).join('\n').match(/https?:\/\/(?:127\.0\.0\.1|localhost|0\.0\.0\.0):\d+/g) || [])].map(u => u.replace('0.0.0.0', '127.0.0.1') + '/v1');
+      for (const u of seen) if (u !== url && await reachable(u, key)) { lastUse = Date.now(); send('strata:state', {}); log('Strata answers at ' + u); return { started: true, url: u }; }
       if (exited != null && exited !== 0) { startedByUs = false; throw new Error('Strata: ' + logBuf.slice(-6).join(' | ')); }
-      send('strata:progress', { seconds: Math.round((Date.now() - t0) / 1000), line: logBuf[logBuf.length - 1] || '' });
+      send('strata:progress', { seconds: Math.round((Date.now() - t0) / 1000), line: logBuf[logBuf.length - 1] || '', lines: logBuf.slice(Math.max(startLog, logBuf.length - 8)), exited, url });
       await new Promise(r => setTimeout(r, 2000));
     }
     throw new Error('Strata did not answer within 30 minutes');
   })();
-  try { return await starting; } finally { starting = null; send('strata:state', {}); }
+  try { return await starting; } finally { starting = null; startProc = null; send('strata:state', {}); }
 }
 
 async function stop({ cmd: custom, force } = {}) {
@@ -91,6 +99,17 @@ async function stop({ cmd: custom, force } = {}) {
   const cmd = findCmd(custom); if (!cmd) return false;
   log('> strata launch --stop');
   await run(cmd, ['launch', '--stop'], 60000);
+  startedByUs = false; send('strata:state', {});
+  return true;
+}
+
+// cancel a start that hangs: end the launcher and tell Strata to stop whatever it already started
+async function cancel({ cmd: custom } = {}) {
+  cancelStart = true;
+  const p = startProc;
+  if (p?.pid) await new Promise(r => execFile('taskkill', ['/pid', String(p.pid), '/T', '/F'], { windowsHide: true }, () => r()));
+  const cmd = findCmd(custom);
+  if (cmd) { log('> strata launch --stop'); await run(cmd, ['launch', '--stop'], 60000); }
   startedByUs = false; send('strata:state', {});
   return true;
 }
@@ -108,6 +127,7 @@ function register(winGetter) {
   ipcMain.handle('strata:presets', (_e, o) => presets(o));
   ipcMain.handle('strata:start', (_e, o) => start(o || {}));
   ipcMain.handle('strata:stop', (_e, o) => stop(o || {}));
+  ipcMain.handle('strata:cancel', (_e, o) => cancel(o || {}));
   ipcMain.handle('strata:touch', () => { touch(); return true; });
   ipcMain.handle('strata:setIdle', (_e, m, o) => { setIdle(m, o); return true; });
   ipcMain.handle('strata:log', () => logBuf.slice(-60).join('\n'));

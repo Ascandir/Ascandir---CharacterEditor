@@ -84,8 +84,8 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
   const canAuto = !!(sInfo?.cmd && cfg.autoStart && cfg.preset);
   const startStrata = async () => {
     setErr(null); setSProg({ seconds: 0, line: '' });
-    try { await api.strata.start({ cmd: cfg.cmd, preset: cfg.preset, url: cfg.url, key: cfg.key }); await check(); }
-    catch (e) { const m = String(e.message || e); setErr(/STRATA_NOT_FOUND/.test(m) ? t.advStrataMissing : /STRATA_NO_PRESET/.test(m) ? t.advStrataNoPreset : m); }
+    try { const r = await api.strata.start({ cmd: cfg.cmd, preset: cfg.preset, url: cfg.url, key: cfg.key }); if (r?.url) setCfg('url', r.url); await check(); }
+    catch (e) { const m = String(e.message || e); if (/CANCELLED/.test(m)) { setSProg(null); return; } setErr(/STRATA_NOT_FOUND/.test(m) ? t.advStrataMissing : /STRATA_NO_PRESET/.test(m) ? t.advStrataNoPreset : m); }
     setSProg(null);
   };
   const msgs = ch.advisor?.messages || [];
@@ -231,7 +231,12 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
             </div>
           </div>
         )}
-        {sProg && <div className="banner info" style={{ margin: 0 }}><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /><span className="small">{t.advStrataStarting} · {Math.floor(sProg.seconds / 60)}:{String(sProg.seconds % 60).padStart(2, '0')}<br /><span className="muted">{(sProg.line || '').slice(0, 120)}</span></span></div>}
+        {sProg && <div className="banner info" style={{ margin: 0, flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+          <div className="row" style={{ gap: 10 }}><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /><span className="small grow">{t.advStrataStarting} · {Math.floor(sProg.seconds / 60)}:{String(sProg.seconds % 60).padStart(2, '0')}</span>
+            <button className="btn sm" onClick={async () => { await api.strata.cancel?.({ cmd: cfg.cmd }); setSProg(null); check(); }}>{t.cancel}</button></div>
+          {sProg.lines?.length > 0 && <pre className="small muted" style={{ margin: 0, whiteSpace: 'pre-wrap', maxHeight: 140, overflow: 'auto' }}>{sProg.lines.join('\n')}</pre>}
+          {(sProg.exited != null || sProg.seconds > 120) && <span className="small">{t.advStrataSlow(sProg.url || cfg.url)}</span>}
+        </div>}
         {conn && !conn.ok && !sProg && <div className="banner info" style={{ margin: 0 }}><span className="small grow">{canAuto ? t.advAutoNote(cfg.preset) : t.advNoServer}</span>{canAuto && <button className="btn sm primary" onClick={startStrata}>{t.advStrataStart}</button>}<button className="btn sm" onClick={check}>{t.t3Recheck}</button></div>}
         <div ref={listRef} className="col chatlist" style={{ gap: 10, overflowY: 'auto', height: 'max(300px, calc(100vh - 380px))' }}>
           {msgs.length === 0 && !live && <div className="muted" style={{ margin: 'auto', maxWidth: 520, textAlign: 'center' }}>{t.advEmpty}</div>}

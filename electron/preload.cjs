@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('ace', {
     presets: (o) => ipcRenderer.invoke('strata:presets', o),
     start: (o) => ipcRenderer.invoke('strata:start', o),
     stop: (o) => ipcRenderer.invoke('strata:stop', o),
+    cancel: (o) => ipcRenderer.invoke('strata:cancel', o),
     setIdle: (m, o) => ipcRenderer.invoke('strata:setIdle', m, o),
     log: () => ipcRenderer.invoke('strata:log'),
     on: (ch, cb) => { const h = (_e, d) => cb(d); ipcRenderer.on(ch, h); return () => ipcRenderer.removeListener(ch, h); },

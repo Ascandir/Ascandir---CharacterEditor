@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.11
+- KI-Berater: Ein laufender **Strata-Start lässt sich jetzt abbrechen** („Abbrechen“ in der Startanzeige). Dabei wird der Startvorgang beendet und Strata angewiesen, alles zu stoppen, was es schon gestartet hat
+- Während des Starts zeigt die Anzeige die letzten Zeilen aus Strata. Nach 2 Minuten ohne Antwort erscheint ein Hinweis, unter welcher Adresse die App wartet
+- Meldet Strata beim Start eine andere Adresse bzw. einen anderen Port als eingestellt, probiert die App diese Adresse selbst aus und übernimmt sie, wenn Strata dort antwortet
+
 ## 0.8.10
 - „Bild bearbeiten“: Ganz oben in der linken Spalte gibt es jetzt den Knopf **„← Zurück zum Charakter-Designer“**. Die gewählte Ansicht bleibt außerdem erhalten. Vorher sprang der Designer jedes Mal wieder in „Bild bearbeiten“, solange ein importiertes Bild ausgewählt war
 
