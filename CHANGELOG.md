@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.5
+- Mapmaker: Der **KI-Berater** führte zu einem leeren, schwarzen Fenster, wenn oben rechts das Battlemap-Modell (SDXL) ausgewählt war. Weil die App sich den Reiter merkt, landete man nach dem Neustart wieder dort. Behoben. Der Berater kennt das Battlemap-Modell jetzt und schreibt dafür kurze, stichwortartige Beschreibungen
+- Allgemein: Stürzt eine Ansicht wegen eines Fehlers ab, bleibt das Fenster nicht mehr schwarz. Es erscheint eine Meldung mit der Fehlerursache und einem „Zurück“-Knopf
+
 ## 0.9.4
 - Mapmaker: neues **Battlemap-Modell**, gedacht für eine streng gerade 2D-Draufsicht: Stable Diffusion XL mit der LoRA „DnD Battlemaps Generator“ (Civitai), zusammen ca. 7 GB. Laden über den Hinweis im Mapmaker, danach oben rechts als „Battlemap-Modell (SDXL)“ auswählbar
 - **„Mit Z-Image nachmalen“** (an): SDXL legt den Blick von oben und den Aufbau fest, danach malt Z-Image im selben Durchgang mit wenig Stärke (Standard 35 %) drüber und bringt seinen Look. Stärke und LoRA-Gewicht sind einstellbar

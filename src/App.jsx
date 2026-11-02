@@ -10,6 +10,7 @@ import Sources from './views/Sources.jsx';
 import Settings from './views/Settings.jsx';
 import Designer from './views/Designer.jsx';
 import Mapmaker from './views/Mapmaker.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import CharList from './views/CharList.jsx';
 import { primaryGpu, AMD_DRIVER_URL } from './hardware.js';
 import { useUpdater, UpdateDialog } from './components/Update.jsx';
@@ -256,6 +257,7 @@ export default function App() {
           </div>
         )}
         <main className="main">
+          <ErrorBoundary key={view} t={t} onReset={() => { if (view === 'maps') saveSettings({ ...settings, mapmaker: { ...(settings.mapmaker || {}), tab: 'map' } }); else setView('sheet'); }}>
           {offline && needsData(view) && noData}
           {!offline && view === 'sheet' && <Sheet {...ctx} />}
           {!offline && view === 'wizard' && <Wizard {...ctx} />}
@@ -264,6 +266,7 @@ export default function App() {
           {view === 'maps' && <Mapmaker {...ctx} />}
           {!offline && view === 'sources' && <Sources {...ctx} addHomebrew={addHomebrew} addHomebrewMany={addHomebrewMany} addOwnHomebrew={addOwnHomebrew} reload={() => loadAll(true)} hbLoaded={hb} />}
           {view === 'settings' && <Settings {...ctx} />}
+          </ErrorBoundary>
         </main>
         {aiFirstRun && !status.loading && (
           <div className="modal-bg">
