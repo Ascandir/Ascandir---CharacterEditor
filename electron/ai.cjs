@@ -57,6 +57,14 @@ const DEFAULT_CATALOG = {
       ],
     },
     {
+      id: 'sdxl-map', name: 'Battlemap-Modell (SDXL + LoRA)', version: '1', recommended: false, minVramGB: 8, kind: 'map',
+      note: { de: 'Eigenes Modell für Battlemaps: Stable Diffusion XL mit der LoRA „DnD Battlemaps Generator“ (Civitai). Bleibt streng in der 2D-Draufsicht. Nur für den Mapmaker.', en: 'Model for battle maps: Stable Diffusion XL with the LoRA “DnD Battlemaps Generator” (Civitai). Keeps a strict 2D top-down view. Mapmaker only.' },
+      files: [
+        { url: 'https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors', dest: 'models/checkpoints/sd_xl_base_1.0.safetensors', size: 6938078334 },
+        { url: 'https://civitai.com/api/download/models/2437520?type=Model&format=SafeTensor', dest: 'models/loras/dnd_battlemaps_sdxl.safetensors', size: 23400000, keepExisting: true, page: 'https://civitai.com/models/2164519' },
+      ],
+    },
+    {
       id: 'upscale', name: 'Real-ESRGAN x4', version: '1', recommended: true, minVramGB: 2, kind: 'upscale',
       note: { de: 'Hochskalierer für 2K/4K-Bilder', en: 'Upscaler for 2K/4K pictures' },
       files: [
@@ -225,10 +233,15 @@ async function install({ dir, gpu, models: modelIds, comfy: doComfy = true }) {
       for (const f of m.files) {
         const dest = path.join(root, 'ComfyUI', f.dest);
         if (fs.existsSync(dest) && cfg.models[id]?.version === m.version) continue; // .part files are renamed only when complete
+        if (fs.existsSync(dest) && f.keepExisting) continue; // e.g. a LoRA the user copied in by hand
         // shared file already installed by another model (e.g. Qwen text encoder): keep it
         if (fs.existsSync(dest) && Object.entries(cfg.models).some(([oid, im]) => oid !== id && (im.files || []).includes(f.dest))) continue;
         if (fs.existsSync(dest)) await fsp.rm(dest, { force: true });
-        await download(f.url, dest, m.name + ' – ' + path.basename(f.dest), signal);
+        try { await download(f.url, dest, m.name + ' – ' + path.basename(f.dest), signal); } catch (e) {
+          // some sites (Civitai) may need a login: the user can download the file and pick it
+          if (f.page && /HTTP 4\d\d/.test(e.message)) throw new Error('MANUAL_FILE|' + id + '|' + f.page + '|' + e.message);
+          throw e;
+        }
       }
       cfg.models[id] = { version: m.version, name: m.name, files: m.files.map(f => f.dest) };
       await writeCfg(cfg);
@@ -370,6 +383,35 @@ function addPost(w, { removeBg, upscale }) {
   }
 }
 
+// battle maps: SDXL + LoRA, optionally painted over once more with Z-Image at low strength
+function sdxlMapWorkflow({ prompt, negative = '', seed, width = 1216, height = 832, steps = 30, cfg = 5, lora = 0.8, initImage = null, denoise = 1, refine = 0, refinePrompt = '', upscale = null }) {
+  const w = {
+    200: { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: 'sd_xl_base_1.0.safetensors' } },
+    201: { class_type: 'LoraLoader', inputs: { model: ['200', 0], clip: ['200', 1], lora_name: 'dnd_battlemaps_sdxl.safetensors', strength_model: lora, strength_clip: lora } },
+    202: { class_type: 'CLIPTextEncode', inputs: { text: prompt, clip: ['201', 1] } },
+    203: { class_type: 'CLIPTextEncode', inputs: { text: negative, clip: ['201', 1] } },
+    205: { class_type: 'KSampler', inputs: { model: ['201', 0], positive: ['202', 0], negative: ['203', 0], latent_image: ['204', 0], seed, steps, cfg, sampler_name: 'dpmpp_2m', scheduler: 'karras', denoise } },
+    206: { class_type: 'VAEDecode', inputs: { samples: ['205', 0], vae: ['200', 2] } },
+  };
+  if (initImage) {
+    w[207] = { class_type: 'LoadImage', inputs: { image: initImage } };
+    w[208] = { class_type: 'ImageScale', inputs: { image: ['207', 0], upscale_method: 'lanczos', width, height, crop: 'center' } };
+    w[204] = { class_type: 'VAEEncode', inputs: { pixels: ['208', 0], vae: ['200', 2] } };
+  } else w[204] = { class_type: 'EmptyLatentImage', inputs: { width, height, batch_size: 1 } };
+  if (refine > 0) {
+    // Z-Image paints over the SDXL map (keeps the layout and the straight top-down camera, adds its look)
+    const z = zImageWorkflow({ prompt: refinePrompt || prompt, seed, width, height, initImage: 'x', denoise: refine });
+    delete z[40]; z[41].inputs.image = ['206', 0];
+    Object.assign(w, z);
+  } else {
+    // addPost expects the final picture at node 8 and the SaveImage at node 9
+    w[8] = w[206]; delete w[206];
+    w[9] = { class_type: 'SaveImage', inputs: { images: ['8', 0], filename_prefix: 'ascandir/map' } };
+  }
+  addPost(w, { upscale });
+  return w;
+}
+
 function zImageWorkflow({ prompt, seed, width = 832, height = 1216, steps = 8, batch = 1, initImage = null, denoise = 1, removeBg = false, upscale = null }) {
   const w = {
     28: { class_type: 'UNETLoader', inputs: { unet_name: 'z_image_turbo_bf16.safetensors', weight_dtype: 'default' } },
@@ -484,12 +526,16 @@ async function generateInner(params) {
   await start();
   touch();
   // switching between Z-Image and Qwen: drop the other model first, two of them do not fit into RAM together
-  const want = params.model === 'qwen' ? (params.turbo ? 'qwenturbo' : 'qwen') : 'zimage';
+  const want = params.model === 'qwen' ? (params.turbo ? 'qwenturbo' : 'qwen') : params.model === 'sdxlmap' ? 'sdxlmap' : 'zimage';
   if (lastModel && lastModel !== want) await freeComfy();
   lastModel = want;
   const t0 = Date.now();
   let workflow;
-  if (params.model === 'qwen') {
+  if (params.model === 'sdxlmap') {
+    let initImage = null;
+    if (params.initImage) initImage = await uploadImage(params.initImage, 'ascandir_init.png');
+    workflow = sdxlMapWorkflow({ ...params, initImage });
+  } else if (params.model === 'qwen') {
     const refs = [];
     for (const [i, img] of (params.refImages || []).entries()) refs.push(await uploadImage(img, `ascandir_ref${i + 1}.png`));
     workflow = qwenWorkflow({ ...params, refs });
@@ -579,6 +625,18 @@ function register(mainWindowGetter) {
   ipcMain.handle('ai:free', () => freeComfy());
   ipcMain.handle('ai:log', () => procLog.slice(-120).join(''));
   ipcMain.handle('ai:skip', async () => { const c = await readCfg(); c.setupSkipped = true; await writeCfg(c); return true; });
+  ipcMain.handle('ai:importModelFile', async (e, { id }) => {
+    const cfg = await readCfg(); const root = await findComfyRoot(cfg.dir); if (!root) throw new Error('ComfyUI not installed');
+    const cat = await getCatalog(); const m = (cat.models || []).find(x => x.id === id) || DEFAULT_CATALOG.models.find(x => x.id === id);
+    const f = (m?.files || []).find(x => x.keepExisting); if (!f) return false;
+    const { dialog, BrowserWindow } = require('electron');
+    const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender), { properties: ['openFile'], filters: [{ name: 'SafeTensors', extensions: ['safetensors'] }] });
+    if (r.canceled || !r.filePaths.length) return false;
+    const dest = path.join(root, 'ComfyUI', f.dest);
+    await fsp.mkdir(path.dirname(dest), { recursive: true });
+    await fsp.copyFile(r.filePaths[0], dest);
+    return true;
+  });
   ipcMain.handle('ai:setStopAfter', async (_e, on) => { const c = await readCfg(); c.stopAfterImage = !!on; await writeCfg(c); return true; });
   ipcMain.handle('ai:setGpuMode', async (_e, mode) => { const c = await readCfg(); if (c.gpuMode !== mode) { c.gpuMode = mode; await writeCfg(c); await stop(); } return true; });
   ipcMain.handle('ai:setIdle', async (_e, mins) => { const c = await readCfg(); c.idleMinutes = mins; await writeCfg(c); return true; });

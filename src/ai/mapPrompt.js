@@ -182,6 +182,23 @@ export function mapPrompt(m, tr = {}) {
 export const MAP_NEGATIVE = 'isometric view, perspective, three-quarter view, tilted camera, side view, angled view, vanishing point, visible side walls, horizon, sky, decorative border, frame, text, grid lines, people, creatures';
 export const MAP_NEGATIVE_FLAT = MAP_NEGATIVE + ', 2.5D, 3D render, depth, height, raised walls, extruded walls, cast shadows, ambient occlusion, bevel';
 
+// SDXL battle map LoRA: short tag-like prompt that starts with its trigger words
+export const SDXL_MAP_NEGATIVE = 'blurry, grainy, 3d render, isometric, perspective, tilted, grid, watermark, text, signature, people, person, creature, frame, border';
+export function mapPromptSdxl(m, tr = {}) {
+  if (m.promptMode === 'free') return 'dnd battle map, top down view, 2d, ' + (m.freePrompt || '').trim();
+  const biome = MAP_BIOMES.find(x => x[0] === m.biome) || MAP_BIOMES[0];
+  const site = MAP_SITES.find(x => x[0] === m.site);
+  const light = MAP_LIGHT.find(x => x[0] === m.light) || MAP_LIGHT[0];
+  const weather = MAP_WEATHER.find(x => x[0] === m.weather);
+  const season = MAP_SEASONS.find(x => x[0] === m.season);
+  const st = MAP_STYLES.find(x => x[0] === m.style) || MAP_STYLES[0];
+  const styleShort = { fa: 'hand-drawn semi-realistic textures, thin dark outlines', painted: 'hand-painted, detailed textures', clean: 'clean vector art, flat colors', realistic: 'photorealistic textures', ink: 'ink drawing on parchment', watercolor: 'watercolor', dark: 'grimdark, desaturated' }[st[0]] || toEn(m.customStyle, tr);
+  const assets = MAP_ASSETS.filter(([k]) => m.assets?.[k]).map(([k, , noun]) => { const n = m.assets[k]; return /^a /.test(noun) ? (n >= 4 ? 'large ' : n <= 2 ? 'small ' : '') + noun.replace(/^a /, '') : (n >= 4 ? 'many ' : n <= 1 ? 'few ' : '') + noun; });
+  const lightShort = { neutral: 'even daylight', bright: 'bright daylight', dusk: 'dusk', night: 'night, moonlight', torch: 'night, torchlight', dark: 'dark' }[light[0]];
+  return ['dnd battle map, top down view, 2d', biome[2].replace(/^an? /, ''), site?.[2] ? site[2].replace(/^an? /, '') : '', ...assets, season?.[2] || '', weather?.[2] || '', lightShort, m.extra ? toEn(m.extra, tr) : '', styleShort, m.noCreatures ? 'no humans' : '', 'highly detailed']
+    .filter(Boolean).join(', ');
+}
+
 export function mapSizes(m) {
   const cols = Math.max(5, m.cols || 30), rows = Math.max(5, m.rows || 20);
   const k = Math.sqrt(1.1e6 / (cols * rows));

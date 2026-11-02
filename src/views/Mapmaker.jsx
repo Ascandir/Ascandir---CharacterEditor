@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
 import { toEn } from '../ai/prompt.js';
-import { MAP_CAMERAS, MAP_BIOMES, MAP_SITES, MAP_LIGHT, MAP_WEATHER, MAP_SEASONS, MAP_STYLES, MAP_ASSETS, ASSET_GROUPS, AMOUNTS, MAP_SIZES, DEFAULT_MAP, MAP_NEGATIVE, MAP_NEGATIVE_FLAT, MAP_DEPTH, mapPrompt, mapSizes, foundryScene } from '../ai/mapPrompt.js';
+import { MAP_CAMERAS, MAP_BIOMES, MAP_SITES, MAP_LIGHT, MAP_WEATHER, MAP_SEASONS, MAP_STYLES, MAP_ASSETS, ASSET_GROUPS, AMOUNTS, MAP_SIZES, DEFAULT_MAP, MAP_NEGATIVE, MAP_NEGATIVE_FLAT, MAP_DEPTH, SDXL_MAP_NEGATIVE, mapPromptSdxl, mapPrompt, mapSizes, foundryScene } from '../ai/mapPrompt.js';
 import { useJob, finishJob, cancelJob, fmtTime, jobPct } from '../ai/jobs.js';
 import ZoomView, { ImageModal } from '../components/ZoomView.jsx';
 import BigText from '../components/BigText.jsx';
@@ -76,8 +76,19 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
   const hasUpscale = !!st?.models?.upscale?.present;
   const hasQwen = !!st?.models?.['qwen-image-21']?.present;
   const hasQwenTurbo = !!st?.models?.['qwen-image-21-turbo']?.present;
-  const model = m.model === 'qwen' && hasQwen ? 'qwen' : m.model === 'qwenturbo' && hasQwenTurbo ? 'qwenturbo' : 'zimage';
-  const useQwen = model !== 'zimage';
+  const hasSdxl = !!st?.models?.['sdxl-map']?.present;
+  const model = m.model === 'qwen' && hasQwen ? 'qwen' : m.model === 'qwenturbo' && hasQwenTurbo ? 'qwenturbo' : m.model === 'sdxlmap' && hasSdxl ? 'sdxlmap' : 'zimage';
+  const useQwen = model === 'qwen' || model === 'qwenturbo';
+  const useSdxl = model === 'sdxlmap';
+  const [inst, setInst] = useState(null); // download progress text
+  const [manual, setManual] = useState(null); // {page} when a file has to be fetched by hand
+  const installSdxl = async () => {
+    setInst('…'); setErr(null); setManual(null);
+    const off = api.ai.on('ai:progress', pr => setInst((pr.pct ?? 0) + ' %'));
+    try { await api.ai.install({ dir: st.dir, gpu: st.gpu, models: ['sdxl-map'], comfy: false }); set('model', 'sdxlmap'); }
+    catch (e) { const msg = String(e.message || e); const mm = /MANUAL_FILE\|[^|]*\|([^|]+)\|/.exec(msg); if (mm) setManual({ page: mm[1] }); else setErr(msg); }
+    off(); setInst(null); refresh();
+  };
 
   const [cache, setCache] = useState({});
   useEffect(() => { for (const x of maps) if (!cache[x.name]) api.loadImage(DIR, x.name).then(u => setCache(c => ({ ...c, [x.name]: u }))).catch(() => {}); }, [maps.map(x => x.name).join()]);
@@ -141,7 +152,16 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
       const basePrompt = mode === 'new' ? prompt : (selMeta?.prompt || prompt);
       const params = { prompt: basePrompt, seed, width: gen.width, height: gen.height, batch: 1, removeBg: false };
       if (hasUpscale && final.width > gen.width) params.upscale = final;
-      if (useQwen) {
+      if (useSdxl) {
+        Object.assign(params, { model: 'sdxlmap', prompt: mode === 'new' ? mapPromptSdxl(src, ms.tr || {}) : (selMeta?.sdxlPrompt || mapPromptSdxl(src, ms.tr || {})), negative: SDXL_MAP_NEGATIVE, cfg: 5, steps: 30, lora: (m.loraStrength ?? 80) / 100 });
+        // SDXL works best near its training sizes: about 1 megapixel
+        if (m.refineZ !== false) { params.refine = (m.refineStrength ?? 35) / 100; params.refinePrompt = basePrompt; }
+        if (mode !== 'new') {
+          params.initImage = await resized(selImg, gen.width, gen.height);
+          params.denoise = mode === 'edit' ? Math.max(0.3, Math.min(0.9, (m.strength ?? 55) / 100)) : 0.7;
+          if (mode === 'edit') { params.prompt = toEn(text, ms.tr) + ', ' + params.prompt; params.refinePrompt = toEn(text, ms.tr) + ', ' + basePrompt; }
+        }
+      } else if (useQwen) {
         const neg = m.strictTop !== false && ['top', '3d'].includes(src.camera) && mode !== 'edit' ? (src.camera === 'top' && (src.depth || 'flat') === 'flat' ? MAP_NEGATIVE_FLAT : MAP_NEGATIVE) : '';
         Object.assign(params, model === 'qwenturbo' ? { model: 'qwen', turbo: true, negative: '', cfg: 1, steps: 8 } : { model: 'qwen', negative: neg, cfg: neg ? 4 : 1, steps: m.qSteps || 30 });
         if (mode !== 'edit' && useRef_) {
@@ -172,7 +192,7 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
       const biome = (MAP_BIOMES.find(b => b[0] === src.biome) || MAP_BIOMES[0])[1][lang];
       const site = MAP_SITES.find(s => s[0] === src.site);
       const title = (selMeta && mode !== 'new' ? selMeta.title + (mode === 'edit' ? ' ✎' : ' ↻') : biome + (site && site[0] !== 'none' ? ' – ' + site[1][lang] : ''));
-      const meta = { name, title, ts: Date.now(), prompt: params.prompt, model, seconds: res.seconds, cols: src.cols, rows: src.rows, width: img.naturalWidth, height: img.naturalHeight, gridPx: Math.round(img.naturalWidth / src.cols), cfg: JSON.parse(JSON.stringify(src)), kind: mode === 'new' ? undefined : mode };
+      const meta = { name, title, ts: Date.now(), prompt: useSdxl ? (selMeta && mode !== 'new' ? selMeta.prompt : basePrompt) : params.prompt, sdxlPrompt: useSdxl ? params.prompt : undefined, model, seconds: res.seconds, cols: src.cols, rows: src.rows, width: img.naturalWidth, height: img.naturalHeight, gridPx: Math.round(img.naturalWidth / src.cols), cfg: JSON.parse(JSON.stringify(src)), kind: mode === 'new' ? undefined : mode };
       void gridPx;
       saveMS(c => {
         const all = [meta, ...(c.maps || [])];
@@ -250,6 +270,7 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
         <option value="zimage">Z-Image Turbo · {t.pFast}</option>
         {hasQwenTurbo && <option value="qwenturbo">Qwen Image 2.1 Turbo · {t.pQwenTurbo}</option>}
         {hasQwen && <option value="qwen">Qwen Image 2.1 · {t.pBest}</option>}
+        {hasSdxl && <option value="sdxlmap">{t.mmSdxl}</option>}
       </select></label>
   );
 
@@ -363,8 +384,16 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
                 <label className="checkline small"><input type="checkbox" checked={m.strictTop !== false} onChange={e => set('strictTop', e.target.checked)} /><span>{t.mmStrictTop}<br /><span className="muted">{t.mmStrictTopHint}</span></span></label>
               </div>
             )}
+            {useSdxl && (
+              <div className="col" style={{ gap: 6 }}>
+                <span className="bold small">{t.mmSdxl}</span>
+                <div className="row small" style={{ gap: 8 }}><span className="muted" style={{ minWidth: 110 }}>{t.mmLora}</span><input type="range" min={40} max={100} value={m.loraStrength ?? 80} onChange={e => set('loraStrength', Number(e.target.value))} /><span className="muted">{m.loraStrength ?? 80} %</span></div>
+                <label className="checkline small"><input type="checkbox" checked={m.refineZ !== false} onChange={e => set('refineZ', e.target.checked)} /><span>{t.mmRefineZ}<br /><span className="muted">{t.mmRefineZHint}</span></span></label>
+                {m.refineZ !== false && <div className="row small" style={{ gap: 8 }}><span className="muted" style={{ minWidth: 110 }}>{t.mmRefineStrength}</span><input type="range" min={15} max={60} value={m.refineStrength ?? 35} onChange={e => set('refineStrength', Number(e.target.value))} /><span className="muted">{m.refineStrength ?? 35} %</span></div>}
+              </div>
+            )}
             <button className="btn sm ghost" onClick={() => setShowPrompt(!showPrompt)}>{t.pPrompt} {showPrompt ? '▾' : '▸'}</button>
-            {showPrompt && <BigText rows={7} readOnly value={prompt} title={t.pPrompt} style={{ fontSize: 12 }} />}
+            {showPrompt && <BigText rows={7} readOnly value={useSdxl ? mapPromptSdxl(m, ms.tr || {}) + (m.refineZ !== false ? '\n\n— Z-Image —\n' + prompt : '') : prompt} title={t.pPrompt} style={{ fontSize: 12 }} />}
           </section>
 
           <section className="col" style={{ flex: '999 1 460px', minWidth: 0 }}>
@@ -381,6 +410,19 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
                 <div className="grow" />
                 <button className="btn primary" disabled={!!busy} onClick={() => generate('new')}>{t.mmGenerate}</button>
                 <button className="btn" disabled={!!busy || !selImg} onClick={() => generate('variant')} title={t.mmVariantHint}>{t.mmVariant}</button>
+              </div>
+            )}
+            {ready && !hasSdxl && (
+              <div className="banner info" style={{ margin: 0, flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+                <span className="small">{t.mmSdxlOffer}</span>
+                <div className="row" style={{ gap: 8 }}><button className="btn sm primary" disabled={!!inst || !!busy} onClick={installSdxl}>{inst ? t.aiDownloading + ' ' + inst : t.mmSdxlLoad}</button></div>
+                {manual && <div className="col small" style={{ gap: 6 }}>
+                  <span>{t.mmSdxlManual}</span>
+                  <div className="row" style={{ gap: 8 }}>
+                    <button className="btn sm" onClick={() => api.openExternal(manual.page)}>{t.mmSdxlOpenPage}</button>
+                    <button className="btn sm" onClick={async () => { if (await api.ai.importModelFile({ id: 'sdxl-map' })) installSdxl(); }}>{t.mmSdxlPick}</button>
+                  </div>
+                </div>}
               </div>
             )}
             {ready && selImg && (

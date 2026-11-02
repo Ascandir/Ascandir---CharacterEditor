@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.4
+- Mapmaker: neues **Battlemap-Modell**, gedacht für eine streng gerade 2D-Draufsicht: Stable Diffusion XL mit der LoRA „DnD Battlemaps Generator“ (Civitai), zusammen ca. 7 GB. Laden über den Hinweis im Mapmaker, danach oben rechts als „Battlemap-Modell (SDXL)“ auswählbar
+- **„Mit Z-Image nachmalen“** (an): SDXL legt den Blick von oben und den Aufbau fest, danach malt Z-Image im selben Durchgang mit wenig Stärke (Standard 35 %) drüber und bringt seinen Look. Stärke und LoRA-Gewicht sind einstellbar
+- Falls Civitai den Download der LoRA ohne Anmeldung nicht erlaubt: Die App öffnet die Civitai-Seite. Dort lädst du die Datei selbst herunter und wählst sie mit „Heruntergeladene LoRA auswählen …“ aus. Das SDXL-Modell lädt die App danach selbst
+- Ändern, Varianten und die Schnellknöpfe (Nacht, Winter …) funktionieren auch mit dem Battlemap-Modell
+
 ## 0.9.3
 - Mapmaker: **Referenzkarte für Winkel & Stil**. Du lädst eine Karte, die genau so aussieht, wie du es willst, z. B. eine Dungeondraft- oder Forgotten-Adventures-Karte. Qwen Image 2.1 / Turbo übernimmt davon Kamerawinkel (gerade von oben), Maßstab und Grafikstil, aber nicht Aufbau und Inhalt. Eine gelungene eigene Karte lässt sich mit „Als Referenzkarte nutzen“ direkt dafür verwenden
 - Der Stil „Flach & klar (Inkarnate-Stil)“ ist ersetzt durch **„Wie Dungeondraft / Forgotten Adventures“**: halbrealistische, handgezeichnete Texturen mit feinen dunklen Umrissen, Dielen, Steinfliesen, Gras, Objekte als flache Draufsicht-Ausschnitte mit leichtem Schatten, Innenräume ohne Dach mit Mauern als schmale Bänder

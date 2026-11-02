@@ -112,6 +112,32 @@
       ]
     },
     {
+      "id": "sdxl-map",
+      "name": "Battlemap-Modell (SDXL + LoRA)",
+      "version": "1",
+      "recommended": false,
+      "minVramGB": 8,
+      "kind": "map",
+      "note": {
+        "de": "Eigenes Modell für Battlemaps: Stable Diffusion XL mit der LoRA „DnD Battlemaps Generator“ (Civitai). Bleibt streng in der 2D-Draufsicht. Nur für den Mapmaker.",
+        "en": "Model for battle maps: Stable Diffusion XL with the LoRA “DnD Battlemaps Generator” (Civitai). Keeps a strict 2D top-down view. Mapmaker only."
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors",
+          "dest": "models/checkpoints/sd_xl_base_1.0.safetensors",
+          "size": 6938078334
+        },
+        {
+          "url": "https://civitai.com/api/download/models/2437520?type=Model&format=SafeTensor",
+          "dest": "models/loras/dnd_battlemaps_sdxl.safetensors",
+          "size": 23400000,
+          "keepExisting": true,
+          "page": "https://civitai.com/models/2164519"
+        }
+      ]
+    },
+    {
       "id": "upscale",
       "name": "Real-ESRGAN x4",
       "version": "1",
