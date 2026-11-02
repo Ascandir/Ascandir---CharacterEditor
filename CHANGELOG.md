@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.12
+- KI-Berater: Das Fenster passt sich jetzt genau an die Fenstergröße an. Der Chatverlauf füllt den freien Platz und scrollt, Eingabefeld und „Senden“ bleiben immer sichtbar, auch beim Ändern der Fenstergröße oder mit geöffneter „Verbindung“
+
 ## 0.8.11
 - KI-Berater: Ein laufender **Strata-Start lässt sich jetzt abbrechen** („Abbrechen“ in der Startanzeige). Dabei wird der Startvorgang beendet und Strata angewiesen, alles zu stoppen, was es schon gestartet hat
 - Während des Starts zeigt die Anzeige die letzten Zeilen aus Strata. Nach 2 Minuten ohne Antwort erscheint ein Hinweis, unter welcher Adresse die App wartet

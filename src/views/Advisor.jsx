@@ -107,6 +107,21 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
   const advMode = ch.advisor?.mode || 'sliders';
   const setAdv = (k, v) => update(c => { c.advisor = { ...(c.advisor || {}), [k]: v }; return c; });
   const listRef = useRef(null);
+  // the advisor fills exactly the free height of the window (chat in between scrolls, input stays visible)
+  const boxRef = useRef(null);
+  const [boxH, setBoxH] = useState(0);
+  useEffect(() => {
+    const fit = () => {
+      const el = boxRef.current; if (!el) return;
+      let sc = el.parentElement; while (sc && sc !== document.body && !/(auto|scroll)/.test(getComputedStyle(sc).overflowY)) sc = sc.parentElement;
+      const top = el.getBoundingClientRect().top + (sc && sc !== document.body ? sc.scrollTop : window.scrollY);
+      const bottom = sc && sc !== document.body ? sc.getBoundingClientRect().top : 0;
+      setBoxH(Math.max(420, Math.floor(window.innerHeight - (top - bottom) - bottom - 24)));
+    };
+    fit(); const t2 = setTimeout(fit, 50);
+    window.addEventListener('resize', fit);
+    return () => { clearTimeout(t2); window.removeEventListener('resize', fit); };
+  }, []);
   const reqId = useRef(0);
 
   const check = async () => {
@@ -187,7 +202,7 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
 
   return (
     <div className="page" style={{ alignItems: 'stretch' }}>
-      <section className="card col" style={{ flex: '999 1 600px', minWidth: 0, gap: 10 }}>
+      <section ref={boxRef} className="card col" style={{ flex: '999 1 600px', minWidth: 0, gap: 10, height: boxH || undefined, overflowY: 'auto' }}>
         <div className="row small" style={{ gap: 8 }}>
           <span className="dot" style={{ background: conn?.ok ? 'var(--ok)' : conn ? 'var(--bad)' : 'var(--dim)' }} />
           <span className="grow">{conn?.ok ? t.advConnected(conn.model) : conn ? t.advNotConnected : '…'}</span>
@@ -238,7 +253,7 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
           {(sProg.exited != null || sProg.seconds > 120) && <span className="small">{t.advStrataSlow(sProg.url || cfg.url)}</span>}
         </div>}
         {conn && !conn.ok && !sProg && <div className="banner info" style={{ margin: 0 }}><span className="small grow">{canAuto ? t.advAutoNote(cfg.preset) : t.advNoServer}</span>{canAuto && <button className="btn sm primary" onClick={startStrata}>{t.advStrataStart}</button>}<button className="btn sm" onClick={check}>{t.t3Recheck}</button></div>}
-        <div ref={listRef} className="col chatlist" style={{ gap: 10, overflowY: 'auto', height: 'max(300px, calc(100vh - 380px))' }}>
+        <div ref={listRef} className="col chatlist" style={{ gap: 10, overflowY: 'auto', flex: '1 1 0', minHeight: 180 }}>
           {msgs.length === 0 && !live && <div className="muted" style={{ margin: 'auto', maxWidth: 520, textAlign: 'center' }}>{t.advEmpty}</div>}
           {msgs.map(renderMsg)}
           {live && (
