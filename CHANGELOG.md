@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.7
+- Mapmaker / Battlemap-Modell: „Mit Z-Image nachmalen“ ist jetzt standardmäßig auf 50 % (bisher 35 %) und lässt sich bis 80 % hochdrehen. So kommt mehr vom gewohnten Z-Image-Zeichenstil durch. SDXL gibt dabei weiter den geraden Blick von oben und den Aufbau vor
+
 ## 0.9.6
 - Mapmaker / Battlemap-Modell: Die **LoRA wurde bisher gar nicht angewendet**. Die Civitai-Datei ist in einem älteren Format gespeichert, das ComfyUI nicht versteht. Laut comfyui.log wurden alle 1120 Teile mit „lora key not loaded“ übersprungen. Deshalb kam reines SDXL heraus, mit schräger Perspektive. Die App wandelt die Datei jetzt beim ersten Malen automatisch in das passende Format um. Die Originaldatei bleibt als .orig erhalten
 - Sollte ComfyUI eine LoRA einmal nicht anwenden können, erscheint jetzt ein Hinweis, statt dass stillschweigend ein falsches Bild entsteht

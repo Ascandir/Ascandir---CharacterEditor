@@ -155,7 +155,7 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
       if (useSdxl) {
         Object.assign(params, { model: 'sdxlmap', prompt: mode === 'new' ? mapPromptSdxl(src, ms.tr || {}) : (selMeta?.sdxlPrompt || mapPromptSdxl(src, ms.tr || {})), negative: SDXL_MAP_NEGATIVE, cfg: 5, steps: 30, lora: (m.loraStrength ?? 80) / 100 });
         // SDXL works best near its training sizes: about 1 megapixel
-        if (m.refineZ !== false) { params.refine = (m.refineStrength ?? 35) / 100; params.refinePrompt = basePrompt; }
+        if (m.refineZ !== false) { params.refine = (m.refineStrength ?? 50) / 100; params.refinePrompt = basePrompt; }
         if (mode !== 'new') {
           params.initImage = await resized(selImg, gen.width, gen.height);
           params.denoise = mode === 'edit' ? Math.max(0.3, Math.min(0.9, (m.strength ?? 55) / 100)) : 0.7;
@@ -390,7 +390,7 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
                 <span className="bold small">{t.mmSdxl}</span>
                 <div className="row small" style={{ gap: 8 }}><span className="muted" style={{ minWidth: 110 }}>{t.mmLora}</span><input type="range" min={40} max={100} value={m.loraStrength ?? 80} onChange={e => set('loraStrength', Number(e.target.value))} /><span className="muted">{m.loraStrength ?? 80} %</span></div>
                 <label className="checkline small"><input type="checkbox" checked={m.refineZ !== false} onChange={e => set('refineZ', e.target.checked)} /><span>{t.mmRefineZ}<br /><span className="muted">{t.mmRefineZHint}</span></span></label>
-                {m.refineZ !== false && <div className="row small" style={{ gap: 8 }}><span className="muted" style={{ minWidth: 110 }}>{t.mmRefineStrength}</span><input type="range" min={15} max={60} value={m.refineStrength ?? 35} onChange={e => set('refineStrength', Number(e.target.value))} /><span className="muted">{m.refineStrength ?? 35} %</span></div>}
+                {m.refineZ !== false && <div className="row small" style={{ gap: 8 }}><span className="muted" style={{ minWidth: 110 }}>{t.mmRefineStrength}</span><input type="range" min={15} max={80} value={m.refineStrength ?? 50} onChange={e => set('refineStrength', Number(e.target.value))} /><span className="muted">{m.refineStrength ?? 50} %</span></div>}
               </div>
             )}
             <button className="btn sm ghost" onClick={() => setShowPrompt(!showPrompt)}>{t.pPrompt} {showPrompt ? '▾' : '▸'}</button>
