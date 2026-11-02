@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.8
+- Mapmaker / Battlemap-Modell: neue Option **„Z-Image-Stil: Neu malen nach Linien“**, als Empfehlung gekennzeichnet. SDXL mit der Battlemap-LoRA malt die gerade Draufsicht nur noch als Vorlage. Die App zieht daraus die Umrisse (Canny), und Z-Image malt das Bild **komplett neu in seinem eigenen Stil**, genau entlang dieser Umrisse (Z-Image-ControlNet, offizielle ComfyUI-Kette). Ziel: der gewohnte Z-Image-Look mit dem geraden Winkel von oben
+- Dafür einmalig „Z-Image-ControlNet laden (ca. 3 GB)“. Mit „Linientreue“ stellst du ein, wie streng Z-Image den Umrissen folgt
+- Weiterhin wählbar: „Mit Z-Image nachmalen“ (Übermalen mit wenig Stärke) und „Nur SDXL“
+
 ## 0.9.7
 - Mapmaker / Battlemap-Modell: „Mit Z-Image nachmalen“ ist jetzt standardmäßig auf 50 % (bisher 35 %) und lässt sich bis 80 % hochdrehen. So kommt mehr vom gewohnten Z-Image-Zeichenstil durch. SDXL gibt dabei weiter den geraden Blick von oben und den Aufbau vor
 

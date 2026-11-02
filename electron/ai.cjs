@@ -65,6 +65,13 @@ const DEFAULT_CATALOG = {
       ],
     },
     {
+      id: 'zimage-control', name: 'Z-Image ControlNet (Union)', version: '1', recommended: false, minVramGB: 12, kind: 'map',
+      note: { de: 'Lässt Z-Image eine Vorlage nachzeichnen: Der Mapmaker nimmt die Linien der geraden Battlemap-Vorlage und Z-Image malt sie komplett in seinem Stil neu.', en: 'Lets Z-Image follow the outlines of a template: the map maker takes the lines of the straight battle map and Z-Image repaints it fully in its own style.' },
+      files: [
+        { url: 'https://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union.safetensors', dest: 'models/model_patches/Z-Image-Turbo-Fun-Controlnet-Union.safetensors', size: 3100000000 },
+      ],
+    },
+    {
       id: 'upscale', name: 'Real-ESRGAN x4', version: '1', recommended: true, minVramGB: 2, kind: 'upscale',
       note: { de: 'Hochskalierer für 2K/4K-Bilder', en: 'Upscaler for 2K/4K pictures' },
       files: [
@@ -422,7 +429,7 @@ async function convertLora(file) {
 }
 
 // battle maps: SDXL + LoRA, optionally painted over once more with Z-Image at low strength
-function sdxlMapWorkflow({ prompt, negative = '', seed, width = 1216, height = 832, steps = 30, cfg = 5, lora = 0.8, initImage = null, denoise = 1, refine = 0, refinePrompt = '', upscale = null }) {
+function sdxlMapWorkflow({ prompt, negative = '', seed, width = 1216, height = 832, steps = 30, cfg = 5, lora = 0.8, initImage = null, denoise = 1, refine = 0, refinePrompt = '', control = 0, upscale = null }) {
   const w = {
     200: { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: 'sd_xl_base_1.0.safetensors' } },
     201: { class_type: 'LoraLoader', inputs: { model: ['200', 0], clip: ['200', 1], lora_name: 'dnd_battlemaps_sdxl.safetensors', strength_model: lora, strength_clip: lora } },
@@ -436,7 +443,16 @@ function sdxlMapWorkflow({ prompt, negative = '', seed, width = 1216, height = 8
     w[208] = { class_type: 'ImageScale', inputs: { image: ['207', 0], upscale_method: 'lanczos', width, height, crop: 'center' } };
     w[204] = { class_type: 'VAEEncode', inputs: { pixels: ['208', 0], vae: ['200', 2] } };
   } else w[204] = { class_type: 'EmptyLatentImage', inputs: { width, height, batch_size: 1 } };
-  if (refine > 0) {
+  if (control > 0) {
+    // Z-Image paints a completely new picture that follows the outlines (Canny) of the straight SDXL map:
+    // camera and layout from SDXL, the whole look from Z-Image (official ComfyUI "canny to image" chain)
+    const z = zImageWorkflow({ prompt: refinePrompt || prompt, seed, width, height, steps: 9 });
+    z[230] = { class_type: 'Canny', inputs: { image: ['206', 0], low_threshold: 0.3, high_threshold: 0.4 } };
+    z[231] = { class_type: 'ModelPatchLoader', inputs: { name: 'Z-Image-Turbo-Fun-Controlnet-Union.safetensors' } };
+    z[232] = { class_type: 'QwenImageDiffsynthControlnet', inputs: { model: ['11', 0], model_patch: ['231', 0], vae: ['29', 0], image: ['230', 0], strength: control } };
+    z[3].inputs.model = ['232', 0];
+    Object.assign(w, z);
+  } else if (refine > 0) {
     // Z-Image paints over the SDXL map (keeps the layout and the straight top-down camera, adds its look)
     const z = zImageWorkflow({ prompt: refinePrompt || prompt, seed, width, height, initImage: 'x', denoise: refine });
     delete z[40]; z[41].inputs.image = ['206', 0];

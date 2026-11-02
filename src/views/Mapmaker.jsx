@@ -77,11 +77,18 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
   const hasQwen = !!st?.models?.['qwen-image-21']?.present;
   const hasQwenTurbo = !!st?.models?.['qwen-image-21-turbo']?.present;
   const hasSdxl = !!st?.models?.['sdxl-map']?.present;
+  const hasControl = !!st?.models?.['zimage-control']?.present;
   const model = m.model === 'qwen' && hasQwen ? 'qwen' : m.model === 'qwenturbo' && hasQwenTurbo ? 'qwenturbo' : m.model === 'sdxlmap' && hasSdxl ? 'sdxlmap' : 'zimage';
   const useQwen = model === 'qwen' || model === 'qwenturbo';
   const useSdxl = model === 'sdxlmap';
   const [inst, setInst] = useState(null); // download progress text
   const [manual, setManual] = useState(null); // {page} when a file has to be fetched by hand
+  const installModel = async (id) => {
+    setInst('…'); setErr(null);
+    const off = api.ai.on('ai:progress', pr => setInst((pr.pct ?? 0) + ' %'));
+    try { await api.ai.install({ dir: st.dir, gpu: st.gpu, models: [id], comfy: false }); } catch (e) { setErr(String(e.message || e)); }
+    off(); setInst(null); refresh();
+  };
   const installSdxl = async () => {
     setInst('…'); setErr(null); setManual(null);
     const off = api.ai.on('ai:progress', pr => setInst((pr.pct ?? 0) + ' %'));
@@ -155,7 +162,9 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
       if (useSdxl) {
         Object.assign(params, { model: 'sdxlmap', prompt: mode === 'new' ? mapPromptSdxl(src, ms.tr || {}) : (selMeta?.sdxlPrompt || mapPromptSdxl(src, ms.tr || {})), negative: SDXL_MAP_NEGATIVE, cfg: 5, steps: 30, lora: (m.loraStrength ?? 80) / 100 });
         // SDXL works best near its training sizes: about 1 megapixel
-        if (m.refineZ !== false) { params.refine = (m.refineStrength ?? 50) / 100; params.refinePrompt = basePrompt; }
+        const zMode = m.zMode || (hasControl ? 'control' : m.refineZ === false ? 'none' : 'refine');
+        if (zMode === 'control' && hasControl) { params.control = (m.controlStrength ?? 85) / 100; params.refinePrompt = basePrompt; }
+        else if (zMode === 'refine') { params.refine = (m.refineStrength ?? 50) / 100; params.refinePrompt = basePrompt; }
         if (mode !== 'new') {
           params.initImage = await resized(selImg, gen.width, gen.height);
           params.denoise = mode === 'edit' ? Math.max(0.3, Math.min(0.9, (m.strength ?? 55) / 100)) : 0.7;
@@ -385,16 +394,27 @@ export default function Mapmaker({ globalSettings, saveSettings }) {
                 <label className="checkline small"><input type="checkbox" checked={m.strictTop !== false} onChange={e => set('strictTop', e.target.checked)} /><span>{t.mmStrictTop}<br /><span className="muted">{t.mmStrictTopHint}</span></span></label>
               </div>
             )}
-            {useSdxl && (
+            {useSdxl && (() => {
+              const zMode = m.zMode || (hasControl ? 'control' : m.refineZ === false ? 'none' : 'refine');
+              return (
               <div className="col" style={{ gap: 6 }}>
                 <span className="bold small">{t.mmSdxl}</span>
                 <div className="row small" style={{ gap: 8 }}><span className="muted" style={{ minWidth: 110 }}>{t.mmLora}</span><input type="range" min={40} max={100} value={m.loraStrength ?? 80} onChange={e => set('loraStrength', Number(e.target.value))} /><span className="muted">{m.loraStrength ?? 80} %</span></div>
-                <label className="checkline small"><input type="checkbox" checked={m.refineZ !== false} onChange={e => set('refineZ', e.target.checked)} /><span>{t.mmRefineZ}<br /><span className="muted">{t.mmRefineZHint}</span></span></label>
-                {m.refineZ !== false && <div className="row small" style={{ gap: 8 }}><span className="muted" style={{ minWidth: 110 }}>{t.mmRefineStrength}</span><input type="range" min={15} max={80} value={m.refineStrength ?? 50} onChange={e => set('refineStrength', Number(e.target.value))} /><span className="muted">{m.refineStrength ?? 50} %</span></div>}
+                <span className="bold small">{t.mmZMode}</span>
+                <div className="seg" style={{ flexWrap: 'wrap' }}>
+                  <button className={zMode === 'control' ? 'on' : ''} onClick={() => set('zMode', 'control')}>{t.mmZControl}</button>
+                  <button className={zMode === 'refine' ? 'on' : ''} onClick={() => set('zMode', 'refine')}>{t.mmRefineZ}</button>
+                  <button className={zMode === 'none' ? 'on' : ''} onClick={() => set('zMode', 'none')}>{t.mmZNone}</button>
+                </div>
+                <span className="muted small">{zMode === 'control' ? t.mmZControlHint : zMode === 'refine' ? t.mmRefineZHint : t.mmZNoneHint}</span>
+                {zMode === 'control' && !hasControl && <button className="btn sm primary" disabled={!!inst || !!busy} onClick={() => installModel('zimage-control')}>{inst ? t.aiDownloading + ' ' + inst : t.mmZControlLoad}</button>}
+                {zMode === 'control' && hasControl && <div className="row small" style={{ gap: 8 }}><span className="muted" style={{ minWidth: 110 }}>{t.mmControlStrength}</span><input type="range" min={40} max={100} value={m.controlStrength ?? 85} onChange={e => set('controlStrength', Number(e.target.value))} /><span className="muted">{m.controlStrength ?? 85} %</span></div>}
+                {zMode === 'refine' && <div className="row small" style={{ gap: 8 }}><span className="muted" style={{ minWidth: 110 }}>{t.mmRefineStrength}</span><input type="range" min={15} max={80} value={m.refineStrength ?? 50} onChange={e => set('refineStrength', Number(e.target.value))} /><span className="muted">{m.refineStrength ?? 50} %</span></div>}
               </div>
-            )}
+              );
+            })()}
             <button className="btn sm ghost" onClick={() => setShowPrompt(!showPrompt)}>{t.pPrompt} {showPrompt ? '▾' : '▸'}</button>
-            {showPrompt && <BigText rows={7} readOnly value={useSdxl ? mapPromptSdxl(m, ms.tr || {}) + (m.refineZ !== false ? '\n\n— Z-Image —\n' + prompt : '') : prompt} title={t.pPrompt} style={{ fontSize: 12 }} />}
+            {showPrompt && <BigText rows={7} readOnly value={useSdxl ? mapPromptSdxl(m, ms.tr || {}) + ((m.zMode || (hasControl ? 'control' : m.refineZ === false ? 'none' : 'refine')) !== 'none' ? '\n\n— Z-Image —\n' + prompt : '') : prompt} title={t.pPrompt} style={{ fontSize: 12 }} />}
           </section>
 
           <section className="col" style={{ flex: '999 1 460px', minWidth: 0 }}>

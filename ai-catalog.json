@@ -138,6 +138,25 @@
       ]
     },
     {
+      "id": "zimage-control",
+      "name": "Z-Image ControlNet (Union)",
+      "version": "1",
+      "recommended": false,
+      "minVramGB": 12,
+      "kind": "map",
+      "note": {
+        "de": "Lässt Z-Image eine Vorlage nachzeichnen: Der Mapmaker nimmt die Linien der geraden Battlemap-Vorlage und Z-Image malt sie komplett in seinem Stil neu.",
+        "en": "Lets Z-Image follow the outlines of a template: the map maker takes the lines of the straight battle map and Z-Image repaints it fully in its own style."
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union/resolve/main/Z-Image-Turbo-Fun-Controlnet-Union.safetensors",
+          "dest": "models/model_patches/Z-Image-Turbo-Fun-Controlnet-Union.safetensors",
+          "size": 3100000000
+        }
+      ]
+    },
+    {
       "id": "upscale",
       "name": "Real-ESRGAN x4",
       "version": "1",
