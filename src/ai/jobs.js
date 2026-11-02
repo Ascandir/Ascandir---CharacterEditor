@@ -14,7 +14,7 @@ export function setJob(kind, v) {
 }
 export function finishJob(kind, ok, msg) {
   // the result stays visible in the top bar until it is clicked or dismissed (a cancelled job just disappears)
-  state = { ...state, [kind]: null, done: msg === 'CANCELLED' ? state.done : { kind, ok, msg, at: Date.now(), seconds: state[kind]?.seconds } };
+  state = { ...state, [kind]: null, done: msg === 'CANCELLED' ? state.done : { kind, ok, msg, at: Date.now(), seconds: state[kind]?.seconds, target: state[kind]?.target } };
   emit();
 }
 export function dismissDone() { state = { ...state, done: null }; emit(); }

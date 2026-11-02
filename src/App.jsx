@@ -9,6 +9,7 @@ import LevelUp from './views/LevelUp.jsx';
 import Sources from './views/Sources.jsx';
 import Settings from './views/Settings.jsx';
 import Designer from './views/Designer.jsx';
+import Mapmaker from './views/Mapmaker.jsx';
 import CharList from './views/CharList.jsx';
 import { primaryGpu, AMD_DRIVER_URL } from './hardware.js';
 import { useUpdater, UpdateDialog } from './components/Update.jsx';
@@ -197,7 +198,7 @@ export default function App() {
   );
 
   const ctx = { db, settings: charSettings, globalSettings: settings, saveSettings, ch, d, update, setView, showToast, createChar, openChar };
-  const tabs = [['sheet', t.tabSheet], ['designer', t.tabDesigner], ['sources', t.tabSources], ['settings', t.tabSettings]];
+  const tabs = [['sheet', t.tabSheet], ['designer', t.tabDesigner], ['maps', t.tabMaps], ['sources', t.tabSources], ['settings', t.tabSettings]];
   return (
     <LangCtx.Provider value={{ lang, t }}>
       <DbCtx.Provider value={db}>
@@ -210,8 +211,8 @@ export default function App() {
           {[['paint', t.jobPaint, 'painter'], ['model3d', t.jobModel3d, 'trellis']].map(([k, label, mode]) => jobs[k] && (
             <span key={k} className="jobchip" role="status">
               <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-              <button className="linklike" onClick={() => { setView('designer'); if (ch && ch.id === jobs[k].charId) update(c => { c.designerMode = mode; return c; }); }}>
-                {jobs[k].cancelling ? t.pCancelling : label} · {fmtTime(jobs[k].seconds)}
+              <button className="linklike" onClick={() => { if (jobs[k].target === 'map') { setView('maps'); return; } setView('designer'); if (ch && ch.id === jobs[k].charId) update(c => { c.designerMode = mode; return c; }); }}>
+                {jobs[k].cancelling ? t.pCancelling : jobs[k].target === 'map' ? t.mmJob : label} · {fmtTime(jobs[k].seconds)}
               </button>
               {k === 'paint' && <span className={'jobbar' + (jobPct(jobs[k]) == null ? ' indet' : '')} title={jobPct(jobs[k]) == null ? t.progLoading : jobPct(jobs[k]) + ' %'}><i style={{ width: (jobPct(jobs[k]) ?? 30) + '%' }} /></span>}
               {k === 'paint' && jobPct(jobs[k]) != null && <span style={{ minWidth: 30 }}>{jobPct(jobs[k])} %</span>}
@@ -220,8 +221,8 @@ export default function App() {
           ))}
           {jobs.done && !jobs.paint && !jobs.model3d && (
             <span className={'jobchip ' + (jobs.done.ok ? 'ok' : 'bad')} role="status">
-              <button className="linklike" onClick={() => { setView('designer'); if (ch) update(c => { c.designerMode = jobs.done.kind === 'paint' ? 'painter' : 'trellis'; return c; }); dismissDone(); }}>
-                {jobs.done.ok ? '✓ ' + (jobs.done.kind === 'paint' ? t.jobPaintDone : t.jobModelDone) : '✕ ' + t.jobFailed}{jobs.done.ok && jobs.done.seconds ? ' · ' + fmtTime(jobs.done.seconds) : ''}
+              <button className="linklike" onClick={() => { if (jobs.done.target === 'map') setView('maps'); else { setView('designer'); if (ch) update(c => { c.designerMode = jobs.done.kind === 'paint' ? 'painter' : 'trellis'; return c; }); } dismissDone(); }}>
+                {jobs.done.ok ? '✓ ' + (jobs.done.target === 'map' ? t.mmJobDone : jobs.done.kind === 'paint' ? t.jobPaintDone : t.jobModelDone) : '✕ ' + t.jobFailed}{jobs.done.ok && jobs.done.seconds ? ' · ' + fmtTime(jobs.done.seconds) : ''}
               </button>
               <button className="jobx" aria-label={t.close} title={t.close} onClick={dismissDone}>✕</button>
             </span>
@@ -260,6 +261,7 @@ export default function App() {
           {!offline && view === 'wizard' && <Wizard {...ctx} />}
           {!offline && view === 'levelup' && <LevelUp {...ctx} />}
           {view === 'designer' && <Designer {...ctx} />}
+          {view === 'maps' && <Mapmaker {...ctx} />}
           {!offline && view === 'sources' && <Sources {...ctx} addHomebrew={addHomebrew} addHomebrewMany={addHomebrewMany} addOwnHomebrew={addOwnHomebrew} reload={() => loadAll(true)} hbLoaded={hb} />}
           {view === 'settings' && <Settings {...ctx} />}
         </main>

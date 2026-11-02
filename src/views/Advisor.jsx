@@ -63,7 +63,7 @@ export function extractBlocks(text) {
   return out;
 }
 
-export default function Advisor({ ch, d, update, globalSettings, saveSettings }) {
+export default function Advisor({ ch, d, update, globalSettings, saveSettings, adapter }) {
   const { t, lang } = useT();
   const cfg = { url: DEFAULT_URL, key: '', reasoning: 'low', autoStart: true, preset: '', idle: 10, stopBeforePaint: true, cmd: '', ...(globalSettings?.llm || {}) };
   const setCfg = (k, v) => saveSettings({ ...globalSettings, llm: { ...cfg, [k]: v } });
@@ -88,7 +88,7 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
     catch (e) { const m = String(e.message || e); if (/CANCELLED/.test(m)) { setSProg(null); return; } setErr(/STRATA_NOT_FOUND/.test(m) ? t.advStrataMissing : /STRATA_NO_PRESET/.test(m) ? t.advStrataNoPreset : m); }
     setSProg(null);
   };
-  const msgs = ch.advisor?.messages || [];
+  const msgs = adapter ? adapter.messages : (ch.advisor?.messages || []);
   const [input, setInput] = useState('');
   const [conn, setConn] = useState(null); // null | {ok, model, err}
   const [busy, setBusy] = useState(false);
@@ -97,15 +97,15 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
   const [withSheet, setWithSheet] = useState(true);
   const [withImage, setWithImage] = useState(false);
   const [showCfg, setShowCfg] = useState(false);
-  const curModel = ['qwen', 'qwenturbo'].includes(ch.painter?.model) ? ch.painter.model : 'zimage';
+  const curModel = adapter ? adapter.model : ['qwen', 'qwenturbo'].includes(ch.painter?.model) ? ch.painter.model : 'zimage';
   const savedStyles = globalSettings?.customStyles || [];
-  const advStyle = ch.advisor?.style ?? 'painter';
-  const pp = { ...DEFAULT_PAINTER, ...(ch.painter || {}) };
+  const advStyle = ch?.advisor?.style ?? 'painter';
+  const pp = { ...DEFAULT_PAINTER, ...(ch?.painter || {}) };
   const painterStyleText = styleOf(pp).text;
   const styleText = advStyle === 'free' ? '' : advStyle === 'painter' ? painterStyleText
     : advStyle.startsWith('saved:') ? (savedStyles.find(x => 'saved:' + x.id === advStyle)?.text || '') : ((STYLES.find(x => x[0] === advStyle) || [])[2] || '');
-  const advMode = ch.advisor?.mode || 'sliders';
-  const setAdv = (k, v) => update(c => { c.advisor = { ...(c.advisor || {}), [k]: v }; return c; });
+  const advMode = adapter ? adapter.mode : (ch.advisor?.mode || 'sliders');
+  const setAdv = (k, v) => (adapter ? adapter.set(k, v) : update(c => { c.advisor = { ...(c.advisor || {}), [k]: v }; return c; }));
   const listRef = useRef(null);
   // the advisor fills exactly the free height of the window (chat in between scrolls, input stays visible)
   const boxRef = useRef(null);
@@ -132,17 +132,17 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
   useEffect(() => api.llm.on('llm:chunk', c => { if (c.id === reqId.current) setLive(l => ({ ...(l || {}), ...(c.text != null ? { text: c.text } : {}), ...(c.think != null ? { think: c.think } : {}) })); }), []);
   useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight }); }, [msgs.length, live?.text]);
 
-  const setMsgs = (fn) => update(c => { c.advisor = { ...(c.advisor || {}), messages: fn(c.advisor?.messages || []) }; return c; });
+  const setMsgs = (fn) => (adapter ? adapter.setMsgs(fn) : update(c => { c.advisor = { ...(c.advisor || {}), messages: fn(c.advisor?.messages || []) }; return c; }));
 
   const send = async () => {
     const text = input.trim(); if (!text || busy) return;
     setErr(null); setInput('');
     const userMsg = { role: 'user', content: text };
     let image = null;
-    if (withImage && ch.selectedPainting) { try { image = await api.loadImage(ch.id, ch.selectedPainting); } catch { /* none */ } }
+    if (withImage) { try { image = adapter ? await adapter.getImage() : ch.selectedPainting ? await api.loadImage(ch.id, ch.selectedPainting) : null; } catch { /* none */ } }
     const history = [...msgs, userMsg];
     setMsgs(() => history);
-    const system = systemPrompt(lang, curModel, styleText, !!ch.painter?.removeBg, advMode, BODY_PARTS.map(b => b[0])) + (withSheet ? '\n\nCharacter sheet:\n' + sheetFacts(ch, d) : '');
+    const system = adapter ? adapter.system(lang, advMode, MODEL_INFO[curModel] || MODEL_INFO.zimage) : systemPrompt(lang, curModel, styleText, !!ch.painter?.removeBg, advMode, BODY_PARTS.map(b => b[0])) + (withSheet ? '\n\nCharacter sheet:\n' + sheetFacts(ch, d) : '');
     const apiMsgs = [{ role: 'system', content: system }, ...history.map((m, i) => (i === history.length - 1 && image
       ? { role: m.role, content: [{ type: 'text', text: m.content }, { type: 'image_url', image_url: { url: image } }] }
       : { role: m.role, content: m.content }))];
@@ -161,7 +161,7 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
     setBusy(false); setLive(null); setSProg(null);
   };
 
-  const applySettings = (st) => update(c => {
+  const applySettings = (st) => (adapter ? adapter.applySettings(st) : update(c => {
     const cur = { ...DEFAULT_PAINTER, ...(c.painter || {}) };
     const num = (v, lo, hi) => (typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : undefined);
     const nx = { ...cur, promptMode: 'sliders', promptOverride: null };
@@ -174,11 +174,11 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
       nx.body = body;
     }
     c.painter = nx; c.designerMode = 'painter'; return c;
-  });
-  const takeOver = (block) => update(c => {
+  }));
+  const takeOver = (block) => (adapter ? adapter.takeOver(block) : update(c => {
     c.painter = { ...DEFAULT_PAINTER, ...(c.painter || {}), promptMode: 'free', freePrompt: block.prompt, ...(block.negative ? { customNegative: block.negative } : {}) };
     c.designerMode = 'painter'; return c;
-  });
+  }));
 
   const renderMsg = (m, i) => {
     const blocks = m.role === 'assistant' ? extractBlocks(m.content) : {};
@@ -254,7 +254,7 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
         </div>}
         {conn && !conn.ok && !sProg && <div className="banner info" style={{ margin: 0 }}><span className="small grow">{canAuto ? t.advAutoNote(cfg.preset) : t.advNoServer}</span>{canAuto && <button className="btn sm primary" onClick={startStrata}>{t.advStrataStart}</button>}<button className="btn sm" onClick={check}>{t.t3Recheck}</button></div>}
         <div ref={listRef} className="col chatlist" style={{ gap: 10, overflowY: 'auto', flex: '1 1 0', minHeight: 180 }}>
-          {msgs.length === 0 && !live && <div className="muted" style={{ margin: 'auto', maxWidth: 520, textAlign: 'center' }}>{t.advEmpty}</div>}
+          {msgs.length === 0 && !live && <div className="muted" style={{ margin: 'auto', maxWidth: 520, textAlign: 'center' }}>{adapter?.empty || t.advEmpty}</div>}
           {msgs.map(renderMsg)}
           {live && (
             <div className="chatmsg assistant">
@@ -271,19 +271,19 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings })
               <option value="prompt">{t.advResultPrompt}</option>
             </select></label>
           <span className="muted">{t.advModel}: <b>{MODEL_INFO[curModel].name}</b></span>
-          <label className="row" style={{ gap: 6 }}>{t.advStyle}
+          {!adapter && <label className="row" style={{ gap: 6 }}>{t.advStyle}
             <select value={advStyle} onChange={e => setAdv('style', e.target.value)} aria-label={t.advStyle}>
               <option value="painter">{t.advStylePainter}</option>
               <option value="free">{t.advStyleFree}</option>
               {STYLES.filter(x => x[0] !== 'custom').map(([k, l]) => <option key={k} value={k}>{l[lang]}</option>)}
               {savedStyles.map(x => <option key={x.id} value={'saved:' + x.id}>★ {x.name}</option>)}
-            </select></label>
+            </select></label>}
         </div>
-        <BigText rows={3} value={input} placeholder={t.advPlaceholder} aria-label={t.advPlaceholder} style={{ resize: 'vertical', minHeight: 70 }}
+        <BigText rows={3} value={input} placeholder={adapter?.placeholder || t.advPlaceholder} aria-label={adapter?.placeholder || t.advPlaceholder} style={{ resize: 'vertical', minHeight: 70 }}
           onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }} />
         <div className="row small" style={{ gap: 10 }}>
-          <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={withSheet} onChange={e => setWithSheet(e.target.checked)} />{t.advWithSheet}</label>
-          <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={withImage} disabled={!ch.selectedPainting} onChange={e => setWithImage(e.target.checked)} />{t.advWithImage}</label>
+          {!adapter && <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={withSheet} onChange={e => setWithSheet(e.target.checked)} />{t.advWithSheet}</label>}
+          <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={withImage} disabled={adapter ? !adapter.hasImage : !ch.selectedPainting} onChange={e => setWithImage(e.target.checked)} />{t.advWithImage}</label>
           <span className="grow" />
           {busy ? <button className="btn" onClick={() => api.llm.stop()}>{t.advStop}</button>
             : <button className="btn primary" disabled={!input.trim() || (conn && !conn.ok && !canAuto)} onClick={send}>{t.advSend}</button>}

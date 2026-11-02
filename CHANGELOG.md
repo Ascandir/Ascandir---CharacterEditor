@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.0
+- **Neu: Mapmaker** (oben neben „Designer“). Damit malst du mit denselben Bildmodellen (Z-Image, Qwen Image 2.1 / Turbo) **Battlemaps für Foundry VTT**. Er funktioniert unabhängig vom gerade geöffneten Charakter
+- **Kamera**: Draufsicht (passt genau aufs Foundry-Raster), leicht schräg, isometrisch, 3D-Render von oben
+- **Biom / Gegend** (21, z. B. Wald, Sumpf, Wüste, Gebirge, Küste, Höhle, Unterreich, Dungeon, Stadt, Feenwild, Schattenreich) und **Ort** (z. B. Lichtung, Straße, Lager, Brücke, Ruinen, Marktplatz, Taverne außen/innen, Haus innen, Tempel, Burg, Dungeon-Raum, Gruft, Mine, Schiffsdeck, Hafen, Arena, Monsterhort)
+- **Licht**: neutral (am besten für Foundrys eigene Beleuchtung), voll beleuchtet, Dämmerung, Nacht, Fackelschein, dunkel. Dazu **Wetter** und **Jahreszeit**
+- **Assets zum Anhaken** mit **Mengenregler** (von einzeln bis sehr viele), in 5 Gruppen: Natur, Wasser, Wege, Bauten, Kleinkram. Zum Beispiel Bäume, Felsen, Fluss, Lava, Straße, Ruinen, Zelte, Lagerfeuer, Taverne, Häuser, Turm, Mauern, Brücke, Brunnen, Schrein, Statuen, Gräber, Marktstände, Höhleneingang, Kisten & Fässer, Karren, Knochen, Schatz, Fallen. Dazu ein **Füllgrad**-Regler von offen bis vollgestopft
+- **Kartenstile** (handgemalt, klar & sauber, realistisch, Tusche/Pergament, Aquarell, düster, eigener Stil) und ein Feld für **Zusätze und Aufbau** (Deutsch wird übersetzt)
+- **Größe in Feldern** (z. B. 30×20) und Pixel pro Feld (Foundry-Standard 100). Gemalt wird in etwa 1 Megapixel und danach so hochskaliert, dass das Raster exakt passt
+- **Ändern der ausgewählten Karte** per Text, dazu Schnellknöpfe: Nachtversion, Winter, Herbst, Regen, Nach der Schlacht, Nebel. Außerdem **Varianten** mit gleichem Ort und Stil, aber anderem Aufbau. Am besten klappt das mit Qwen
+- **KI-Berater** für Karten: Er fragt nach Ort, Szene und Aufbau, denkt an Deckung und Engstellen und stellt dann die Regler ein oder schreibt einen eigenen Prompt
+- **Export für Foundry**: Bild (WebP) plus Szenendatei (.scene.json) mit Bildpfad, Größe, Feldgröße und Dunkelheit. Import über Rechtsklick auf eine Szene → „Import Data“. Optional wird das Raster ins Bild gezeichnet. Auch als einfaches WebP/PNG exportierbar
+- KI-Berater: Mit „Enter“ senden gilt auch hier
+
 ## 0.8.15
 - Magier (2024): Das **Zauberbuch** wächst jetzt richtig. Es startet mit 6 Zaubern und bekommt pro Stufe 2 dazu. Bisher wurde fälschlich die Zahl der vorbereiteten Zauber benutzt (4, dann +1). Die Zahl der vorbereiteten Zauber steht weiterhin im Charakterbogen
 - Unterklassen (2024): Die einzelnen Merkmale einer Stufe werden jetzt als **eigene Merkmale** geführt, also z. B. Evocation Savant und Potent Cantrip beim Evoker statt nur „Evoker“. Das gilt für alle Klassen
