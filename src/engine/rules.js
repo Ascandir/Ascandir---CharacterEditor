@@ -284,9 +284,10 @@ export function derive(db, settings, ch) {
     }
     // feats
     for (const [i, f] of (race.feats || []).entries()) {
-      if (f.any) {
-        const v = add({ id: 'race:feat:' + i, group: 'race', label: 'Feat', kind: 'feat', count: f.any, required: true,
-          options: featOptions(db, allowed, settings, rules2014 ? null : ['O']) });
+      if (f.any || f.anyFromCategory) {
+        const fc = f.anyFromCategory;
+        const v = add({ id: 'race:feat:' + i, group: 'race', label: fc ? featCategoryLabel(fc.category) : 'Feat', kind: 'feat', count: fc ? (fc.count || 1) : f.any, required: true,
+          options: featOptions(db, allowed, settings, fc ? [].concat(fc.category) : rules2014 ? null : ['O']) });
         (v || []).forEach(u => { const ft = db.byUid.feat.get(u); if (ft) feats.push({ feat: ft, ctx: 'race:feat:' + i + ':' + u, origin: 'race' }); });
       } else for (const ref of Object.keys(f)) { const ft = featByRef(db, ref); if (ft) feats.push({ feat: ft, ctx: 'race:' + ref, origin: 'race', variant: featVariant(ref) }); }
     }
@@ -326,9 +327,11 @@ export function derive(db, settings, ch) {
     langChoices(bg.languageProficiencies, 'background', add, notes);
     toolChoices(bg.toolProficiencies, 'background', add, notes);
     for (const [i, f] of (bg.feats || []).entries()) {
-      if (f.any) {
-        const v = add({ id: 'bg:feat:' + i, group: 'background', label: 'Feat', kind: 'feat', count: f.any, required: true,
-          options: featOptions(db, allowed, settings, ['O']) });
+      if (f.any || f.anyFromCategory) {
+        // e.g. Ravenloft backgrounds: "a Dark Gift feat of your choice" = {anyFromCategory: {category: ['DG']}}
+        const fc = f.anyFromCategory;
+        const v = add({ id: 'bg:feat:' + i, group: 'background', label: fc ? featCategoryLabel(fc.category) : 'Feat', kind: 'feat', count: fc ? (fc.count || 1) : f.any, required: true,
+          options: featOptions(db, allowed, settings, fc ? [].concat(fc.category) : ['O']) });
         (v || []).forEach(u => { const ft = db.byUid.feat.get(u); if (ft) feats.push({ feat: ft, ctx: 'bg:feat:' + i + ':' + u, origin: 'background' }); });
       } else for (const ref of Object.keys(f)) { const ft = featByRef(db, ref); if (ft) feats.push({ feat: ft, ctx: 'bg:' + ref, origin: 'background', variant: featVariant(ref) }); }
     }
@@ -775,6 +778,9 @@ function pactNames(db, C) {
   }
   return s;
 }
+
+const FEAT_CATS = { O: 'Origin Feat', G: 'General Feat', FS: 'Fighting Style', 'FS:P': 'Fighting Style', 'FS:R': 'Fighting Style', EB: 'Epic Boon', DG: 'Dark Gift', D: 'Dragonmark' };
+function featCategoryLabel(cats) { return [].concat(cats || []).map(c => FEAT_CATS[c] || c).join(' / ') || 'Feat'; }
 
 function featOptions(db, allowed, settings, categories) {
   const catOk = (f) => {

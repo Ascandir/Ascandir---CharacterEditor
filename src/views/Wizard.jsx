@@ -275,7 +275,7 @@ function BgStep(props) {
 }
 
 function Detail({ title, src, facts, entries }) {
-  const [more, setMore] = useState(false);
+  // always fully shown; the header (title / ▾) collapses it
   const [open, setOpen] = useState(true);
   const { t } = useT();
   return (
@@ -286,8 +286,7 @@ function Detail({ title, src, facts, entries }) {
       {open && facts?.length > 0 && <div className="row" style={{ marginTop: 10, gap: 6 }}>{facts.map((f, i) => <span key={i} className="chip">{stripTags(f)}</span>)}</div>}
       {open && entries && (
         <div style={{ marginTop: 12 }}>
-          <div className={more ? '' : 'fadeclip'}><Entries entries={entries} /></div>
-          <button className="btn sm" style={{ marginTop: 10 }} onClick={() => setMore(!more)}>{more ? t.hideInfo : t.moreInfo}</button>
+          <Entries entries={entries} />
         </div>
       )}
     </div>

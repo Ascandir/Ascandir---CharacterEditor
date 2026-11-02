@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.1
+- Hintergründe und Völker, die ein **Talent aus einer bestimmten Kategorie** geben, fragen das jetzt ab. Beispiel: Ravenloft-Hintergründe wie Mist Wanderer („a Dark Gift feat of your choice“) zeigen die Pflichtauswahl „Dark Gift“ mit den 9 Dark Gifts. Bisher wurde das stillschweigend übersprungen. Das gilt genauso für andere Kategorien, z. B. Dragonmark oder Fighting Style
+- Die Beschreibung von Volk und Hintergrund in der Charaktererstellung ist jetzt **immer vollständig sichtbar**. Der Knopf „Details / Weniger“ ist weg. Zuklappen geht über die Titelzeile (▾)
+
 ## 0.10.0
 - **Mapmaker entfernt.** Die Bildmodelle schaffen keine Battlemaps, die zugleich exakt von oben und gut gemalt sind. Der Reiter ist wieder weg
 - Die nur dafür geladenen Modelle werden beim Start automatisch gelöscht: Stable Diffusion XL, Battlemap-LoRA und Z-Image-ControlNet, zusammen etwa 10 GB. Z-Image, Qwen, BiRefNet und der Hochskalierer bleiben

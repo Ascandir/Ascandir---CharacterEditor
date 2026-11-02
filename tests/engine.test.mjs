@@ -224,3 +224,13 @@ test('2024 wizard: spellbook 6+2+2, evoker savant, subclass features listed', ()
   assert.deepEqual(d.spellcasting.slots, [4, 2]);
   assert.equal(d.spellcasting.bonus.length, 0, 'no background spells for a soldier');
 });
+
+test('background feat from a category (Mist Wanderer → Dark Gift)', () => {
+  const ch = { base: {}, raceUid: 'human|xphb', backgroundUid: 'mist wanderer|rhw', levels: [{ classUid: 'fighter|xphb' }], choices: {}, extras: [], inventory: [] };
+  const d = R.derive(db, S24, ch);
+  const c = d.choices.find(x => x.id.startsWith('bg:feat:'));
+  assert.ok(c, 'dark gift choice');
+  assert.equal(c.label, 'Dark Gift');
+  assert.ok(c.options.some(o => o.label === 'Mist Walker'));
+  assert.ok(c.options.every(o => o.entity.category === 'DG'));
+});
