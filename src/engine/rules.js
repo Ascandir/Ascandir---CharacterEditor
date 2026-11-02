@@ -190,6 +190,26 @@ export function derive(db, settings, ch) {
     c.value = v; choices.push(c); return v;
   };
   const skillProf = new Set(); const expertise = new Set(); const skillFixed = new Set();
+  const spellByRef = (str) => {
+    const [nm, src] = String(str).split('#')[0].split('|');
+    if (src) { const s = db.byUid.spell.get(lc(nm) + '|' + lc(src)); if (s) return s; }
+    const cands = db.spells.filter(x => lc(x.name) === lc(nm));
+    return cands.find(x => allowed(x) && x.source === (settings.rules === '2014' ? 'PHB' : 'XPHB')) || cands.find(allowed) || cands[0] || null;
+  };
+  const spellFilter = (filter) => {
+    const f = {}; for (const part of String(filter).split('|')) { const [k, v] = part.split('='); if (k && v != null) f[lc(k)] = v.split(';').map(x => lc(x.trim())); }
+    let pool = db.spells;
+    if (f.class) {
+      const set = new Map();
+      for (const cn of f.class) {
+        const cls = db.classes.filter(c => lc(c.name) === cn);
+        const best = cls.find(c => allowed(c) && c.source === (settings.rules === '2014' ? 'PHB' : 'XPHB')) || cls.find(allowed) || cls[0];
+        if (best) for (const sp of classSpellList(db, best)) set.set(uidOf(sp), sp);
+      }
+      pool = [...set.values()];
+    }
+    return pool.filter(sp => allowed(sp) && (!f.level || f.level.includes(String(sp.level))) && (!f.school || f.school.includes(lc(sp.school || ''))));
+  };
   const abilBonus = Object.fromEntries(ABILS.map(a => [a, 0]));
   const notes = { resist: new Set(), languages: new Set(), tools: new Set(), armor: new Set(), weapons: new Set() };
   const feats = []; // {feat, ctx}
@@ -395,8 +415,40 @@ export function derive(db, settings, ch) {
         const r = parseSubclassFeatureRef(ref);
         if (r.level !== n) continue;
         const f = db.subclassFeatureMap.get([r.name, r.className, r.classSource, r.subclassShortName, r.subclassSource, r.level, r.source].map(lc).join('|'));
-        const feat = { name: r.name, from: info.subclass.name + ' ' + n, kind: 'subclass', level: idx + 1, entries: f?.entries };
+        // the first entry lists the level's features as references: those become features of their own
+        const refs = (f?.entries || []).filter(e => e?.type === 'refSubclassFeature');
+        const feat = { name: r.name, from: info.subclass.name + ' ' + n, kind: 'subclass', level: idx + 1, entries: refs.length ? (f.entries || []).filter(e => e?.type !== 'refSubclassFeature') : f?.entries };
         features.push(feat); lo.newFeatures.push(feat);
+        const subFeats = [f];
+        for (const e of refs) {
+          const rr = parseSubclassFeatureRef(e.subclassFeature);
+          const ff = db.subclassFeatureMap.get([rr.name, rr.className, rr.classSource, rr.subclassShortName, rr.subclassSource, rr.level, rr.source].map(lc).join('|'));
+          if (!ff) continue;
+          subFeats.push(ff);
+          const nf = { name: ff.name, from: info.subclass.name + ' ' + n, kind: 'subclass', level: idx + 1, entries: ff.entries };
+          features.push(nf); lo.newFeatures.push(nf);
+        }
+        // "Choose two {@filter ...|spells|level=..|class=Wizard|school=V} ... add them to your spellbook" (2024 wizard schools, similar features)
+        for (const sf of subFeats) {
+          const txt = JSON.stringify(sf?.entries || []);
+          const m = /Choose (one|two|three|four|\d+) \{@filter [^|}]*\|spells\|([^}]*)\}/i.exec(txt);
+          if (!m) continue;
+          const cnt = { one: 1, two: 2, three: 3, four: 4 }[lc(m[1])] || Number(m[1]) || 1;
+          const filt = m[2].replace(/\\"/g, '');
+          const v = addL({ id: lid + ':savant:' + L.classUid, group: 'level', label: sf.name, kind: 'pick', count: cnt, required: true, spell: true, pool: 'spell:' + info.uid,
+            options: spellFilter(filt).filter(sp => sp.level > 0).map(sp => ({ value: uidOf(sp), label: sp.name, src: sp.source, entity: sp, spellLevel: sp.level })) });
+          void v;
+          if (/new level of spell slots/i.test(txt)) info.savant = { name: sf.name, filter: filt.replace(/level=[^|]*\|?/, ''), from: n };
+        }
+      }
+    }
+    // a later level that unlocks a new spell level: one more free spell of the school
+    if (info.savant && n > info.savant.from) {
+      const prog = info.subclass?.casterProgression || cls.casterProgression;
+      const mx = maxSpellLevelFor(prog, n);
+      if (mx > maxSpellLevelFor(prog, n - 1)) {
+        addL({ id: lid + ':savant:' + L.classUid, group: 'level', label: info.savant.name, kind: 'pick', count: 1, required: true, spell: true, pool: 'spell:' + info.uid,
+          options: spellFilter(info.savant.filter).filter(sp => sp.level > 0 && sp.level <= mx).map(sp => ({ value: uidOf(sp), label: sp.name, src: sp.source, entity: sp, spellLevel: sp.level })) });
       }
     }
     // feat progression (2024)
@@ -512,26 +564,6 @@ export function derive(db, settings, ch) {
   out.armorProf = [...notes.armor].filter(Boolean); out.weaponProf = [...notes.weapons].filter(Boolean);
   // ----- spells from species, background and feats (e.g. Magic Initiate, Tiefling legacy) -----
   const bonusSpells = [];
-  const spellByRef = (str) => {
-    const [nm, src] = String(str).split('#')[0].split('|');
-    if (src) { const s = db.byUid.spell.get(lc(nm) + '|' + lc(src)); if (s) return s; }
-    const cands = db.spells.filter(x => lc(x.name) === lc(nm));
-    return cands.find(x => allowed(x) && x.source === (settings.rules === '2014' ? 'PHB' : 'XPHB')) || cands.find(allowed) || cands[0] || null;
-  };
-  const spellFilter = (filter) => {
-    const f = {}; for (const part of String(filter).split('|')) { const [k, v] = part.split('='); if (k && v != null) f[lc(k)] = v.split(';').map(x => lc(x.trim())); }
-    let pool = db.spells;
-    if (f.class) {
-      const set = new Map();
-      for (const cn of f.class) {
-        const cls = db.classes.filter(c => lc(c.name) === cn);
-        const best = cls.find(c => allowed(c) && c.source === (settings.rules === '2014' ? 'PHB' : 'XPHB')) || cls.find(allowed) || cls[0];
-        if (best) for (const sp of classSpellList(db, best)) set.set(uidOf(sp), sp);
-      }
-      pool = [...set.values()];
-    }
-    return pool.filter(sp => allowed(sp) && (!f.level || f.level.includes(String(sp.level))) && (!f.school || f.school.includes(lc(sp.school || ''))));
-  };
   const applyAdditionalSpells = (sets, from, ctx, group, lvl, variant) => {
     let list = (sets || []).filter(x => x && (x.known || x.innate || x.prepared));
     if (variant) { const m = list.filter(x => lc(x.name || '').startsWith(lc(variant))); if (m.length) list = m; }
@@ -772,8 +804,10 @@ function spellChoicesForLevel(db, allowed, cls, info, n, lid, addL) {
   const maxL = maxSpellLevelFor(prog, n);
   let d = 0;
   const known = host.spellsKnownProgression || host.preparedSpellsProgression;
-  if (known) d = (known[n - 1] || 0) - (n > 1 ? known[n - 2] || 0 : 0);
-  else if (host.spellsKnownProgressionFixed) d = host.spellsKnownProgressionFixed[n - 1] || 0;
+  // a spellbook (wizard) grows by its own fixed numbers; the prepared count is shown separately
+  if (host.spellsKnownProgressionFixed) d = host.spellsKnownProgressionFixed[n - 1] || 0;
+  else if (known) d = (known[n - 1] || 0) - (n > 1 ? known[n - 2] || 0 : 0);
+  if (host.spellsKnownProgressionFixed && host.preparedSpellsProgression) info.preparedProg = host.preparedSpellsProgression;
   if (d > 0 && maxL > 0) {
     res.spells = addL({ id: lid + ':spells:' + info.uid, group: 'level', label: cls.name + ' – ' + (host.spellsKnownProgressionFixed ? 'Spellbook' : 'Spells'), kind: 'pick', count: d, required: true, spell: true, pool: 'spell:' + info.uid,
       options: list.filter(s => s.level > 0 && s.level <= maxL).map(s => ({ value: uidOf(s), label: s.name, src: s.source, entity: s, spellLevel: s.level })) });
@@ -793,7 +827,7 @@ function spellSummary(db, ch, classInfo, mods, pb, C, levelOut) {
     const spells = []; const cantrips = [];
     for (const lo of levelOut) {
       if (lo.classUid !== info.uid) continue;
-      for (const id of ['lvl' + lo.index + ':cantrips:' + info.uid, 'lvl' + lo.index + ':spells:' + info.uid]) {
+      for (const id of ['lvl' + lo.index + ':cantrips:' + info.uid, 'lvl' + lo.index + ':spells:' + info.uid, 'lvl' + lo.index + ':savant:' + info.uid]) {
         for (const u of C[id] || []) { const s = db.byUid.spell.get(u); if (s) (s.level === 0 ? cantrips : spells).push(s); }
       }
     }
@@ -808,8 +842,8 @@ function spellSummary(db, ch, classInfo, mods, pb, C, levelOut) {
         }
       }
     }
-    let prepared = null;
-    if (info.preparedFormula && ab) {
+    let prepared = info.preparedProg ? info.preparedProg[Math.min(20, info.level) - 1] || null : null;
+    if (!prepared && info.preparedFormula && ab) {
       const f = info.preparedFormula.replace(/<\$level\$>/g, info.level).replace(/<\$(\w+)_mod\$>/g, (_m, a) => mods[a] ?? 0);
       try { prepared = Math.max(1, Math.floor(Function('return (' + f.replace(/[^0-9+\-*/(). ]/g, '') + ')')())); } catch { prepared = null; }
     }

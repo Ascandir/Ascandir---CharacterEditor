@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.15
+- Magier (2024): Das **Zauberbuch** wächst jetzt richtig. Es startet mit 6 Zaubern und bekommt pro Stufe 2 dazu. Bisher wurde fälschlich die Zahl der vorbereiteten Zauber benutzt (4, dann +1). Die Zahl der vorbereiteten Zauber steht weiterhin im Charakterbogen
+- Unterklassen (2024): Die einzelnen Merkmale einer Stufe werden jetzt als **eigene Merkmale** geführt, also z. B. Evocation Savant und Potent Cantrip beim Evoker statt nur „Evoker“. Das gilt für alle Klassen
+- Magier-Schulen 2024 (Abjurer, Diviner, Evoker, Illusionist): Die **Savant-Zauber** werden abgefragt. Auf Stufe 3 sind es 2 Zauber der Schule bis Grad 2, danach 1 weiterer, sobald es einen neuen Zaubergrad gibt (Stufe 5, 7, 9 …). Sie kommen ins Zauberbuch
+- Zauber aus Hintergrund-Talenten gibt es nur, wenn der Hintergrund das Talent auch vergibt, und nur die Zauber, die du dort auswählst. Ein Soldat bekommt also z. B. keine
+
 ## 0.8.14
 - Charaktererstellung: **Zauber aus Volk, Hintergrund und Talenten** werden jetzt berücksichtigt. Bisher wurden sie komplett ignoriert. Beispiele:
   - Der Hintergrund Weiser (Sage) gibt das Talent Magic Initiate (Wizard). Dieses Talent wurde bisher gar nicht erkannt. Jetzt wählst du dort 2 Zaubertricks und einen Zauber des 1. Grades aus der Magierliste

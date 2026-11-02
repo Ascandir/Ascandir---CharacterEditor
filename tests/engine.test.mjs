@@ -208,3 +208,19 @@ test('spells from background feat (Magic Initiate) are known and not offered aga
   if (ver) { const t2 = R.derive(db, S24, { ...ch, raceUid: 'tiefling|xphb', choices: { 'race:version': [ver.options[0].value] } }); assert.ok(t2.spellcasting.bonus.length > 0, 'tiefling spells'); }
   else assert.ok(t.choices.some(c => c.id === 'race:spellset'));
 });
+
+test('2024 wizard: spellbook 6+2+2, evoker savant, subclass features listed', () => {
+  const ch = { base: { int: 16 }, raceUid: 'human|xphb', backgroundUid: 'soldier|xphb', levels: [1, 2, 3].map(() => ({ classUid: 'wizard|xphb' })), choices: { 'sub:wizard|xphb': ['evoker|wizard|xphb|xphb'] }, extras: [], inventory: [] };
+  let d = R.derive(db, S24, ch);
+  const sub = d.choices.find(c => c.id === 'sub:wizard|xphb');
+  ch.choices[sub.id] = [sub.options.find(o => o.label === 'Evoker').value];
+  d = R.derive(db, S24, ch);
+  const counts = d.choices.filter(c => /:spells:/.test(c.id)).map(c => c.count);
+  assert.deepEqual(counts, [6, 2, 2]);
+  const sav = d.choices.find(c => /:savant:/.test(c.id));
+  assert.equal(sav.count, 2);
+  assert.ok(sav.options.every(o => o.entity.school === 'V' && o.spellLevel <= 2));
+  assert.ok(d.features.some(f => f.name === 'Potent Cantrip'));
+  assert.deepEqual(d.spellcasting.slots, [4, 2]);
+  assert.equal(d.spellcasting.bonus.length, 0, 'no background spells for a soldier');
+});
