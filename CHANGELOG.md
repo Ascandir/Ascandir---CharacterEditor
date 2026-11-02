@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.13
+- KI-Berater: **Enter sendet** die Nachricht. Eine neue Zeile gibt es mit Umschalt+Enter
+
 ## 0.8.12
 - KI-Berater: Das Fenster passt sich jetzt genau an die Fenstergröße an. Der Chatverlauf füllt den freien Platz und scrollt, Eingabefeld und „Senden“ bleiben immer sichtbar, auch beim Ändern der Fenstergröße oder mit geöffneter „Verbindung“
 
