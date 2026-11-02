@@ -78,7 +78,9 @@ const itemName = (db, ref) => {
   const it = db.byUid.item.get(lc(n) + '|' + lc(src || 'phb'));
   return it ? it.name : n.replace(/\b\w/g, c => c.toUpperCase());
 };
-const featByRef = (db, ref) => { const [n, s] = ref.split('|'); return db.byUid.feat.get(lc(n) + '|' + lc(s || 'phb')); };
+// "magic initiate; wizard|xphb" = the feat Magic Initiate with its Wizard variant
+const featByRef = (db, ref) => { const [n, s] = ref.split('|'); return db.byUid.feat.get(lc(n.split(';')[0].trim()) + '|' + lc(s || 'phb')); };
+const featVariant = (ref) => (ref.split('|')[0].split(';')[1] || '').trim();
 
 export function classSpellList(db, cls) {
   db.__spellListCache = db.__spellListCache || new Map();
@@ -266,7 +268,7 @@ export function derive(db, settings, ch) {
         const v = add({ id: 'race:feat:' + i, group: 'race', label: 'Feat', kind: 'feat', count: f.any, required: true,
           options: featOptions(db, allowed, settings, rules2014 ? null : ['O']) });
         (v || []).forEach(u => { const ft = db.byUid.feat.get(u); if (ft) feats.push({ feat: ft, ctx: 'race:feat:' + i + ':' + u, origin: 'race' }); });
-      } else for (const ref of Object.keys(f)) { const ft = featByRef(db, ref); if (ft) feats.push({ feat: ft, ctx: 'race:' + ref, origin: 'race' }); }
+      } else for (const ref of Object.keys(f)) { const ft = featByRef(db, ref); if (ft) feats.push({ feat: ft, ctx: 'race:' + ref, origin: 'race', variant: featVariant(ref) }); }
     }
     for (const e of race.entries || []) if (e && e.name) features.push({ name: e.name, from: race.name, kind: 'race', entries: e.entries });
   }
@@ -308,7 +310,7 @@ export function derive(db, settings, ch) {
         const v = add({ id: 'bg:feat:' + i, group: 'background', label: 'Feat', kind: 'feat', count: f.any, required: true,
           options: featOptions(db, allowed, settings, ['O']) });
         (v || []).forEach(u => { const ft = db.byUid.feat.get(u); if (ft) feats.push({ feat: ft, ctx: 'bg:feat:' + i + ':' + u, origin: 'background' }); });
-      } else for (const ref of Object.keys(f)) { const ft = featByRef(db, ref); if (ft) feats.push({ feat: ft, ctx: 'bg:' + ref, origin: 'background' }); }
+      } else for (const ref of Object.keys(f)) { const ft = featByRef(db, ref); if (ft) feats.push({ feat: ft, ctx: 'bg:' + ref, origin: 'background', variant: featVariant(ref) }); }
     }
     for (const e of bg.entries || []) if (e && e.name && /feature/i.test(e.name)) features.push({ name: e.name.replace(/^Feature:\s*/i, ''), from: bg.name, kind: 'background', entries: e.entries });
   }
@@ -508,8 +510,75 @@ export function derive(db, settings, ch) {
   out.darkvision = race?.darkvision || 0;
   out.resist = [...notes.resist]; out.languages = [...notes.languages]; out.tools = [...notes.tools];
   out.armorProf = [...notes.armor].filter(Boolean); out.weaponProf = [...notes.weapons].filter(Boolean);
+  // ----- spells from species, background and feats (e.g. Magic Initiate, Tiefling legacy) -----
+  const bonusSpells = [];
+  const spellByRef = (str) => {
+    const [nm, src] = String(str).split('#')[0].split('|');
+    if (src) { const s = db.byUid.spell.get(lc(nm) + '|' + lc(src)); if (s) return s; }
+    const cands = db.spells.filter(x => lc(x.name) === lc(nm));
+    return cands.find(x => allowed(x) && x.source === (settings.rules === '2014' ? 'PHB' : 'XPHB')) || cands.find(allowed) || cands[0] || null;
+  };
+  const spellFilter = (filter) => {
+    const f = {}; for (const part of String(filter).split('|')) { const [k, v] = part.split('='); if (k && v != null) f[lc(k)] = v.split(';').map(x => lc(x.trim())); }
+    let pool = db.spells;
+    if (f.class) {
+      const set = new Map();
+      for (const cn of f.class) {
+        const cls = db.classes.filter(c => lc(c.name) === cn);
+        const best = cls.find(c => allowed(c) && c.source === (settings.rules === '2014' ? 'PHB' : 'XPHB')) || cls.find(allowed) || cls[0];
+        if (best) for (const sp of classSpellList(db, best)) set.set(uidOf(sp), sp);
+      }
+      pool = [...set.values()];
+    }
+    return pool.filter(sp => allowed(sp) && (!f.level || f.level.includes(String(sp.level))) && (!f.school || f.school.includes(lc(sp.school || ''))));
+  };
+  const applyAdditionalSpells = (sets, from, ctx, group, lvl, variant) => {
+    let list = (sets || []).filter(x => x && (x.known || x.innate || x.prepared));
+    if (variant) { const m = list.filter(x => lc(x.name || '').startsWith(lc(variant))); if (m.length) list = m; }
+    if (!list.length) return;
+    let set = list[0];
+    if (list.length > 1) {
+      const v = add({ id: ctx + ':spellset', group, label: from + ' – Spells', kind: 'pick', count: 1, required: true, options: list.map((x, i) => ({ value: String(i), label: x.name || '#' + (i + 1) })) });
+      if (v?.[0] == null) return;
+      set = list[Number(v[0])] || list[0];
+    }
+    let n = 0;
+    const walk = (node, top) => {
+      if (Array.isArray(node)) {
+        for (const e of node) {
+          if (typeof e === 'string') { const sp = spellByRef(e); if (sp) bonusSpells.push({ s: sp, from }); continue; }
+          const ch2 = e?.choose; if (!ch2) continue;
+          const opts = typeof ch2 === 'string' ? spellFilter(ch2) : (ch2.from || []).map(spellByRef).filter(Boolean);
+          const cnt = e.count || ch2.count || 1;
+          const v = add({ id: ctx + ':spell:' + (n++), group, label: from + ' – ' + (opts.every(o => o.level === 0) ? 'Cantrips' : 'Spells'), kind: 'pick', count: cnt, required: true, spell: true, bonusSpell: true,
+            options: opts.map(sp => ({ value: uidOf(sp), label: sp.name, src: sp.source, entity: sp, spellLevel: sp.level })) });
+          (v || []).forEach(u => { const sp = db.byUid.spell.get(u); if (sp) bonusSpells.push({ s: sp, from }); });
+        }
+        return;
+      }
+      if (node && typeof node === 'object') for (const [k, v] of Object.entries(node)) { if (top && /^\d+$/.test(k) && Number(k) > lvl) continue; walk(v, false); }
+    };
+    for (const kind of ['known', 'innate', 'prepared']) walk(set[kind], true);
+  };
+  if (race && !raceIncomplete) applyAdditionalSpells(race.additionalSpells, race.name, 'race', 'race', totalLevel || 1);
+  if (bg) applyAdditionalSpells(bg.additionalSpells, bg.name, 'bg', 'background', totalLevel || 1);
+  for (const { feat, ctx, variant } of feats) applyAdditionalSpells(feat.additionalSpells, feat.name + (variant ? ' (' + variant.replace(/\b\w/g, m => m.toUpperCase()) + ')' : ''), 'featspell:' + ctx, 'feat', totalLevel || 1, variant);
+  // a spell you already have is not offered again in another spell choice
+  const fixedBonus = new Set(); // spells that are not the result of a choice
+  { const chosen = new Set(choices.filter(c => c.spell && Array.isArray(c.value)).flatMap(c => c.value)); for (const b of bonusSpells) { const u = uidOf(b.s); if (!chosen.has(u)) fixedBonus.add(u); } }
+  const spellChoices = choices.filter(c => c.spell);
+  for (const c of spellChoices) {
+    const own = new Set(Array.isArray(c.value) ? c.value : []);
+    const taken = new Map(); // uid -> name
+    for (const b of bonusSpells) { const u = uidOf(b.s); if (fixedBonus.has(u)) taken.set(u, b.s.name); }
+    for (const o of spellChoices) if (o !== c && Array.isArray(o.value)) for (const u of o.value) taken.set(u, db.byUid.spell.get(u)?.name || u);
+    const left = c.options.filter(o => own.has(o.value) || !taken.has(o.value));
+    const dropped = c.options.filter(o => !own.has(o.value) && taken.has(o.value)).map(o => o.label);
+    if (left.length >= (c.count || 1)) { c.options = left; if (dropped.length) c.alreadySpells = dropped; }
+  }
   // spellcasting summary
   out.spellcasting = spellSummary(db, ch, classInfo, mods, pb, C, levelOut);
+  out.spellcasting.bonus = bonusSpells;
   // hide options already chosen in another decision of the same pool
   const pools = {};
   for (const c of choices) if (c.pool && Array.isArray(c.value)) for (const v of c.value) (pools[c.pool] = pools[c.pool] || []).push([c.id, v]);

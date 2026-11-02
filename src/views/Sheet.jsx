@@ -145,7 +145,8 @@ function Tile({ lab, val }) {
 function Spells({ d, db, ch, t }) {
   const sc = d.spellcasting;
   const extraSpells = (ch.extras || []).filter(x => x.type === 'spell').map(x => ({ s: db.byUid.spell.get(x.uid), note: x.note })).filter(x => x.s);
-  if (!sc.classes.length && !extraSpells.length) return <div className="muted">—</div>;
+  const bonus = sc.bonus || [];
+  if (!sc.classes.length && !extraSpells.length && !bonus.length) return <div className="muted">—</div>;
   return (
     <>
       {(sc.slots.length > 0 || sc.pact) && (
@@ -165,6 +166,10 @@ function Spells({ d, db, ch, t }) {
           {c.always.length > 0 && <div className="muted small">{t.alwaysPrepared}: {c.always.map(x => x.replace(/\b\w/g, m => m.toUpperCase())).join(', ')}</div>}
         </div>
       ))}
+      {bonus.length > 0 && <div className="col" style={{ gap: 6 }}>
+        <b>{t.bonusSpells}</b>
+        {bonus.map(({ s, from }) => <SpellRow key={'b' + s.name + s.source + from} s={s} note={from} />)}
+      </div>}
       {extraSpells.map(({ s, note }) => <SpellRow key={'x' + s.name} s={s} free note={note} />)}
     </>
   );

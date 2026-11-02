@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.14
+- Charaktererstellung: **Zauber aus Volk, Hintergrund und Talenten** werden jetzt berücksichtigt. Bisher wurden sie komplett ignoriert. Beispiele:
+  - Der Hintergrund Weiser (Sage) gibt das Talent Magic Initiate (Wizard). Dieses Talent wurde bisher gar nicht erkannt. Jetzt wählst du dort 2 Zaubertricks und einen Zauber des 1. Grades aus der Magierliste
+  - Völker wie Tiefling, Elf (Abstammungen), Gnom oder Aasimar bekommen ihre festen Zauber automatisch, abhängig von der Charakterstufe
+- Einen Zauber, den du so schon hast (z. B. Feuerpfeil / Fire Bolt), bietet die Klassenauswahl nicht noch einmal an. Unter der Auswahl steht, welche Zauber deshalb ausgeblendet sind. Das gilt auch umgekehrt zwischen allen Zauberauswahlen
+- Im Charakterbogen stehen diese Zauber unter „Weitere Zauber (Volk, Hintergrund, Talente)“ mit ihrer Herkunft. Beim Foundry-Export werden sie mitgenommen
+
 ## 0.8.13
 - KI-Berater: **Enter sendet** die Nachricht. Eine neue Zeile gibt es mit Umschalt+Enter
 

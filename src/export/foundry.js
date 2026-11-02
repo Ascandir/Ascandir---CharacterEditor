@@ -132,6 +132,7 @@ export function buildFoundryActor(db, ch, d) {
       if (s && !seen.has(s.name + s.source)) { seen.add(s.name + s.source); items.push(spellItem(s, { method, prepared: 2 })); }
     }
   }
+  for (const b of d.spellcasting.bonus || []) { const k = b.s.name + b.s.source; if (!seen.has(k)) { seen.add(k); items.push(spellItem(b.s, { method: 'innate', prepared: 1 })); } }
   for (const x of ch.extras || []) {
     if (x.type !== 'spell') continue;
     const s = db.byUid.spell.get(x.uid);

@@ -188,3 +188,23 @@ test('skills from species/background are not offered again for the class', () =>
   assert.ok(!vals.includes('athletics'), 'background athletics hidden');
   assert.ok(cc.already.includes('survival'));
 });
+
+test('spells from background feat (Magic Initiate) are known and not offered again', () => {
+  const ch = { base: { str: 8, dex: 14, con: 13, int: 15, wis: 12, cha: 10 }, raceUid: 'human|xphb', backgroundUid: 'sage|xphb',
+    levels: [{ classUid: 'wizard|xphb' }], choices: {}, extras: [], inventory: [] };
+  let d = R.derive(db, S24, ch);
+  const cantr = d.choices.find(c => c.bonusSpell && c.options.every(o => o.spellLevel === 0));
+  assert.ok(cantr, 'magic initiate cantrip choice: ' + d.choices.map(c => c.id).join(','));
+  const fb = cantr.options.find(o => o.label === 'Fire Bolt');
+  ch.choices[cantr.id] = [fb.value, cantr.options.find(o => o.label !== 'Fire Bolt').value];
+  d = R.derive(db, S24, ch);
+  assert.ok(d.spellcasting.bonus.some(b => b.s.name === 'Fire Bolt'));
+  const wc = d.choices.find(c => /:cantrips:/.test(c.id));
+  assert.ok(!wc.options.some(o => o.label === 'Fire Bolt'), 'fire bolt hidden for wizard cantrips');
+  assert.ok(wc.alreadySpells.includes('Fire Bolt'));
+  // tiefling legacy: fixed cantrip known
+  const t = R.derive(db, S24, { ...ch, raceUid: 'tiefling|xphb', choices: {} });
+  const ver = t.choices.find(c => c.id === 'race:version');
+  if (ver) { const t2 = R.derive(db, S24, { ...ch, raceUid: 'tiefling|xphb', choices: { 'race:version': [ver.options[0].value] } }); assert.ok(t2.spellcasting.bonus.length > 0, 'tiefling spells'); }
+  else assert.ok(t.choices.some(c => c.id === 'race:spellset'));
+});
