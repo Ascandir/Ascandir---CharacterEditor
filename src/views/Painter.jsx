@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import BigText from '../components/BigText.jsx';
+import NumInput from '../components/NumInput.jsx';
 import ZoomView, { ImageModal } from '../components/ZoomView.jsx';
 import { splitViews } from '../ai/images.js';
 import { useJob, useJobs, finishJob, cancelJob, fmtTime, jobPct } from '../ai/jobs.js';
@@ -395,7 +396,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
         {(() => { const sa = speciesAge(d?.race?.name); const a = p.age ?? 30; return (
           <div>
             <div className="row" style={{ justifyContent: 'space-between' }}><label htmlFor="pt-age" className="bold small">{t.age}</label>
-              <input type="number" min={5} max={1000} value={a} onChange={e => set('age', Math.max(5, Math.min(1000, Number(e.target.value) || 5)))} style={{ width: 80, padding: '2px 6px' }} aria-label={t.age} /></div>
+              <NumInput min={5} max={1000} value={a} onChange={v => set('age', v)} style={{ width: 80, padding: '2px 6px' }} aria-label={t.age} /></div>
             <input id="pt-age" type="range" min={5} max={1000} value={a} onChange={e => set('age', Number(e.target.value))} />
             <div className="muted small">{t.ageSpecies(d?.race?.name || 'Human', sa.adult, sa.max)}</div>
             {isMinorAge(d?.race?.name, a) && <div className="small" style={{ color: 'var(--accent2)' }}>{t.ageMinor}</div>}

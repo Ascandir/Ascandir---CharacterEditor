@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import NumInput from '../components/NumInput.jsx';
 import { useT, ABILS, ABIL_LONG, ABIL_NAMES } from '../i18n.js';
 import { makeFilter, equipmentGroups, POINT_COST, fmtMod, mod, stripTags, dedupeByName } from '../engine/rules.js';
 import { uidOf, sourceGroup } from '../data/loader.js';
@@ -412,7 +413,7 @@ function AbilityStep({ ch, d, update }) {
                       <button className="btn sm" aria-label="+" disabled={ch.base[a] >= 15} onClick={() => update(c => { c.base[a]++; return c; })}>+</button>
                     </span>
                   )}
-                  {gen.method === 'manual' && <input type="number" min="1" max="30" style={{ width: 80 }} aria-label={ABIL_LONG[lang][a]} value={ch.base[a]} onChange={e => update(c => { c.base[a] = Math.max(1, Math.min(30, Number(e.target.value) || 1)); return c; })} />}
+                  {gen.method === 'manual' && <NumInput min={1} max={30} style={{ width: 80 }} aria-label={ABIL_LONG[lang][a]} value={ch.base[a]} onChange={v => update(c => { c.base[a] = v; return c; })} />}
                 </span>
                 <span className="muted">{d.abilBonus[a] ? fmtMod(d.abilBonus[a]) : '—'}</span>
                 <span className="bold" style={{ fontSize: 18 }}>{d.scores[a]}</span>

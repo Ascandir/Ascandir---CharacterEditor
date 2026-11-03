@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.3
+- Zahlenfelder (Alter im KI-Maler, Attributswerte bei „Manuell“) lassen sich jetzt **frei eintippen**. Bisher wurde schon beim ersten Tastendruck auf den Mindestwert korrigiert: Aus „1“ wurde beim Alter sofort 5, und „16“ wurde zu „56“. Jetzt wird erst beim Verlassen des Feldes oder mit Enter auf den erlaubten Bereich begrenzt
+
 ## 0.10.2
 - Talente fragen ihre **eigenen Auswahlen** jetzt ab, und zwar dort, wo das Talent herkommt: Talente vom Volk im Schritt „Volk“, vom Hintergrund im Schritt „Hintergrund“, von Stufen und Attributserhöhungen im Schritt „Auswahlen“. Neu abgefragt bzw. berücksichtigt werden:
   - Zauberliste und Zauber, z. B. Magic Initiate beim Hintergrund Astral Drifter (Klasse wählen, dann 2 Zaubertricks und 1 Zauber), Magic Initiate (Wizard) beim Sage und weitere
