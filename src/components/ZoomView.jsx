@@ -40,8 +40,10 @@ export default function ZoomView({ src, empty, labels = {}, reserve = 170, fill 
     // keep the point under the cursor fixed (coordinates relative to the box centre)
     return { s, x: cx - (cx - o.x) * f, y: cy - (cy - o.y) * f };
   });
+  // with onOpen this is only a preview: no zoom / pan (the mouse wheel scrolls the page), a click opens the big view
+  const interactive = !onOpen;
   useEffect(() => {
-    const el = box.current; if (!el) return;
+    const el = box.current; if (!el || !interactive) return;
     const onWheel = e => {
       e.preventDefault();
       const r = el.getBoundingClientRect();
@@ -49,11 +51,11 @@ export default function ZoomView({ src, empty, labels = {}, reserve = 170, fill 
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, []);
+  }, [interactive]);
 
   const down = e => { if (e.button !== 0) return; drag.current = { px: e.clientX, py: e.clientY, sx: e.clientX, sy: e.clientY }; e.currentTarget.setPointerCapture(e.pointerId); };
   const move = e => {
-    if (!drag.current) return;
+    if (!drag.current || !interactive) return;
     const dx = e.clientX - drag.current.px, dy = e.clientY - drag.current.py;
     drag.current = { ...drag.current, px: e.clientX, py: e.clientY };
     setV(o => ({ ...o, x: o.x + dx, y: o.y + dy }));
@@ -68,11 +70,11 @@ export default function ZoomView({ src, empty, labels = {}, reserve = 170, fill 
     <div ref={box} className="checker zoomview" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
       onDoubleClick={() => { if (!onOpen) setV({ s: 1, x: 0, y: 0 }); }}
       title={onOpen && src ? labels.open : undefined}
-      style={{ flex: fill ? 1 : 'none', height: fill ? '100%' : (hgt || autoH) + 'px', borderRadius: 14, border: '1px solid var(--line)', position: 'relative', overflow: 'hidden', cursor: src ? (onOpen ? 'zoom-in' : (drag.current ? 'grabbing' : 'grab')) : 'default', touchAction: 'none', userSelect: 'none' }}>
+      style={{ flex: fill ? 1 : 'none', height: fill ? '100%' : (hgt || autoH) + 'px', borderRadius: 14, border: '1px solid var(--line)', position: 'relative', overflow: 'hidden', cursor: src ? (onOpen ? 'zoom-in' : (drag.current ? 'grabbing' : 'grab')) : 'default', touchAction: interactive ? 'none' : 'auto', userSelect: 'none' }}>
       {src ? (
         <img src={src} alt="" draggable={false} style={{ position: 'absolute', left: '50%', top: '50%', maxWidth: '100%', maxHeight: '100%', transform: `translate(-50%, -50%) translate(${v.x}px, ${v.y}px) scale(${v.s})`, transformOrigin: 'center' }} />
       ) : <span className="muted" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{empty}</span>}
-      {src && (
+      {src && interactive && (
         <div className="row" style={{ position: 'absolute', right: 10, bottom: 14, gap: 4, background: 'rgba(15,17,21,.75)', borderRadius: 10, padding: 4 }} onPointerDown={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}>
           <button className="btn sm" aria-label="zoom out" onClick={() => zoomAt(1 / 1.25, 0, 0)}>−</button>
           <span className="small" style={{ minWidth: 44, textAlign: 'center' }}>{Math.round(v.s * 100)} %</span>

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.11.2
+- KI-Maler: Die **Bildvorschau** zeigt jetzt nur das ganze Bild. Zoomen und Verschieben gibt es dort nicht mehr, und das Mausrad scrollt wieder die Seite. Ein Klick öffnet die große Ansicht. Erst dort kannst du mit dem Mausrad hineinzoomen und das Bild verschieben
+
 ## 0.11.1
 - Grafikstil-Regler: neue Regler **Fantasy** und **Historisch**
   - **Fantasy** reicht von „bodenständig“ (geerdetes Mittelalter, keine Magie) bis „High Fantasy“ (leuchtende Magie, verzierte, fantastische Designs). Die Mitte ist neutral
