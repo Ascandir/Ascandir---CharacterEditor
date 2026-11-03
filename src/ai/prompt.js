@@ -103,6 +103,8 @@ const HIST = {
   comic: { eastasia: 'Japanese woodblock print with bold outlines and flat colors', europe: 'illuminated medieval manuscript illustration with gold leaf borders', persia: 'Persian miniature illustration with flat bright colors', egypt: 'ancient Egyptian hieroglyphic wall relief style', norse: 'Viking age picture stone carving with flat painted colors' },
   realism: { eastasia: 'historically accurate depiction of ancient East Asia, period clothing and materials', europe: 'historically accurate medieval European depiction, period clothing and materials', persia: 'historically accurate ancient Persian depiction, period clothing and materials', egypt: 'historically accurate ancient Egyptian depiction, period clothing and materials', norse: 'historically accurate Viking age depiction, period clothing and materials' },
 };
+const ERA_NAME = { eastasia: 'traditional East Asian (Chinese and Japanese)', europe: 'medieval European', persia: 'classical Persian', egypt: 'ancient Egyptian', norse: 'Viking age Norse' };
+const ERA_DEFAULT = { eastasia: HIST.ink.eastasia, europe: HIST.painted.europe, persia: HIST.watercolor.persia, egypt: HIST.painted.egypt, norse: HIST.painted.norse };
 function eraFor(mix, parts) {
   if (mix.era && mix.era !== 'auto') return mix.era;
   const top = parts[0]?.[0];
@@ -116,14 +118,23 @@ export const PRESET_MIX = {
 export function mixStyleText(mix = {}) {
   let parts = MIX_PARTS.map(([k, , txt]) => [k, mix[k] ?? 0, txt]).filter(x => x[1] >= 10).sort((a, b) => b[1] - a[1]);
   const hist = mix.history ?? 0;
-  if (hist >= 40) { const era = eraFor(mix, parts); parts = parts.map(([k, v, txt]) => [k, v, HIST[k]?.[era] || txt + ', in a historical style']); }
+  let era = null;
+  if (hist >= 40) {
+    era = eraFor(mix, parts);
+    // techniques without a historical form (anime, cartoon, 3D) give way to the tradition's own technique
+    parts = parts.map(([k, v, txt]) => [k, v, HIST[k]?.[era] || ERA_DEFAULT[era]]);
+    if (!parts.length) parts = [['era', 100, ERA_DEFAULT[era]]];
+    parts = parts.filter((x, i, a) => a.findIndex(y => y[2] === x[2]) === i);
+  }
   const out = [];
+  // a strong historical setting is stated first and plainly: otherwise the models keep their modern digital look
+  if (era) out.push('the whole picture is a genuine ' + ERA_NAME[era] + ' artwork, not modern digital art');
   if (parts.length) {
     const sum = parts.reduce((a, x) => a + x[1], 0);
     const pct = x => Math.round(x[1] / sum * 100);
     if (parts.length === 1) out.push(parts[0][2]);
     else {
-      out.push('art style blend: ' + parts.map((x, i) => {
+      out.push((era ? 'art style blend of ' + ERA_NAME[era] + ' techniques: ' : 'art style blend: ') + parts.map((x, i) => {
         const sh = pct(x);
         const lead = i === 0 ? (sh >= 60 ? 'predominantly ' : 'mainly ') : sh >= 30 ? 'strongly mixed with ' : sh >= 15 ? 'blended with ' : 'with a subtle touch of ';
         return lead + x[2] + ' (about ' + sh + '%)';
@@ -140,8 +151,8 @@ export function mixStyleText(mix = {}) {
   const f = mix.fantasy ?? 50;
   if (f < 20) out.push('grounded realistic medieval look, no magical effects, plain practical materials'); else if (f < 40) out.push('low fantasy, mostly grounded with subtle fantastical touches');
   else if (f > 85) out.push('epic high fantasy, glowing magical effects, ornate fantastical designs, enchanted atmosphere'); else if (f > 60) out.push('fantasy atmosphere with magical details');
-  if (hist >= 70) out.push('authentic antique artwork, aged and weathered look, traditional materials');
-  else if (hist >= 40) out.push('traditional historical art style');
+  if (hist >= 70) out.push('authentic antique artwork, aged and weathered look, traditional materials, the clothing, armor and gear are reinterpreted in ' + ERA_NAME[era] + ' period style');
+  else if (hist >= 40) out.push('traditional ' + ERA_NAME[era] + ' art style');
   else if (hist >= 15) out.push('with a subtle historical, traditional touch');
   return out.join(', ');
 }

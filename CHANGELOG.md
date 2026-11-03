@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.3
+- Grafikstil „Historisch“ deutlich stärker:
+  - Ab 40 % steht jetzt ganz vorne „das ganze Bild ist ein echtes ostasiatisches / mittelalterliches … Kunstwerk, keine moderne Digitalkunst“
+  - Techniken ohne historische Form (Anime, Cartoon, 3D-Render) werden durch die Technik der gewählten Tradition ersetzt, z. B. Ostasien → Tusche-Pinselmalerei
+  - Wird außer „Historisch“ kein Technik-Regler benutzt, kommt automatisch die typische Technik der Tradition
+  - Ab 70 % werden auch Kleidung, Rüstung und Ausrüstung im Stil der Epoche umgedeutet
+- Bildvorschau: nur noch das ganze Bild, Zoomen und Verschieben erst in der großen Ansicht (siehe 0.11.2)
+
 ## 0.11.2
 - KI-Maler: Die **Bildvorschau** zeigt jetzt nur das ganze Bild. Zoomen und Verschieben gibt es dort nicht mehr, und das Mausrad scrollt wieder die Seite. Ein Klick öffnet die große Ansicht. Erst dort kannst du mit dem Mausrad hineinzoomen und das Bild verschieben
 
