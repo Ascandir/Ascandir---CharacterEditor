@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.11.7
+- KI-Berater: Antworten des Textmodells sind jetzt auf 4.096 Token begrenzt. Laut Strata-Protokoll hatte eine Antwort einmal 45.000 Token. Eine solche Endlos-Antwort füllte danach das Gespräch und das Kontextfenster
+
 ## 0.11.6
 - KI-Berater: Lange Gespräche passen jetzt in das Kontextfenster des Textmodells. Bisher ging immer das ganze Gespräch mit, samt den langen Einstellungs-Blöcken. Wurde es zu lang, schnitt der Server den Anfang einfach ab. Das Modell sah dann nur noch Bruchstücke, antwortete auf „user“ oder „Run a a“, fand frühere Nachrichten nicht mehr oder wechselte die Sprache. Jetzt schickt die App nur so viele der neuesten Nachrichten mit, wie in das Kontextfenster des gewählten Strata-Presets passen. Ein Hinweis zeigt, wie viele ältere Nachrichten weggelassen wurden
 

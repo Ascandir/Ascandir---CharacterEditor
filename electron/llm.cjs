@@ -21,7 +21,8 @@ async function chat(sender, { url, key, model, messages, reasoning, id }) {
   try { require('./trellis.cjs').stopIfIdle(); } catch { /* not running */ }
   current?.abort();
   const ac = new AbortController(); current = ac;
-  const body = { model: model || 'local', messages, stream: true, temperature: 0.7 };
+  // max_tokens: a model that runs away (once 45,000 tokens in one answer) must not fill the chat and the context
+  const body = { model: model || 'local', messages, stream: true, temperature: 0.7, max_tokens: 4096 };
   if (reasoning && reasoning !== 'default') body.reasoning_effort = reasoning;
   let r;
   try {
