@@ -252,6 +252,8 @@ async function generate({ charId, image, seed, resolution, texture, faces, model
     await fsp.writeFile(path.join(dir, name), r.body);
     // keep the input image next to the model
     await fsp.writeFile(path.join(dir, name.replace(/\.glb$/, '.png')), png);
+    // like the image AI: end our own server after the model, so its weights do not keep RAM / GPU memory busy
+    try { if ((await ai.readAiCfg()).stopAfterImage !== false && child) { log('model done: stopping trellis-server to free the memory'); stop(); } } catch { /* ignore */ }
     return { name, size: r.body.length, seconds: Math.round((Date.now() - t0) / 1000), notice };
   } finally {
     clearInterval(timer); busy = false; send('trellis:state', {});
@@ -296,4 +298,4 @@ function register(winGetter) {
   app.on('before-quit', () => { stop(); });
 }
 
-module.exports = { register, stop, _test: { multipart, readCfg, generate, status, stop, install } };
+module.exports = { register, stop, stopIfIdle: () => { if (!busy && child) stop(); }, _test: { multipart, readCfg, generate, status, stop, install } };

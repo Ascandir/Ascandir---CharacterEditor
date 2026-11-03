@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.5
+- KI-Berater: Vor jeder Anfrage an das Textmodell beendet die App jetzt die Bild-KI (ComfyUI) und den eigenen TRELLIS-Server, sofern sie gerade nichts berechnen. Bisher konnten deren geladene Modelle Arbeits- und Grafikspeicher belegen. Strata musste dann in den normalen Arbeitsspeicher ausweichen und blieb fast stehen: RAM voll, GPU-Auslastung nahe 0 %
+- 3D: Der TRELLIS-Server wird nach jedem fertigen Modell beendet, genau wie die Bild-KI. Das lässt sich über „KI nach jedem fertigen Bild beenden“ in den Einstellungen abschalten
+
 ## 0.11.4
 - 3D / Pixal3D: Der Fehler „naf: alloc failed“ bedeutet, dass der Grafikspeicher nicht gereicht hat. Das passiert vor allem bei Pixal3D mit Auflösung 1536. Die App startet TRELLIS jetzt in so einem Fall automatisch mit einem kleineren Rechenbudget neu und versucht es noch einmal. Reicht das nicht, rechnet sie im zweiten Schritt ohne die NAF-Feinabstimmung von Pixal3D. Ein Hinweis zeigt, welche Sparstufe benutzt wurde. Der Sparmodus gilt nur für die Kombination aus Modell und Auflösung, die ihn gebraucht hat
 

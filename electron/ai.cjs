@@ -749,4 +749,4 @@ function register(mainWindowGetter) {
   app.on('before-quit', () => { stop(); });
 }
 
-module.exports = { register, zImageWorkflow, qwenWorkflow, checkpointWorkflow, directUrl, DEFAULT_CATALOG, download, extract, readAiCfg: readCfg, writeAiCfg: writeCfg, stopComfy: stop, _test: { install, generate, download, extract, addCustomModel, removeModel, status } };
+module.exports = { register, zImageWorkflow, qwenWorkflow, checkpointWorkflow, directUrl, DEFAULT_CATALOG, download, extract, readAiCfg: readCfg, writeAiCfg: writeCfg, stopComfy: stop, stopIfIdle: () => (generating ? false : stop()), _test: { install, generate, download, extract, addCustomModel, removeModel, status } };

@@ -16,6 +16,9 @@ async function models({ url, key }) {
 
 async function chat(sender, { url, key, model, messages, reasoning, id }) {
   try { require('./strata.cjs').touch(); } catch { /* optional */ }
+  // the text model needs the GPU: end the image AI and our own TRELLIS server if they still hold models in (V)RAM
+  try { await require('./ai.cjs').stopIfIdle(); } catch { /* not running */ }
+  try { require('./trellis.cjs').stopIfIdle(); } catch { /* not running */ }
   current?.abort();
   const ac = new AbortController(); current = ac;
   const body = { model: model || 'local', messages, stream: true, temperature: 0.7 };
