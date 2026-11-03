@@ -134,7 +134,9 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   const hasQwen = !!st?.models?.['qwen-image-21']?.present;
   const hasQwenTurbo = !!st?.models?.['qwen-image-21-turbo']?.present;
   const qTurbo = hasQwenTurbo && p.model === 'qwenturbo';
-  const useQwen = (hasQwen && p.model === 'qwen') || qTurbo;
+  // own models added in the settings ("custom:<id>")
+  const customSel = String(p.model || '').startsWith('custom:') ? (st?.customModels || []).find(m => 'custom:' + m.id === p.model && m.present) : null;
+  const useQwen = !customSel && ((hasQwen && p.model === 'qwen') || qTurbo);
   const installModel = async (id) => {
     setBgInstall('…'); setErr(null);
     const off = api.ai.on('ai:progress', pr => setBgInstall((pr.pct ?? 0) + ' %'));
@@ -234,13 +236,20 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
       } else if (mode === 'refine' && selImg) { params.initImage = await onGrey(selImg); params.denoise = Math.max(shapeChanged ? 0.68 : 0.15, Math.min(0.9, p.strength / 100)); }
       if (multi && selImg && p.multiFromSel !== false && selMeta?.kind !== 'multi') { params.initImage = await multiInit(await onGrey(selImg)); params.denoise = Math.max(0.4, Math.min(0.95, (p.multiStrength ?? 78) / 100)); }
       }
+      if (customSel) {
+        params.custom = customSel.id;
+        if (customSel.type === 'checkpoint') {
+          // classic checkpoints understand negative prompts: style negative + the usual quality/safety terms
+          params.negative = [styleOf(p).negative, 'lowres, blurry, bad anatomy, bad hands, extra limbs, deformed, watermark, signature, text', p.sfwLock !== false ? 'nsfw, nude' : ''].filter(Boolean).join(', ');
+        }
+      }
       const res = await api.ai.generate(params);
       const saved = [];
       for (const [i, raw] of res.images.entries()) {
         const url = (multi || p.removeBg) && !hasBiRef && !params.nativeAlpha ? await removeBackground(raw) : raw;
         const name = await api.saveImage(ch.id, url);
         setCache(c => ({ ...c, [name]: url }));
-        saved.push({ name, seed: seed + i, prompt: params.prompt, model: useQwen ? 'qwen' : 'zimage', ts: Date.now(), seconds: res.seconds, params: JSON.parse(JSON.stringify(p)), ...(multi ? { kind: 'multi' } : {}), ...(relMode ? { rel: true, kind: 'edit', changes: editList } : {}) });
+        saved.push({ name, seed: seed + i, prompt: params.prompt, model: customSel ? 'custom:' + customSel.id : useQwen ? 'qwen' : 'zimage', ts: Date.now(), seconds: res.seconds, params: JSON.parse(JSON.stringify(p)), ...(multi ? { kind: 'multi' } : {}), ...(relMode ? { rel: true, kind: 'edit', changes: editList } : {}) });
       }
       ok = true;
       applyTo(c => {

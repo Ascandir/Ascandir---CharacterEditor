@@ -115,6 +115,7 @@ async function status() {
     dir: cfg.dir || null, defaultDir: await suggestedDir() || path.join(app.getPath('userData'), 'ai'), programModelsDir: await suggestedDir(), gpu: cfg.gpu || null,
     comfyInstalled: !!root, comfyVersion: cfg.comfyVersion || null, models, running, lastModel: running ? lastModel : null, starting: !!proc && !running,
     freeGB: cfg.dir ? await freeSpaceGB(cfg.dir) : await freeSpaceGB(app.getPath('userData')),
+    customModels: (cfg.customModels || []).map(m => ({ ...m, present: !!root && fs.existsSync(path.join(root, 'ComfyUI', CUSTOM_DIRS[m.type] || 'models/checkpoints', m.file)) })), hasCivitaiKey: !!cfg.civitaiKey,
     setupDone: !!cfg.setupDone, setupSkipped: !!cfg.setupSkipped, idleMinutes: cfg.idleMinutes ?? 10, gpuMode: cfg.gpuMode || 'safe', stopAfterImage: cfg.stopAfterImage !== false,
   };
 }
@@ -370,18 +371,45 @@ function addPost(w, { removeBg, upscale }) {
   }
 }
 
-function zImageWorkflow({ prompt, seed, width = 832, height = 1216, steps = 8, batch = 1, initImage = null, denoise = 1, removeBg = false, upscale = null }) {
+// own all-in-one checkpoints (SD 1.5 / SDXL / Pony / Illustrious …) added by the user
+function checkpointWorkflow({ prompt, negative = '', seed, width = 1024, height = 1024, steps = 30, cfg = 6, sampler = 'dpmpp_2m', scheduler = 'karras', ckpt, lora = null, loraStrength = 1, batch = 1, initImage = null, denoise = 1, removeBg = false, upscale = null }) {
   const w = {
-    28: { class_type: 'UNETLoader', inputs: { unet_name: 'z_image_turbo_bf16.safetensors', weight_dtype: 'default' } },
+    300: { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: ckpt } },
+    302: { class_type: 'CLIPTextEncode', inputs: { text: prompt, clip: ['300', 1] } },
+    303: { class_type: 'CLIPTextEncode', inputs: { text: negative || '', clip: ['300', 1] } },
+    3: { class_type: 'KSampler', inputs: { model: ['300', 0], positive: ['302', 0], negative: ['303', 0], latent_image: ['13', 0], seed, steps, cfg, sampler_name: sampler, scheduler, denoise } },
+    8: { class_type: 'VAEDecode', inputs: { samples: ['3', 0], vae: ['300', 2] } },
+    9: { class_type: 'SaveImage', inputs: { images: ['8', 0], filename_prefix: 'ascandir/char' } },
+  };
+  if (lora) {
+    w[301] = { class_type: 'LoraLoader', inputs: { model: ['300', 0], clip: ['300', 1], lora_name: lora, strength_model: loraStrength, strength_clip: loraStrength } };
+    w[3].inputs.model = ['301', 0]; w[302].inputs.clip = ['301', 1]; w[303].inputs.clip = ['301', 1];
+  }
+  addPost(w, { removeBg, upscale });
+  if (initImage) {
+    w[40] = { class_type: 'LoadImage', inputs: { image: initImage } };
+    w[41] = { class_type: 'ImageScale', inputs: { image: ['40', 0], upscale_method: 'lanczos', width, height, crop: 'center' } };
+    w[13] = { class_type: 'VAEEncode', inputs: { pixels: ['41', 0], vae: ['300', 2] } };
+  } else w[13] = { class_type: 'EmptyLatentImage', inputs: { width, height, batch_size: batch } };
+  return w;
+}
+
+function zImageWorkflow({ prompt, seed, width = 832, height = 1216, steps = 8, batch = 1, initImage = null, denoise = 1, removeBg = false, upscale = null, unet = null, lora = null, loraStrength = 1, cfg = 1, sampler = 'res_multistep' }) {
+  const w = {
+    28: { class_type: 'UNETLoader', inputs: { unet_name: unet || 'z_image_turbo_bf16.safetensors', weight_dtype: 'default' } },
     30: { class_type: 'CLIPLoader', inputs: { clip_name: 'qwen_3_4b.safetensors', type: 'lumina2', device: 'default' } },
     29: { class_type: 'VAELoader', inputs: { vae_name: 'ae.safetensors' } },
     11: { class_type: 'ModelSamplingAuraFlow', inputs: { model: ['28', 0], shift: 3 } },
     27: { class_type: 'CLIPTextEncode', inputs: { text: prompt, clip: ['30', 0] } },
     33: { class_type: 'ConditioningZeroOut', inputs: { conditioning: ['27', 0] } },
-    3: { class_type: 'KSampler', inputs: { model: ['11', 0], positive: ['27', 0], negative: ['33', 0], latent_image: ['13', 0], seed, steps, cfg: 1, sampler_name: 'res_multistep', scheduler: 'simple', denoise } },
+    3: { class_type: 'KSampler', inputs: { model: ['11', 0], positive: ['27', 0], negative: ['33', 0], latent_image: ['13', 0], seed, steps, cfg, sampler_name: sampler, scheduler: 'simple', denoise } },
     8: { class_type: 'VAEDecode', inputs: { samples: ['3', 0], vae: ['29', 0] } },
     9: { class_type: 'SaveImage', inputs: { images: ['8', 0], filename_prefix: 'ascandir/char' } },
   };
+  if (lora) { // a Z-Image LoRA the user added
+    w[34] = { class_type: 'LoraLoaderModelOnly', inputs: { model: ['28', 0], lora_name: lora, strength_model: loraStrength } };
+    w[11].inputs.model = ['34', 0];
+  }
   addPost(w, { removeBg, upscale });
   if (initImage) {
     w[40] = { class_type: 'LoadImage', inputs: { image: initImage } };
@@ -484,12 +512,25 @@ async function generateInner(params) {
   await start();
   touch();
   // switching between Z-Image and Qwen: drop the other model first, two of them do not fit into RAM together
-  const want = params.model === 'qwen' ? (params.turbo ? 'qwenturbo' : 'qwen') : 'zimage';
+  // own models: resolve the file names and settings from the config
+  if (params.custom) {
+    const cm = ((await readCfg()).customModels || []).find(x => x.id === params.custom);
+    if (!cm) throw new Error('Own model not found (removed?)');
+    const st = { steps: cm.steps, cfg: cm.cfg, sampler: cm.sampler };
+    if (cm.type === 'checkpoint') Object.assign(params, { model: 'checkpoint', ckpt: cm.file }, st);
+    else if (cm.type === 'zimage') Object.assign(params, { model: 'zimage', unet: cm.file }, st);
+    else if (cm.type === 'zimage-lora') Object.assign(params, { model: 'zimage', lora: cm.file, loraStrength: cm.strength ?? 0.8 });
+  }
+  const want = params.model === 'qwen' ? (params.turbo ? 'qwenturbo' : 'qwen') : params.model === 'checkpoint' ? 'ckpt:' + params.ckpt : params.unet ? 'z:' + params.unet : 'zimage';
   if (lastModel && lastModel !== want) await freeComfy();
   lastModel = want;
   const t0 = Date.now();
   let workflow;
-  if (params.model === 'qwen') {
+  if (params.model === 'checkpoint') {
+    let initImage = null;
+    if (params.initImage) initImage = await uploadImage(params.initImage, 'ascandir_init.png');
+    workflow = checkpointWorkflow({ ...params, initImage });
+  } else if (params.model === 'qwen') {
     const refs = [];
     for (const [i, img] of (params.refImages || []).entries()) refs.push(await uploadImage(img, `ascandir_ref${i + 1}.png`));
     workflow = qwenWorkflow({ ...params, refs });
@@ -566,6 +607,87 @@ async function killOrphans() {
   execFile('powershell.exe', ['-NoProfile', '-Command', `Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith('${esc}') } | Stop-Process -Force -ErrorAction SilentlyContinue`], { windowsHide: true }, () => {});
 }
 
+// ---------- own models (link or file) ----------
+const CUSTOM_DIRS = { checkpoint: 'models/checkpoints', zimage: 'models/diffusion_models', 'zimage-lora': 'models/loras' };
+const CUSTOM_DEFAULTS = { checkpoint: { steps: 30, cfg: 6, sampler: 'dpmpp_2m' }, zimage: { steps: 8, cfg: 1, sampler: 'res_multistep' }, 'zimage-lora': { strength: 0.8 } };
+// turn a model page link into a direct download link
+async function directUrl(u, civitaiKey) {
+  let url = String(u || '').trim();
+  if (!/^https:\/\//.test(url)) throw new Error('BAD_URL');
+  url = url.replace(/^(https:\/\/huggingface\.co\/[^/]+\/[^/]+)\/blob\//, '$1/resolve/');
+  const civ = /^https:\/\/civitai\.com\/models\/(\d+)/.exec(url);
+  if (civ) {
+    let ver = /modelVersionId=(\d+)/.exec(url)?.[1];
+    if (!ver) { // no version in the link: take the newest one
+      try { const r = await webFetch('https://civitai.com/api/v1/models/' + civ[1], { headers: UA }); if (r.ok) ver = (await r.json()).modelVersions?.[0]?.id; } catch { /* offline */ }
+    }
+    if (!ver) throw new Error('CIVITAI_VERSION');
+    url = `https://civitai.com/api/download/models/${ver}?type=Model&format=SafeTensor`;
+  }
+  if (/^https:\/\/civitai\.com\/api\/download/.test(url) && civitaiKey) url += (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(civitaiKey);
+  return url;
+}
+async function addCustomModel(e, { type, name, url, file: localFile }) {
+  const cfg = await readCfg(); const root = await findComfyRoot(cfg.dir);
+  if (!root) throw new Error('ComfyUI not installed');
+  if (!CUSTOM_DIRS[type]) throw new Error('unknown type');
+  const safe = String(name || 'model').normalize('NFKD').replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'model';
+  const id = 'c' + Date.now().toString(36);
+  const fileName = 'ascandir_' + safe + '_' + id + '.safetensors'; // flat folder: ComfyUI only accepts names from its own file list
+  const dest = path.join(root, 'ComfyUI', CUSTOM_DIRS[type], fileName);
+  await fsp.mkdir(path.dirname(dest), { recursive: true });
+  if (url) {
+    abort = new AbortController();
+    try { await download(await directUrl(url, cfg.civitaiKey), dest, name || 'Model', abort.signal); }
+    catch (err) { if (/HTTP 401|HTTP 403/.test(err.message) && /civitai/.test(url)) throw new Error('CIVITAI_LOGIN'); throw err; }
+    finally { abort = null; }
+  } else {
+    let src = localFile;
+    if (!src) {
+      const { dialog, BrowserWindow } = require('electron');
+      const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender), { properties: ['openFile'], filters: [{ name: 'SafeTensors', extensions: ['safetensors'] }] });
+      if (r.canceled || !r.filePaths.length) return null;
+      src = r.filePaths[0];
+    }
+    send('ai:progress', { phase: 'extract', label: 'Kopieren / Copying', pct: 0 });
+    await fsp.copyFile(src, dest);
+  }
+  // sanity check: a model is at least a few MB and a safetensors file starts with a JSON header
+  const st = await fsp.stat(dest);
+  const head = Buffer.alloc(16); const fd = await fsp.open(dest, 'r'); await fd.read(head, 0, 16, 0); await fd.close();
+  if (st.size < 1e6 || head.toString('latin1', 8, 9) !== '{') { await fsp.rm(dest, { force: true }); throw new Error('NOT_A_MODEL'); }
+  const c2 = await readCfg();
+  c2.customModels = [...(c2.customModels || []), { id, type, name: name || safe, file: fileName, size: st.size, ...CUSTOM_DEFAULTS[type] }];
+  await writeCfg(c2);
+  send('ai:progress', { phase: 'done' });
+  return id;
+}
+async function updateCustomModel(id, patch) {
+  const c = await readCfg();
+  c.customModels = (c.customModels || []).map(m => (m.id === id ? { ...m, ...patch, id: m.id, type: m.type, file: m.file } : m));
+  await writeCfg(c); return true;
+}
+// remove an installed model: its files, unless another installed model still uses them
+async function removeModel(id) {
+  await stop();
+  const cfg = await readCfg(); const root = await findComfyRoot(cfg.dir);
+  if (!root) return false;
+  const cm = (cfg.customModels || []).find(m => m.id === id);
+  if (cm) {
+    await fsp.rm(path.join(root, 'ComfyUI', CUSTOM_DIRS[cm.type], cm.file), { force: true });
+    cfg.customModels = cfg.customModels.filter(m => m.id !== id);
+  } else if (cfg.models?.[id]) {
+    const others = new Set(Object.entries(cfg.models).filter(([k]) => k !== id).flatMap(([, m]) => m.files || []));
+    for (const f of cfg.models[id].files || []) {
+      if (others.has(f)) continue;
+      for (const suffix of ['', '.part']) await fsp.rm(path.join(root, 'ComfyUI', f + suffix), { force: true });
+    }
+    delete cfg.models[id];
+  } else return false;
+  await writeCfg(cfg);
+  return true;
+}
+
 // the map maker was removed again (0.10.0): delete the models it downloaded (about 10 GB)
 const REMOVED_MODELS = {
   'sdxl-map': ['models/checkpoints/sd_xl_base_1.0.safetensors', 'models/loras/dnd_battlemaps_sdxl.safetensors'],
@@ -604,6 +726,10 @@ function register(mainWindowGetter) {
   ipcMain.handle('ai:free', () => freeComfy());
   ipcMain.handle('ai:log', () => procLog.slice(-120).join(''));
   ipcMain.handle('ai:skip', async () => { const c = await readCfg(); c.setupSkipped = true; await writeCfg(c); return true; });
+  ipcMain.handle('ai:addCustom', async (e, o) => { win = mainWindowGetter(); return addCustomModel(e, o || {}); });
+  ipcMain.handle('ai:updateCustom', (_e, id, patch) => updateCustomModel(id, patch || {}));
+  ipcMain.handle('ai:removeModel', (_e, id) => removeModel(id));
+  ipcMain.handle('ai:setCivitaiKey', async (_e, key) => { const c = await readCfg(); c.civitaiKey = String(key || '').trim() || undefined; await writeCfg(c); return true; });
   ipcMain.handle('ai:setStopAfter', async (_e, on) => { const c = await readCfg(); c.stopAfterImage = !!on; await writeCfg(c); return true; });
   ipcMain.handle('ai:setGpuMode', async (_e, mode) => { const c = await readCfg(); if (c.gpuMode !== mode) { c.gpuMode = mode; await writeCfg(c); await stop(); } return true; });
   ipcMain.handle('ai:setIdle', async (_e, mins) => { const c = await readCfg(); c.idleMinutes = mins; await writeCfg(c); return true; });
@@ -623,4 +749,4 @@ function register(mainWindowGetter) {
   app.on('before-quit', () => { stop(); });
 }
 
-module.exports = { register, zImageWorkflow, qwenWorkflow, DEFAULT_CATALOG, download, extract, readAiCfg: readCfg, writeAiCfg: writeCfg, stopComfy: stop, _test: { install, generate, download, extract } };
+module.exports = { register, zImageWorkflow, qwenWorkflow, checkpointWorkflow, directUrl, DEFAULT_CATALOG, download, extract, readAiCfg: readCfg, writeAiCfg: writeCfg, stopComfy: stop, _test: { install, generate, download, extract, addCustomModel, removeModel, status } };

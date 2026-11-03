@@ -31,7 +31,7 @@ const browser = {
     async status() { return { supported: false, platform: 'browser', models: {}, setupDone: false, setupSkipped: true }; },
     async updates() { return { comfy: null, models: [] }; },
     async install() { throw new Error('Nur unter Windows'); }, async cancel() {}, async start() { throw new Error('Nur unter Windows'); }, async stop() {},
-    async generate() { throw new Error('Nur unter Windows'); }, async cancelGen() {}, async log() { return ''; }, async skip() {}, async setIdle() {}, async setGpuMode() {}, async setStopAfter() {}, async chooseDir() { return null; }, async openDir() {},
+    async generate() { throw new Error('Nur unter Windows'); }, async cancelGen() {}, async log() { return ''; }, async skip() {}, async setIdle() {}, async setGpuMode() {}, async setStopAfter() {}, async addCustom() { return null; }, async updateCustom() {}, async removeModel() {}, async setCivitaiKey() {}, async chooseDir() { return null; }, async openDir() {},
     on() { return () => {}; },
   },
   strata: {

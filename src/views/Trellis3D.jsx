@@ -67,7 +67,7 @@ export default function Trellis3D({ ch, update }) {
   const [inst, setInst] = useState(null);
   const [quant, setQuant] = useState('f16');
   const [upd, setUpd] = useState(null);
-  const s3 = { source: null, view: 'front', resolution: 1024, texture: true, seed: 42, ...(ch.trellis || {}) };
+  const s3 = { source: null, view: 'front', resolution: 1024, texture: true, seed: 42, model3d: 'trellis', normalMap: true, detail: 'auto', ...(ch.trellis || {}) };
   const set = (k, v) => update(c => { c.trellis = { ...s3, ...(c.trellis || {}), [k]: v }; return c; });
   const paintings = ch.paintings || [];
   const models = ch.models3d || [];
@@ -108,9 +108,10 @@ export default function Trellis3D({ ch, update }) {
     setErr(null); setBusy({ seconds: 0, charId: jobChar, name: ch.name });
     try {
       const image = srcMeta?.kind === 'multi' ? inputImage : await padSquare(inputImage);
-      const r = await api.trellis.generate({ charId: jobChar, image, seed: s3.seed, resolution: s3.resolution, texture: s3.texture });
+      const usePixal = s3.model3d === 'pixal3d' && st?.pixalOk;
+      const r = await api.trellis.generate({ charId: jobChar, image, seed: s3.seed, resolution: s3.resolution, texture: s3.texture, model: usePixal ? 'pixal3d' : 'trellis', normalMap: s3.normalMap !== false, faces: s3.detail === 'auto' ? null : s3.detail });
       ok = true;
-      const add = (c) => { c.models3d = [{ name: r.name, ts: Date.now(), seed: s3.seed, resolution: s3.resolution, source: srcName, view: srcMeta?.kind === 'multi' ? s3.view : null, seconds: r.seconds, size: r.size }, ...(c.models3d || [])]; c.selectedModel3d = r.name; return c; };
+      const add = (c) => { c.models3d = [{ name: r.name, ts: Date.now(), seed: s3.seed, resolution: s3.resolution, model: usePixal ? 'pixal3d' : 'trellis', source: srcName, view: srcMeta?.kind === 'multi' ? s3.view : null, seconds: r.seconds, size: r.size }, ...(c.models3d || [])]; c.selectedModel3d = r.name; return c; };
       update(c => { if (c.id === jobChar) return add(c); api.loadChar(jobChar).then(o => { if (o) api.saveChar(add(o)); }).catch(() => {}); return c; });
     } catch (e) { const m = String(e.message || e); if (!/CANCELLED/.test(m)) { setErr(m); failMsg = m; } else failMsg = 'CANCELLED'; }
     finishJob('model3d', ok, failMsg); refresh();
@@ -185,9 +186,35 @@ export default function Trellis3D({ ch, update }) {
           </>
         )}
         {srcMeta && srcMeta.kind !== 'multi' && <span className="muted small">{t.t3NotMulti}</span>}
+        <span className="bold small">{t.t3Model}</span>
+        <div className="seg">
+          <button className={s3.model3d !== 'pixal3d' ? 'on' : ''} onClick={() => set('model3d', 'trellis')}>TRELLIS.2</button>
+          <button className={s3.model3d === 'pixal3d' ? 'on' : ''} onClick={() => set('model3d', 'pixal3d')}>Pixal3D</button>
+        </div>
+        <span className="muted small">{s3.model3d === 'pixal3d' ? t.t3PixalHint : t.t3TrellisHint}</span>
+        {s3.model3d === 'pixal3d' && st?.installed && !st.pixalOk && !inst && (
+          <button className="btn sm primary" onClick={async () => {
+            setErr(null); setInst({ label: '…', pct: 0 });
+            try { await api.trellis.installPixal(); } catch (e) { if (!/cancel/.test(String(e))) setErr(String(e.message || e)); }
+            setInst(null); refresh(); api.trellis.updates?.().then(setUpd).catch(() => {});
+          }}>{t.t3PixalLoad}</button>
+        )}
+        {inst && st?.installed && s3.model3d === 'pixal3d' && !st.pixalOk && (
+          <div className="col" style={{ gap: 6 }}>
+            <span className="small">{inst.label} · {inst.pct ?? 0} %{inst.speed ? ` · ${(inst.speed / 1e6).toFixed(1)} MB/s` : ''}</span>
+            <div style={{ height: 8, borderRadius: 4, background: 'var(--line)' }}><div style={{ width: (inst.pct || 0) + '%', height: 8, borderRadius: 4, background: 'var(--accent)' }} /></div>
+            <button className="btn sm" onClick={() => api.trellis.cancel()}>{t.cancel}</button>
+          </div>
+        )}
+        {s3.model3d === 'pixal3d' && st?.installed && !st.own && st.pixalOk && <span className="muted small">{t.t3PixalStudio}</span>}
         <span className="bold small">{t.t3Quality}</span>
         <div className="seg">{[512, 1024, 1536].map(r => <button key={r} className={s3.resolution === r ? 'on' : ''} onClick={() => set('resolution', r)}>{r}</button>)}</div>
         <span className="muted small">{t.t3QualityHint}</span>
+        {s3.model3d === 'pixal3d' && s3.resolution === 512 && <span className="muted small">{t.t3Pixal512}</span>}
+        <span className="bold small">{t.t3Detail}</span>
+        <div className="seg">{[['auto', t.t3DetailStd], [600000, t.t3DetailHigh], [1500000, t.t3DetailMax]].map(([k, l]) => <button key={k} className={String(s3.detail) === String(k) ? 'on' : ''} onClick={() => set('detail', k)}>{l}</button>)}</div>
+        <span className="muted small">{t.t3DetailHint}</span>
+        <label className="checkline small"><input type="checkbox" checked={s3.normalMap !== false} onChange={e => set('normalMap', e.target.checked)} /><span>{t.t3Normal}<br /><span className="muted">{t.t3NormalHint}</span></span></label>
         <label className="row small"><input type="checkbox" checked={s3.texture} onChange={e => set('texture', e.target.checked)} />{t.t3Texture}</label>
         <label className="row small" style={{ gap: 6 }}>Seed <input type="number" value={s3.seed} onChange={e => set('seed', Number(e.target.value) || 0)} style={{ width: 110 }} />
           <button className="btn sm" onClick={() => set('seed', Math.floor(Math.random() * 1e6))}>🎲</button></label>
@@ -203,7 +230,7 @@ export default function Trellis3D({ ch, update }) {
           <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
             {models.map((m, i) => (
               <button key={m.name} className={'chip' + (m.name === selModel ? ' on' : '')} onClick={() => update(c => { c.selectedModel3d = m.name; return c; })}>
-                #{models.length - i} · {m.resolution}{m.view ? ' · ' + t['t3' + m.view] : ''} · {new Date(m.ts).toLocaleTimeString()}
+                #{models.length - i} · {m.model === 'pixal3d' ? 'Pixal3D · ' : ''}{m.resolution}{m.view ? ' · ' + t['t3' + m.view] : ''} · {new Date(m.ts).toLocaleTimeString()}
               </button>
             ))}
           </div>

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.11.0
+- 3D: neues Modell **Pixal3D** (Tencent, SIGGRAPH 2026) als Alternative zu TRELLIS.2. Es richtet jeden Punkt des Modells am passenden Bildpixel aus und folgt dem Bild dadurch genauer: Kanten, Rüstungsplatten, Hörner. Umschalten über „3D-Modell: TRELLIS.2 / Pixal3D“, einmalig „Pixal3D laden“. Dabei kommen 5 zusätzliche Dateien in denselben Modellordner, Decoder, DINOv3 und BiRefNet werden mitbenutzt. Die eigene TRELLIS-Laufzeit wird dabei automatisch aktualisiert
+- 3D: neue Einstellungen für schärfere Modelle:
+  - **„Normal-Map backen“** (an): Feine Kanten und Details landen zusätzlich in einer Normal-Map
+  - **„Details (Polygone)“**: Standard (ca. 300.000 Flächen), Hoch (600.000) und Maximal (1,5 Mio.)
+- Einstellungen → KI-Modelle: Jedes Modell lässt sich einzeln **entfernen**, auch TRELLIS.2 und Pixal3D. Dateien, die ein anderes installiertes Modell noch braucht (z. B. der gemeinsame Text-Encoder der Qwen-Modelle), bleiben erhalten
+- Einstellungen → **Eigene Bildmodelle**: Link einfügen (Hugging Face, Civitai-Modellseite oder direkter Download) und „Modell installieren“ klicken, oder eine .safetensors-Datei vom PC auswählen. Unterstützt werden:
+  - **Checkpoints** (SDXL, SD 1.5, Pony, Illustrious …)
+  - **Z-Image-Varianten** (Finetunes)
+  - **LoRAs für Z-Image**
+  Die eigenen Modelle erscheinen im KI-Maler oben rechts mit ★. Schritte, CFG, Sampler bzw. LoRA-Stärke sind pro Modell einstellbar (⚙). Für Civitai-Modelle, die eine Anmeldung brauchen, kann ein Civitai-API-Schlüssel hinterlegt werden
+
 ## 0.10.3
 - Zahlenfelder (Alter im KI-Maler, Attributswerte bei „Manuell“) lassen sich jetzt **frei eintippen**. Bisher wurde schon beim ersten Tastendruck auf den Mindestwert korrigiert: Aus „1“ wurde beim Alter sofort 5, und „16“ wurde zu „56“. Jetzt wird erst beim Verlassen des Feldes oder mit Enter auf den erlaubten Bereich begrenzt
 

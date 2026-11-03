@@ -8,7 +8,7 @@ Module._load = function (r, ...a) {
   if (r === 'electron') return { app: { getPath: () => tmp, isPackaged: false, on() {} }, ipcMain: { handle() {} }, dialog: {}, shell: {} };
   return orig.call(this, r, ...a);
 };
-const KNOWN = new Set(['UNETLoader', 'CLIPLoader', 'VAELoader', 'ModelSamplingAuraFlow', 'CLIPTextEncode', 'ConditioningZeroOut', 'KSampler', 'VAEDecode', 'SaveImage', 'EmptySD3LatentImage', 'LoadImage', 'ImageScale', 'VAEEncode', 'RepeatLatentBatch', 'LoadBackgroundRemovalModel', 'RemoveBackground', 'InvertMask', 'JoinImageWithAlpha']);
+const KNOWN = new Set(['UNETLoader', 'CLIPLoader', 'VAELoader', 'ModelSamplingAuraFlow', 'CLIPTextEncode', 'ConditioningZeroOut', 'KSampler', 'VAEDecode', 'SaveImage', 'EmptySD3LatentImage', 'LoadImage', 'ImageScale', 'VAEEncode', 'RepeatLatentBatch', 'LoadBackgroundRemovalModel', 'RemoveBackground', 'InvertMask', 'JoinImageWithAlpha', 'CheckpointLoaderSimple', 'EmptyLatentImage', 'LoraLoader', 'LoraLoaderModelOnly']);
 const png = fs.readFileSync(path.join(__dirname, '..', 'build', 'icon.png'));
 let lastPrompt = null; let uploads = 0;
 const comfy = http.createServer((req, res) => {
@@ -85,6 +85,30 @@ const files = http.createServer((req, res) => {
   const cfg = JSON.parse(fs.readFileSync(path.join(tmp, 'ai-config.json'), 'utf8'));
   assert.ok(cfg.setupDone); assert.equal(cfg.models['z-image-turbo'].version, '1');
   console.log('install + resume ok');
+  // own models: a local .safetensors file (header + data), used in a picture, then removed
+  const fake = path.join(tmp, 'my model.safetensors');
+  const hdr = Buffer.from(JSON.stringify({ w: { dtype: 'F16', shape: [1], data_offsets: [0, 2] } }));
+  const len = Buffer.alloc(8); len.writeBigUInt64LE(BigInt(hdr.length));
+  fs.writeFileSync(fake, Buffer.concat([len, hdr, Buffer.alloc(2_000_000)]));
+  const cid = await ai._test.addCustomModel(null, { type: 'checkpoint', name: 'My Model!', file: fake });
+  let stat = await ai._test.status();
+  const cm = stat.customModels.find(m => m.id === cid);
+  assert.ok(cm && cm.present && /^ascandir_My_Model_/.test(cm.file), 'custom model listed');
+  r = await ai._test.generate({ prompt: 'x', seed: 8, batch: 1, custom: cid, negative: 'bad' });
+  assert.equal(lastPrompt[300].inputs.ckpt_name, cm.file); assert.equal(lastPrompt[303].inputs.text, 'bad');
+  const lid = await ai._test.addCustomModel(null, { type: 'zimage-lora', name: 'style', file: fake });
+  r = await ai._test.generate({ prompt: 'x', seed: 9, batch: 1, custom: lid });
+  assert.ok(lastPrompt[34] && lastPrompt[34].class_type === 'LoraLoaderModelOnly');
+  let bad = null; try { const junk = path.join(tmp, 'page.html'); fs.writeFileSync(junk, '<html>' + 'x'.repeat(2_000_000)); await ai._test.addCustomModel(null, { type: 'checkpoint', name: 'junk', file: junk }); } catch (e) { bad = e.message; }
+  assert.equal(bad, 'NOT_A_MODEL');
+  await ai._test.removeModel(cid);
+  stat = await ai._test.status();
+  assert.ok(!stat.customModels.some(m => m.id === cid) && !fs.existsSync(path.join(root, 'ComfyUI', 'models/checkpoints', cm.file)));
+  // removing a catalog model keeps files another installed model still uses
+  await ai._test.removeModel('birefnet');
+  assert.ok(!fs.existsSync(path.join(root, 'ComfyUI', ai.DEFAULT_CATALOG.models[1].files[0].dest)));
+  assert.ok(fs.existsSync(path.join(root, 'ComfyUI', ai.DEFAULT_CATALOG.models[0].files[0].dest)));
+  console.log('own models + remove ok');
   comfy.close(); files.close();
   console.log('ALL AI TESTS PASSED'); process.exit(0);
 })().catch(e => { console.error('FAIL', e); process.exit(1); });

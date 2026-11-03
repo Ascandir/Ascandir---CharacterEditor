@@ -14,6 +14,10 @@ const HF_BASE = process.env.ACE_TRELLIS_HF || 'https://huggingface.co/ilintar/tr
 const WEIGHTS = ['birefnet.gguf', 'dinov3.gguf', 'ss_flow.gguf', 'ss_dec.gguf', 'shape_flow_512.gguf', 'shape_flow_1024.gguf', 'shape_dec.gguf', 'tex_flow_512.gguf', 'tex_flow_1024.gguf', 'tex_dec.gguf'];
 const QUANTS = { f16: { sub: '', gb: 16.5 }, q8: { sub: 'q8/', gb: 9.5 }, q4: { sub: 'q4/', gb: 6 } };
 const OWN_PORT = 8092;
+// Pixal3D (TencentARC, SIGGRAPH 2026): pixel-aligned fine-tune of TRELLIS.2; trellis.cpp runs it with 5 extra files
+// in the same model folder (decoders, DINOv3 and BiRefNet are shared)
+const PIXAL_BASE = process.env.ACE_PIXAL_HF || 'https://huggingface.co/vegax87/Pixal3D/resolve/main';
+const PIXAL_FILES = ['pixal3d_ss_flow.gguf', 'pixal3d_shape_flow_512.gguf', 'pixal3d_shape_flow_1024.gguf', 'pixal3d_tex_flow_1024.gguf', 'pixal3d_naf.gguf'];
 let instAbort = null;
 const INSTALL_CMD = 'irm https://raw.githubusercontent.com/pwilkin/trellis.cpp/main/install/install.ps1 | iex';
 let child = null;
@@ -116,12 +120,48 @@ async function install({ quant = 'f16', runtimeOnly = false } = {}) {
   } finally { instAbort = null; send('trellis:state', {}); }
 }
 
+async function installPixal() {
+  if (instAbort) throw new Error('installation already running');
+  let cfg = await readCfg();
+  if (!cfg?.modelsDir) throw new Error('TRELLIS not installed');
+  // Pixal3D needs a current trellis.cpp: refresh our own runtime first
+  if (cfg.own) {
+    const latest = await latestTag();
+    if (latest && latest !== cfg.version) { await install({ quant: cfg.quant || 'f16', runtimeOnly: true }); cfg = await readCfg(); }
+  }
+  instAbort = new AbortController(); const signal = instAbort.signal;
+  try {
+    stop();
+    for (const f of PIXAL_FILES) {
+      const dest = path.join(cfg.modelsDir, f);
+      if (fs.existsSync(dest)) continue;
+      await ai.download(`${PIXAL_BASE}/${f}`, dest, 'Pixal3D – ' + f, signal);
+    }
+    send('ai:progress', { phase: 'done' });
+    return true;
+  } finally { instAbort = null; send('trellis:state', {}); }
+}
+// remove the Pixal3D files, or the whole own TRELLIS installation (runtime + weights)
+async function removeModels(what) {
+  stop();
+  const cfg = await readCfg(); if (!cfg?.modelsDir) return false;
+  if (what === 'pixal3d') { for (const f of PIXAL_FILES) await fsp.rm(path.join(cfg.modelsDir, f), { force: true }); }
+  else if (what === 'trellis' && cfg.own) {
+    await fsp.rm(path.join(path.dirname(cfg.modelsDir), 'runtime'), { recursive: true, force: true });
+    await fsp.rm(cfg.modelsDir, { recursive: true, force: true });
+    const c = await ai.readAiCfg(); delete c.trellis; await ai.writeAiCfg(c);
+  } else return false;
+  send('trellis:state', {});
+  return true;
+}
+
 async function status() {
   const cfg = await readCfg();
   const installed = !!(cfg?.serverBin && fs.existsSync(cfg.serverBin));
   const modelsOk = !!(cfg?.modelsDir && fs.existsSync(path.join(cfg.modelsDir, 'shape_flow_1024.gguf')));
+  const pixalOk = !!(cfg?.modelsDir && PIXAL_FILES.every(f => fs.existsSync(path.join(cfg.modelsDir, f))));
   const running = installed && await healthy(cfg);
-  return { supported: process.platform === 'win32' || !!process.env.ACE_TRELLIS_CFG, installed, own: !!cfg?.own, modelsOk, running, starting: !!starting, busy, installing: !!instAbort, external: running && !child, cfg: cfg ? { ...cfg } : null, cfgFile: cfgFile(), quants: QUANTS };
+  return { supported: process.platform === 'win32' || !!process.env.ACE_TRELLIS_CFG, installed, own: !!cfg?.own, modelsOk, pixalOk, running, starting: !!starting, busy, installing: !!instAbort, external: running && !child, cfg: cfg ? { ...cfg } : null, cfgFile: cfgFile(), quants: QUANTS };
 }
 
 async function start() {
@@ -167,7 +207,7 @@ function multipart(fields, file) {
   return { body: Buffer.concat(parts), type: 'multipart/form-data; boundary=' + b };
 }
 
-async function generate({ charId, image, seed, resolution, texture, faces }) {
+async function generate({ charId, image, seed, resolution, texture, faces, model, normalMap }) {
   if (busy) throw new Error('already generating');
   busy = true; cancelled = false; send('trellis:state', {});
   const t0 = Date.now();
@@ -178,8 +218,11 @@ async function generate({ charId, image, seed, resolution, texture, faces }) {
     await start();
     const cfg = await readCfg();
     const png = Buffer.from(String(image).split(',').pop(), 'base64');
-    const { body, type } = multipart({ seed: seed ?? 42, resolution: resolution || 1024, texture: texture === false ? 'off' : null, faces: faces || null }, png);
-    log(`generate: res ${resolution}, seed ${seed}${texture === false ? ', no texture' : ''}`);
+    const pixal = model === 'pixal3d';
+    // Pixal3D has no res-512 texture stage
+    const res = pixal && Number(resolution) < 1024 ? 1024 : (resolution || 1024);
+    const { body, type } = multipart({ seed: seed ?? 42, resolution: res, texture: texture === false ? 'off' : null, faces: faces || null, model: pixal ? 'pixal3d' : null, normal_map: normalMap ? 'on' : null }, png);
+    log(`generate: ${pixal ? 'Pixal3D' : 'TRELLIS.2'}, res ${res}, seed ${seed}${faces ? ', faces ' + faces : ''}${normalMap ? ', normal map' : ''}${texture === false ? ', no texture' : ''}`);
     let r;
     try { r = await req(cfg, 'POST', '/generate', { body, headers: { 'Content-Type': type, 'Content-Length': body.length } }); }
     catch (e) { if (cancelled) throw new Error('CANCELLED'); throw e; }
@@ -225,6 +268,8 @@ function register(winGetter) {
     return r.filePath;
   });
   ipcMain.handle('trellis:setup', (_e, o) => install(o || {}));
+  ipcMain.handle('trellis:installPixal', () => installPixal());
+  ipcMain.handle('trellis:removeModels', (_e, what) => removeModels(what));
   ipcMain.handle('trellis:cancel', () => { instAbort?.abort(); return true; });
   ipcMain.handle('trellis:updates', async () => { const cfg = await readCfg(); const latest = await latestTag(); return { own: !!cfg?.own, installed: cfg?.version || null, latest, update: !!(cfg?.own && latest && cfg.version && latest !== cfg.version) }; });
   ipcMain.handle('trellis:install', async () => {
