@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.11.6
+- KI-Berater: Lange Gespräche passen jetzt in das Kontextfenster des Textmodells. Bisher ging immer das ganze Gespräch mit, samt den langen Einstellungs-Blöcken. Wurde es zu lang, schnitt der Server den Anfang einfach ab. Das Modell sah dann nur noch Bruchstücke, antwortete auf „user“ oder „Run a a“, fand frühere Nachrichten nicht mehr oder wechselte die Sprache. Jetzt schickt die App nur so viele der neuesten Nachrichten mit, wie in das Kontextfenster des gewählten Strata-Presets passen. Ein Hinweis zeigt, wie viele ältere Nachrichten weggelassen wurden
+
 ## 0.11.5
 - KI-Berater: Vor jeder Anfrage an das Textmodell beendet die App jetzt die Bild-KI (ComfyUI) und den eigenen TRELLIS-Server, sofern sie gerade nichts berechnen. Bisher konnten deren geladene Modelle Arbeits- und Grafikspeicher belegen. Strata musste dann in den normalen Arbeitsspeicher ausweichen und blieb fast stehen: RAM voll, GPU-Auslastung nahe 0 %
 - 3D: Der TRELLIS-Server wird nach jedem fertigen Modell beendet, genau wie die Bild-KI. Das lässt sich über „KI nach jedem fertigen Bild beenden“ in den Einstellungen abschalten

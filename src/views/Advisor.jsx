@@ -96,6 +96,7 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings, a
   const [err, setErr] = useState(null);
   const [withSheet, setWithSheet] = useState(true);
   const [withImage, setWithImage] = useState(false);
+  const [trimmed, setTrimmed] = useState(0);
   const [showCfg, setShowCfg] = useState(false);
   const curModel = adapter ? adapter.model : ['qwen', 'qwenturbo'].includes(ch.painter?.model) ? ch.painter.model : 'zimage';
   const savedStyles = globalSettings?.customStyles || [];
@@ -143,7 +144,21 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings, a
     const history = [...msgs, userMsg];
     setMsgs(() => history);
     const system = adapter ? adapter.system(lang, advMode, MODEL_INFO[curModel] || MODEL_INFO.zimage) : systemPrompt(lang, curModel, styleText, !!ch.painter?.removeBg, advMode, BODY_PARTS.map(b => b[0])) + (withSheet ? '\n\nCharacter sheet:\n' + sheetFacts(ch, d) : '');
-    const apiMsgs = [{ role: 'system', content: system }, ...history.map((m, i) => (i === history.length - 1 && image
+    // keep the request inside the text model's context: if it overflows, the server cuts the start of the chat away
+    // and the model only sees fragments (it then answers to things like "user" or "Run a a")
+    const ctxTokens = Number((sPresets || []).find(p => p.name === cfg.preset)?.context) || 8192;
+    const budget = Math.max(2000, Math.floor(ctxTokens * 0.6)) * 3.2; // in characters, rough estimate
+    let used = system.length + (image ? 3000 : 0);
+    const kept = [];
+    for (let i = history.length - 1; i >= 0; i--) {
+      const len = String(history[i].content || '').length + 20;
+      if (kept.length && used + len > budget) break;
+      used += len; kept.unshift(i);
+    }
+    // a chat must not start with an assistant turn
+    while (kept.length > 1 && history[kept[0]].role !== 'user') kept.shift();
+    setTrimmed(kept.length < history.length ? history.length - kept.length : 0);
+    const apiMsgs = [{ role: 'system', content: system }, ...kept.map(i => history[i]).map((m, j, arr) => (j === arr.length - 1 && image
       ? { role: m.role, content: [{ type: 'text', text: m.content }, { type: 'image_url', image_url: { url: image } }] }
       : { role: m.role, content: m.content }))];
     const id = ++reqId.current;
@@ -263,6 +278,7 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings, a
             </div>
           )}
         </div>
+        {trimmed > 0 && <div className="muted small">{t.advTrimmed(trimmed)}</div>}
         {err && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small">{err}</span></div>}
         <div className="row small wrap" style={{ gap: 10 }}>
           <label className="row" style={{ gap: 6 }}>{t.advResult}
