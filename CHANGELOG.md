@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.11.1
+- Grafikstil-Regler: neue Regler **Fantasy** und **Historisch**
+  - **Fantasy** reicht von „bodenständig“ (geerdetes Mittelalter, keine Magie) bis „High Fantasy“ (leuchtende Magie, verzierte, fantastische Designs). Die Mitte ist neutral
+  - **Historisch**: Ab 40 % werden die Techniken in ihre alte Form umgewandelt. Dazu gibt es die Auswahl **Kunsttradition**: automatisch, Ostasien, Europa, Persien/Orient, Altes Ägypten, Nordisch. Beispiele:
+    - Tusche + Historisch (Ostasien) → **chinesische Tusche-Pinselmalerei** auf Reispapier
+    - Aquarell → Gongbi-Malerei auf Seide
+    - Gemalt (Europa) → Ölgemälde alter Meister mit Craquelé
+    - Comic (Europa) → mittelalterliche Buchmalerei
+    - Persien → Miniaturmalerei mit Blattgold
+  - „Automatisch“ wählt Ostasien, wenn Tusche oder Aquarell den Stil prägen, sonst Europa. Ab 70 % wirkt das Bild wie ein echtes, gealtertes Kunstwerk
+
 ## 0.11.0
 - 3D: neues Modell **Pixal3D** (Tencent, SIGGRAPH 2026) als Alternative zu TRELLIS.2. Es richtet jeden Punkt des Modells am passenden Bildpixel aus und folgt dem Bild dadurch genauer: Kanten, Rüstungsplatten, Hörner. Umschalten über „3D-Modell: TRELLIS.2 / Pixal3D“, einmalig „Pixal3D laden“. Dabei kommen 5 zusätzliche Dateien in denselben Modellordner, Decoder, DINOv3 und BiRefNet werden mitbenutzt. Die eigene TRELLIS-Laufzeit wird dabei automatisch aktualisiert
 - 3D: neue Einstellungen für schärfere Modelle:

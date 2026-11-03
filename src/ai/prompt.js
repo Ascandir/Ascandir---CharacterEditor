@@ -84,14 +84,39 @@ export const MIX_MODS = [
   ['detail', { de: 'Detailgrad', en: 'Detail' }, { de: ['schlicht', 'sehr detailliert'], en: ['simple', 'very detailed'] }],
   ['saturation', { de: 'Farbsättigung', en: 'Saturation' }, { de: ['schwarz-weiß', 'knallig'], en: ['black & white', 'vivid'] }],
   ['light', { de: 'Licht & Stimmung', en: 'Light & mood' }, { de: ['düster', 'hell'], en: ['dark', 'bright'] }],
+  ['fantasy', { de: 'Fantasy', en: 'Fantasy' }, { de: ['bodenständig', 'High Fantasy'], en: ['grounded', 'high fantasy'] }],
+  ['history', { de: 'Historisch', en: 'Historical' }, { de: ['aus', 'alte Kunst'], en: ['off', 'old art'] }, 0],
 ];
+export const mixModDefault = (k) => (MIX_MODS.find(m => m[0] === k)?.[3] ?? 50);
+// "historical": which art tradition the old techniques come from
+export const MIX_ERAS = [
+  ['auto', { de: 'automatisch', en: 'automatic' }], ['eastasia', { de: 'Ostasien (China, Japan)', en: 'East Asia (China, Japan)' }],
+  ['europe', { de: 'Europa (Mittelalter, Renaissance)', en: 'Europe (medieval, Renaissance)' }], ['persia', { de: 'Persien / Orient', en: 'Persia / Middle East' }],
+  ['egypt', { de: 'Altes Ägypten', en: 'Ancient Egypt' }], ['norse', { de: 'Nordisch / Wikinger', en: 'Norse / Viking' }],
+];
+// historical version of each technique per tradition (used when "historical" is at 40 % or more)
+const HIST = {
+  ink: { eastasia: 'traditional Chinese ink brush painting on rice paper, expressive sumi-e brushstrokes, calligraphic ink lines, soft ink wash gradients', europe: 'medieval manuscript pen and ink drawing on aged parchment, old engraving style hatching', persia: 'Persian miniature ink line drawing with fine calligraphic lines', egypt: 'ancient Egyptian ink drawing on papyrus, flat profile figures', norse: 'Norse carved runestone line art with interlaced knotwork' },
+  watercolor: { eastasia: 'traditional Chinese gongbi painting with mineral pigments on silk, delicate outlines and soft washes', europe: 'antique watercolor illustration on yellowed paper like an old naturalist sketchbook', persia: 'Persian miniature painting with bright mineral colors and gold leaf', egypt: 'ancient Egyptian painted papyrus with ochre and lapis colors', norse: 'faded Norse painted wood panel colors' },
+  painted: { eastasia: 'traditional Japanese ukiyo-e woodblock style painting with flat color areas and bold outlines', europe: 'old master oil painting on canvas, Renaissance chiaroscuro, fine craquelure', persia: 'Mughal court painting, rich ornament and gold details', egypt: 'ancient Egyptian tomb fresco painting on plaster', norse: 'medieval Scandinavian tapestry style, woven textile look' },
+  sketch: { eastasia: 'loose ink brush sketch on rice paper', europe: 'Renaissance sepia chalk study on aged paper', persia: 'fine Persian preparatory drawing on paper', egypt: 'ancient Egyptian ostracon sketch on limestone', norse: 'charcoal sketch on rough parchment with runic marginalia' },
+  comic: { eastasia: 'Japanese woodblock print with bold outlines and flat colors', europe: 'illuminated medieval manuscript illustration with gold leaf borders', persia: 'Persian miniature illustration with flat bright colors', egypt: 'ancient Egyptian hieroglyphic wall relief style', norse: 'Viking age picture stone carving with flat painted colors' },
+  realism: { eastasia: 'historically accurate depiction of ancient East Asia, period clothing and materials', europe: 'historically accurate medieval European depiction, period clothing and materials', persia: 'historically accurate ancient Persian depiction, period clothing and materials', egypt: 'historically accurate ancient Egyptian depiction, period clothing and materials', norse: 'historically accurate Viking age depiction, period clothing and materials' },
+};
+function eraFor(mix, parts) {
+  if (mix.era && mix.era !== 'auto') return mix.era;
+  const top = parts[0]?.[0];
+  return top === 'ink' || top === 'watercolor' || (mix.ink ?? 0) >= 30 ? 'eastasia' : 'europe';
+}
 // slider values the built-in presets correspond to (used when switching to the sliders)
 export const PRESET_MIX = {
   painted: { painted: 85, realism: 25 }, realistic: { realism: 90, painted: 10 }, game: { render3d: 85, realism: 30 },
   comic: { comic: 90 }, ink: { ink: 85, sketch: 30 }, watercolor: { watercolor: 85, sketch: 20 }, anime: { anime: 90 },
 };
 export function mixStyleText(mix = {}) {
-  const parts = MIX_PARTS.map(([k, , txt]) => [k, mix[k] ?? 0, txt]).filter(x => x[1] >= 10).sort((a, b) => b[1] - a[1]);
+  let parts = MIX_PARTS.map(([k, , txt]) => [k, mix[k] ?? 0, txt]).filter(x => x[1] >= 10).sort((a, b) => b[1] - a[1]);
+  const hist = mix.history ?? 0;
+  if (hist >= 40) { const era = eraFor(mix, parts); parts = parts.map(([k, v, txt]) => [k, v, HIST[k]?.[era] || txt + ', in a historical style']); }
   const out = [];
   if (parts.length) {
     const sum = parts.reduce((a, x) => a + x[1], 0);
@@ -112,6 +137,12 @@ export function mixStyleText(mix = {}) {
   else if (s > 85) out.push('extremely vivid, highly saturated colors'); else if (s > 65) out.push('vibrant saturated colors');
   if (l < 20) out.push('very dark, grim low-key lighting, deep shadows'); else if (l < 40) out.push('moody dim lighting');
   else if (l > 80) out.push('very bright high-key lighting, light airy atmosphere'); else if (l > 60) out.push('bright cheerful lighting');
+  const f = mix.fantasy ?? 50;
+  if (f < 20) out.push('grounded realistic medieval look, no magical effects, plain practical materials'); else if (f < 40) out.push('low fantasy, mostly grounded with subtle fantastical touches');
+  else if (f > 85) out.push('epic high fantasy, glowing magical effects, ornate fantastical designs, enchanted atmosphere'); else if (f > 60) out.push('fantasy atmosphere with magical details');
+  if (hist >= 70) out.push('authentic antique artwork, aged and weathered look, traditional materials');
+  else if (hist >= 40) out.push('traditional historical art style');
+  else if (hist >= 15) out.push('with a subtle historical, traditional touch');
   return out.join(', ');
 }
 // the effective style (text + negative prompt) of the painter settings

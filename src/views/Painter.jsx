@@ -7,7 +7,7 @@ import { useJob, useJobs, finishJob, cancelJob, fmtTime, jobPct } from '../ai/jo
 import { promptDialog, confirmDialog } from '../components/Dialog.jsx';
 import { api } from '../platform.js';
 import { useT } from '../i18n.js';
-import { freePrompt, toEn, buildPrompt, frameSize, removeBackground, STYLES, MIX_PARTS, MIX_MODS, PRESET_MIX, mixStyleText, styleOf, FRAMINGS, DEFAULT_PAINTER, typicalHeight, speciesAge, isMinorAge, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize, EDIT_GLOBAL, EDIT_TEXT, editChanges, speciesNegative, isWideSpecies } from '../ai/prompt.js';
+import { freePrompt, toEn, buildPrompt, frameSize, removeBackground, STYLES, MIX_PARTS, MIX_MODS, MIX_ERAS, mixModDefault, PRESET_MIX, mixStyleText, styleOf, FRAMINGS, DEFAULT_PAINTER, typicalHeight, speciesAge, isMinorAge, MULTI_SIZE, BODY_PARTS, RESOLUTIONS, bodyText, upscaleSize, EDIT_GLOBAL, EDIT_TEXT, editChanges, speciesNegative, isWideSpecies } from '../ai/prompt.js';
 import { RINGS, composeToken } from '../three/token.js';
 import AiSetup from '../components/AiSetup.jsx';
 
@@ -71,7 +71,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   const mixMode = p.styleMode === 'mix';
   const mix = p.mix || {};
   const curMixSaved = mixMode ? savedStyles.find(x => x.id === p.mixSavedId && x.mix) : null;
-  const sameMix = (a, b) => [...MIX_PARTS, ...MIX_MODS].every(([k]) => (a?.[k] ?? (MIX_PARTS.some(x => x[0] === k) ? 0 : 50)) === (b?.[k] ?? (MIX_PARTS.some(x => x[0] === k) ? 0 : 50)));
+  const sameMix = (a, b) => [...MIX_PARTS, ...MIX_MODS].every(([k]) => (a?.[k] ?? (MIX_PARTS.some(x => x[0] === k) ? 0 : mixModDefault(k))) === (b?.[k] ?? (MIX_PARTS.some(x => x[0] === k) ? 0 : mixModDefault(k)))) && (a?.era || 'auto') === (b?.era || 'auto');
   const tokenRef = useRef(null);
   const paintings = ch.paintings || [];
   const selName = ch.selectedPainting || paintings[0]?.name;
@@ -461,12 +461,18 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
                 </div>
               );
             })}
-            {MIX_MODS.map(([k, l, ends]) => {
-              const v = mix[k] ?? 50;
+            {MIX_MODS.map(([k, l, ends, def = 50]) => {
+              const v = mix[k] ?? def;
               return (
                 <div key={k}>
-                  <div className="row" style={{ justifyContent: 'space-between' }}><label htmlFor={'mx-' + k} className="small">{l[lang]}</label><span className="muted small">{v === 50 ? t.pNormal : v < 50 ? ends[lang][0] : ends[lang][1]}</span></div>
-                  <input id={'mx-' + k} type="range" min={0} max={100} step={5} value={v} onChange={e => set('mix', { ...mix, [k]: Number(e.target.value) })} onDoubleClick={() => set('mix', { ...mix, [k]: 50 })} />
+                  <div className="row" style={{ justifyContent: 'space-between' }}><label htmlFor={'mx-' + k} className="small">{l[lang]}</label>
+                    <span className="muted small">{def === 0 ? (v === 0 ? ends[lang][0] : v + ' %') : v === 50 ? t.pNormal : v < 50 ? ends[lang][0] : ends[lang][1]}</span></div>
+                  <input id={'mx-' + k} type="range" min={0} max={100} step={5} value={v} onChange={e => set('mix', { ...mix, [k]: Number(e.target.value) })} onDoubleClick={() => set('mix', { ...mix, [k]: def })} />
+                  {k === 'history' && v > 0 && (
+                    <label className="row small" style={{ gap: 6, marginTop: 4 }}><span className="muted">{t.pMixEra}</span>
+                      <select value={mix.era || 'auto'} onChange={e => set('mix', { ...mix, era: e.target.value })}>{MIX_ERAS.map(([ek, el]) => <option key={ek} value={ek}>{el[lang]}</option>)}</select></label>
+                  )}
+                  {k === 'history' && v > 0 && v < 40 && <span className="muted small">{t.pMixHistHint}</span>}
                 </div>
               );
             })}
