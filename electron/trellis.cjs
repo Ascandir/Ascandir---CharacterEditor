@@ -26,6 +26,9 @@ let logBuf = [];
 let busy = false;
 let cancelled = false;
 let getWin = () => null;
+// GPU memory fallback for our own server: 0 = defaults, 1 = smaller HR token budget, 2 = also without NAF (Pixal3D)
+let memLevel = 0; let memKey = null; // which model/resolution needed the saving mode
+const MEM_ARGS = [[], ['--max-tokens', '32768'], ['--max-tokens', '24576', '--no-naf']];
 
 const cfgFile = () => process.env.ACE_TRELLIS_CFG || path.join(app.getPath('appData'), 'trellis-studio', 'config.json');
 const modelDir = (charId) => path.join(app.getPath('userData'), 'models3d', String(charId).replace(/[^\w-]/g, ''));
@@ -170,8 +173,8 @@ async function start() {
   if (await healthy(cfg)) return true; // already running (e.g. Trellis Studio is open)
   if (starting) return starting;
   starting = (async () => {
-    log(`starting ${cfg.serverBin} (${cfg.backend || '?'}, port ${cfg.port})`);
-    child = spawn(cfg.serverBin, ['--models', cfg.modelsDir, '--gpu', String(cfg.gpu), '--host', cfg.host, '--port', String(cfg.port)],
+    log(`starting ${cfg.serverBin} (${cfg.backend || '?'}, port ${cfg.port}${memLevel ? ', memory saving ' + memLevel : ''})`);
+    child = spawn(cfg.serverBin, ['--models', cfg.modelsDir, '--gpu', String(cfg.gpu), '--host', cfg.host, '--port', String(cfg.port), ...MEM_ARGS[memLevel]],
       { cwd: path.dirname(cfg.serverBin), windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     child.stdout.on('data', d => log(d));
     child.stderr.on('data', d => log(d));
@@ -221,15 +224,27 @@ async function generate({ charId, image, seed, resolution, texture, faces, model
     const pixal = model === 'pixal3d';
     // Pixal3D has no res-512 texture stage
     const res = pixal && Number(resolution) < 1024 ? 1024 : (resolution || 1024);
+    // the saving mode only sticks for the combination that needed it
+    const key = (pixal ? 'p' : 't') + res;
+    if (memLevel && memKey !== key) { memLevel = 0; if (child) { stop(); await new Promise(r2 => setTimeout(r2, 1000)); await start(); } }
     const { body, type } = multipart({ seed: seed ?? 42, resolution: res, texture: texture === false ? 'off' : null, faces: faces || null, model: pixal ? 'pixal3d' : null, normal_map: normalMap ? 'on' : null }, png);
     log(`generate: ${pixal ? 'Pixal3D' : 'TRELLIS.2'}, res ${res}, seed ${seed}${faces ? ', faces ' + faces : ''}${normalMap ? ', normal map' : ''}${texture === false ? ', no texture' : ''}`);
-    let r;
-    try { r = await req(cfg, 'POST', '/generate', { body, headers: { 'Content-Type': type, 'Content-Length': body.length } }); }
-    catch (e) { if (cancelled) throw new Error('CANCELLED'); throw e; }
-    if (cancelled) throw new Error('CANCELLED');
-    if (r.status !== 200 || !/gltf/.test(r.type)) {
+    let r; let notice = null;
+    for (;;) {
+      try { r = await req(cfg, 'POST', '/generate', { body, headers: { 'Content-Type': type, 'Content-Length': body.length } }); }
+      catch (e) { if (cancelled) throw new Error('CANCELLED'); throw e; }
+      if (cancelled) throw new Error('CANCELLED');
+      if (r.status === 200 && /gltf/.test(r.type)) break;
       let msg = r.body.toString('utf8');
       try { msg = JSON.parse(msg).error || msg; } catch { /* plain text */ }
+      // out of GPU memory: restart our own server with a smaller budget (and without NAF) and try again
+      if (/alloc failed|out of memory|OutOfDeviceMemory|ErrorOutOfDeviceMemory/i.test(msg) && child && memLevel < MEM_ARGS.length - 1) {
+        memLevel++; memKey = key; notice = memLevel === 2 ? 'MEM_NO_NAF' : 'MEM_TOKENS';
+        log(`not enough GPU memory (${msg.trim()}): restarting with ${MEM_ARGS[memLevel].join(' ')}`);
+        stop(); await new Promise(res => setTimeout(res, 1500)); await start();
+        continue;
+      }
+      if (/alloc failed|out of memory/i.test(msg)) throw new Error('TRELLIS_MEM|' + msg.trim());
       throw new Error('TRELLIS: ' + (msg || 'HTTP ' + r.status));
     }
     const dir = modelDir(charId); await fsp.mkdir(dir, { recursive: true });
@@ -237,7 +252,7 @@ async function generate({ charId, image, seed, resolution, texture, faces, model
     await fsp.writeFile(path.join(dir, name), r.body);
     // keep the input image next to the model
     await fsp.writeFile(path.join(dir, name.replace(/\.glb$/, '.png')), png);
-    return { name, size: r.body.length, seconds: Math.round((Date.now() - t0) / 1000) };
+    return { name, size: r.body.length, seconds: Math.round((Date.now() - t0) / 1000), notice };
   } finally {
     clearInterval(timer); busy = false; send('trellis:state', {});
   }

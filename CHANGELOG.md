@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.11.4
+- 3D / Pixal3D: Der Fehler „naf: alloc failed“ bedeutet, dass der Grafikspeicher nicht gereicht hat. Das passiert vor allem bei Pixal3D mit Auflösung 1536. Die App startet TRELLIS jetzt in so einem Fall automatisch mit einem kleineren Rechenbudget neu und versucht es noch einmal. Reicht das nicht, rechnet sie im zweiten Schritt ohne die NAF-Feinabstimmung von Pixal3D. Ein Hinweis zeigt, welche Sparstufe benutzt wurde. Der Sparmodus gilt nur für die Kombination aus Modell und Auflösung, die ihn gebraucht hat
+
 ## 0.11.3
 - Grafikstil „Historisch“ deutlich stärker:
   - Ab 40 % steht jetzt ganz vorne „das ganze Bild ist ein echtes ostasiatisches / mittelalterliches … Kunstwerk, keine moderne Digitalkunst“

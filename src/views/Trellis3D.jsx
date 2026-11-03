@@ -111,9 +111,10 @@ export default function Trellis3D({ ch, update }) {
       const usePixal = s3.model3d === 'pixal3d' && st?.pixalOk;
       const r = await api.trellis.generate({ charId: jobChar, image, seed: s3.seed, resolution: s3.resolution, texture: s3.texture, model: usePixal ? 'pixal3d' : 'trellis', normalMap: s3.normalMap !== false, faces: s3.detail === 'auto' ? null : s3.detail });
       ok = true;
+      if (r.notice) setErr(r.notice === 'MEM_NO_NAF' ? t.t3MemNoNaf : t.t3MemTokens);
       const add = (c) => { c.models3d = [{ name: r.name, ts: Date.now(), seed: s3.seed, resolution: s3.resolution, model: usePixal ? 'pixal3d' : 'trellis', source: srcName, view: srcMeta?.kind === 'multi' ? s3.view : null, seconds: r.seconds, size: r.size }, ...(c.models3d || [])]; c.selectedModel3d = r.name; return c; };
       update(c => { if (c.id === jobChar) return add(c); api.loadChar(jobChar).then(o => { if (o) api.saveChar(add(o)); }).catch(() => {}); return c; });
-    } catch (e) { const m = String(e.message || e); if (!/CANCELLED/.test(m)) { setErr(m); failMsg = m; } else failMsg = 'CANCELLED'; }
+    } catch (e) { let m = String(e.message || e); if (/TRELLIS_MEM/.test(m)) m = t.t3Mem + '\n\n' + m.split('TRELLIS_MEM|').pop(); if (!/CANCELLED/.test(m)) { setErr(m); failMsg = m; } else failMsg = 'CANCELLED'; }
     finishJob('model3d', ok, failMsg); refresh();
   };
   const fname = (ch.name || 'character').replace(/[^\w-]+/g, '_');
