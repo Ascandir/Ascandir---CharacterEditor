@@ -260,3 +260,11 @@ test('feat sub-choices are asked where the feat comes from', () => {
   const rs2 = R.derive(db, S14, { ...base, backgroundUid: 'soldier|phb', choices: { ...base.choices, [featPick.id]: [featPick.options.find(o => o.label === 'Resilient' && o.src === 'PHB').value], [ab.id]: ['wis'] } });
   assert.ok(rs2.saves.wis.prof, 'resilient wis save');
 });
+
+test('ASI feat sub-choices belong to their level', () => {
+  const ch = { base: { str: 15, dex: 10, con: 14, int: 8, wis: 12, cha: 13 }, raceUid: 'human|xphb', backgroundUid: 'soldier|xphb',
+    levels: Array.from({ length: 4 }, () => ({ classUid: 'fighter|xphb' })), choices: { 'lvl3:asi': { mode: 'feat', feat: 'athlete|xphb' } }, extras: [], inventory: [] };
+  const d = R.derive(db, S24, ch);
+  assert.ok(d.choices.some(c => c.levelIndex === 3 && c.id.startsWith('featabil:lvl3:asi')));
+  assert.ok(!d.choices.find(c => c.id === 'lvl3:asi').featOptions.some(o => o.label === 'Ability Score Improvement'));
+});

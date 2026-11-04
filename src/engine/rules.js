@@ -408,7 +408,7 @@ export function derive(db, settings, ch) {
       features.push(feat); lo.newFeatures.push(feat);
       if (/^ability score improvement$/i.test(r.name)) {
         const v = addL({ id: lid + ':asi', group: 'level', label: r.name, kind: 'asiFeat', required: true,
-          featOptions: featOptions(db, allowed, settings, settings.rules === '2014' ? null : ['G']) });
+          featOptions: featOptions(db, allowed, settings, settings.rules === '2014' ? null : ['G']).filter(o => !/^ability score improvement$/i.test(o.label)) }); // +2 / +1+1 are offered as buttons
         applyAsiFeat(db, v, abilBonus, feats, lid + ':asi');
       }
     }
@@ -680,6 +680,12 @@ export function derive(db, settings, ch) {
     const left = c.options.filter(o => own.has(o.value) || !elsewhere.has(o.value));
     const dropped = c.options.filter(o => !own.has(o.value) && elsewhere.has(o.value)).map(o => o.value);
     if (left.length >= (c.count || 1)) { c.options = left; if (dropped.length) c.already = dropped; }
+  }
+  // choices of feats taken on a level (ASI feat, fighting style feat) belong to that level, so the level-up page shows them
+  for (const c of choices) {
+    if (c.levelIndex != null) continue;
+    const m = /(?:^|:)lvl(\d+):/.exec(c.id);
+    if (m) { c.levelIndex = +m[1]; c.level = +m[1] + 1; }
   }
   // open decisions
   out.open = choices.filter(c => c.required && !isComplete(c));

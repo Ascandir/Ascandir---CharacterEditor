@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.9
+- Level-Up: Wählst du beim Attributswerterhöhung (z. B. Stufe 4) ein Talent, erscheinen dessen eigene Auswahlen (Attribut +1, Fertigkeiten, Zauber usw.) jetzt direkt auf der Stufe im Level-Up-Fenster. Vorher fehlten sie dort.
+- Das Talent „Ability Score Improvement“ steht nicht mehr doppelt in der Talentliste – dafür gibt es die Knöpfe +2 und +1/+1.
+
 ## 0.11.8
 - Alle Daten liegen jetzt im Installationsordner unter `data` (Charaktere, Bilder, 3D-Modelle, Einstellungen, KI-Konfiguration, Logs). Beim ersten Start werden die alten Daten aus AppData automatisch dorthin kopiert; die alte Kopie bleibt als Sicherung liegen.
 - Updates behalten den `data`-Ordner (wie bisher schon `models`).
