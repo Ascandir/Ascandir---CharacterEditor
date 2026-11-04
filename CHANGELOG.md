@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.8
+- Alle Daten liegen jetzt im Installationsordner unter `data` (Charaktere, Bilder, 3D-Modelle, Einstellungen, KI-Konfiguration, Logs). Beim ersten Start werden die alten Daten aus AppData automatisch dorthin kopiert; die alte Kopie bleibt als Sicherung liegen.
+- Updates behalten den `data`-Ordner (wie bisher schon `models`).
+- Ist der Installationsordner nicht beschreibbar (z. B. unter „Programme“), bleibt alles wie bisher in AppData.
+
 ## 0.11.7
 - KI-Berater: Antworten des Textmodells sind jetzt auf 4.096 Token begrenzt. Laut Strata-Protokoll hatte eine Antwort einmal 45.000 Token. Eine solche Endlos-Antwort füllte danach das Gespräch und das Kontextfenster
 

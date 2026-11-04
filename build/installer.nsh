@@ -1,4 +1,4 @@
-; Keep the "models" folder (local AI: ComfyUI, models, TRELLIS) when the old version is removed during an update.
+; Keep the "models" folder (and "data": characters, images, settings) (local AI: ComfyUI, models, TRELLIS) when the old version is removed during an update.
 ; A real uninstall removes everything.
 !macro customRemoveFiles
   ${if} ${isUpdated}
@@ -8,6 +8,7 @@
       StrCmp $1 "." ace_next
       StrCmp $1 ".." ace_next
       StrCmp $1 "models" ace_next
+      StrCmp $1 "data" ace_next
       IfFileExists "$INSTDIR\$1\*.*" 0 ace_file
         RMDir /r "$INSTDIR\$1"
         Goto ace_next

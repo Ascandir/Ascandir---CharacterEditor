@@ -11,6 +11,38 @@ const strata = require('./strata.cjs');
 const ai = require('./ai.cjs');
 
 const isDev = !!process.env.VITE_DEV_SERVER_URL;
+
+// Keep all app data next to the program: <install folder>\data (portable).
+// Falls back to AppData when the install folder is not writable (e.g. Program Files).
+const SKIP_COPY = new Set(['Cache', 'Code Cache', 'GPUCache', 'DawnCache', 'DawnGraphiteCache', 'DawnWebGPUCache',
+  'ShaderCache', 'GrShaderCache', 'Crashpad', 'blob_storage', 'Network', 'Shared Dictionary', 'lockfile',
+  'SingletonLock', 'SingletonCookie', 'SingletonSocket', 'cache']);
+function setupDataDir() {
+  if (!app.isPackaged) return;
+  const dataDir = path.join(path.dirname(process.execPath), 'data');
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+    const probe = path.join(dataDir, '.write-test');
+    fs.writeFileSync(probe, 'ok'); fs.unlinkSync(probe);
+  } catch { return; }
+  const oldDir = app.getPath('userData');
+  const marker = path.join(dataDir, '.migrated');
+  if (path.resolve(oldDir).toLowerCase() !== path.resolve(dataDir).toLowerCase() && !fs.existsSync(marker)) {
+    try {
+      if (fs.existsSync(oldDir)) {
+        for (const name of fs.readdirSync(oldDir)) {
+          if (SKIP_COPY.has(name)) continue;
+          const dst = path.join(dataDir, name);
+          if (fs.existsSync(dst)) continue;
+          try { fs.cpSync(path.join(oldDir, name), dst, { recursive: true, errorOnExist: false }); } catch { /* skip locked file */ }
+        }
+      }
+      fs.writeFileSync(marker, 'Daten übernommen aus: ' + oldDir + '\n' + new Date().toISOString() + '\n');
+    } catch { /* ignore */ }
+  }
+  app.setPath('userData', dataDir);
+}
+if (app.isPackaged) setupDataDir();
 const userDir = () => app.getPath('userData');
 const cacheDir = () => path.join(userDir(), 'cache');
 const charDir = () => path.join(userDir(), 'characters');
