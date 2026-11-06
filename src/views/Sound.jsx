@@ -36,7 +36,7 @@ After the block explain in 1-2 short sentences (in the user's language) what you
 The user makes music for Dungeons & Dragons sessions (tavern songs, battle themes, ambience, character themes, bard songs). Talk with the user in ${talk}.
 Ask at most 2 short questions at a time (genre, mood, instruments, tempo, length, vocals or instrumental, language and theme of the lyrics) and make concrete suggestions.
 Whenever you have enough information or the user asks for it, output one fenced code block that starts with \`\`\`settings and contains only JSON:
-{"kind":"music","title":"short name in the user's language","vocals":true|false,"tags":"English style tags","lyrics":"lyrics with section tags or empty","language":"de|en|fr|es|it|la|ja|zh|ru","bpm":number 40-200,"key":"e.g. D minor","timesig":"2|3|4|6","seconds":number 15-300}
+{"kind":"music","title":"short name in the user's language","vocals":true|false,"tags":"English style tags","lyrics":"lyrics with section tags or empty","language":"de|en|fr|es|it|la|ja|zh|ru","bpm":number 40-200,"key":"e.g. D minor","timesig":"2|3|4|6","seconds":number 15-600}
 Rules:
 - tags: comma separated English descriptors in this order: genre, mood, main instruments, tempo feel, production. With vocals add the voice (e.g. "male baritone vocal, choir", "female folk vocal, breathy"). Example: "medieval folk, tavern, cheerful, lute, fiddle, hand drum, tin whistle, lively, acoustic recording".
 - vocals false: "lyrics" must be "" (the app makes it instrumental).
@@ -169,7 +169,7 @@ export default function Sound(props) {
         tags: typeof s.tags === 'string' ? s.tags : o.tags,
         lyrics: typeof s.lyrics === 'string' ? s.lyrics : o.lyrics,
         language: LANGS.some(l => l[0] === s.language) ? s.language : o.language,
-        bpm: num(s.bpm, 30, 300, o.bpm), seconds: num(s.seconds, 10, 300, o.seconds),
+        bpm: num(s.bpm, 30, 300, o.bpm), seconds: num(s.seconds, 10, 600, o.seconds),
         key: KEYS.find(k => k.toLowerCase() === String(s.key || '').toLowerCase().replace(/maj$/, 'major').replace(/min$/, 'minor')) || o.key,
         timesig: ['2', '3', '4', '6'].includes(String(s.timesig)) ? String(s.timesig) : o.timesig,
         title: typeof s.title === 'string' ? s.title : o.title } };
@@ -240,7 +240,7 @@ export default function Sound(props) {
                 )}
                 <div className="row wrap" style={{ gap: 14 }}>
                   <label className="row small" style={{ gap: 8 }}>{t.sndLen}
-                    <input type="range" min="10" max="300" step="5" value={cur.seconds} onChange={e => setPart('music', 'seconds', Number(e.target.value))} />
+                    <input type="range" min="10" max="600" step="5" value={cur.seconds} onChange={e => setPart('music', 'seconds', Number(e.target.value))} />
                     <b style={{ minWidth: 44 }}>{fmtTime(cur.seconds)}</b></label>
                   <label className="row small" style={{ gap: 8 }}>{t.sndBpm}
                     <NumInput min={30} max={300} value={cur.bpm} style={{ width: 70 }} onChange={v => setPart('music', 'bpm', v)} /></label>

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.12.1
+- Sounds & Musik: Musikstücke können jetzt bis zu **10 Minuten** lang sein (vorher 5). Mehr unterstützt das Musikmodell ACE-Step 1.5 nicht; auch der KI-Berater darf jetzt bis 10 Minuten planen.
+
 ## 0.12.0
 - Neuer Bereich **Sounds & Musik** (oben in der Leiste):
   - **Musik** mit ACE-Step 1.5 (ganze Stücke bis 5 Minuten), wahlweise **instrumental** oder **mit Gesang** (Liedtext, Sprache, Tempo, Tonart, Takt).
