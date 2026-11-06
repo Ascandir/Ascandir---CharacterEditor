@@ -2,7 +2,7 @@
 import { useSyncExternalStore } from 'react';
 import { api } from '../platform.js';
 
-let state = { paint: null, model3d: null, done: null };
+let state = { paint: null, model3d: null, sound: null, done: null };
 const subs = new Set();
 const emit = () => subs.forEach(f => f());
 export function setJob(kind, v) {
@@ -25,13 +25,14 @@ export function useJob(kind) {
 }
 export function cancelJob(kind) {
   setJob(kind, j => (j ? { ...j, cancelling: true } : j));
-  if (kind === 'paint') api.ai.cancelGen?.(); else api.trellis.cancel?.();
+  if (kind === 'paint' || kind === 'sound') api.ai.cancelGen?.(); else api.trellis.cancel?.();
 }
 // seconds come from the main process
 let wired = false;
 export function wireJobs() {
   if (wired) return; wired = true;
-  api.ai.on?.('ai:gen', g => setJob('paint', j => (j ? { ...j, seconds: g.seconds, stage: g.stage, step: g.step, total: g.total, eta: g.eta, post: g.post } : j)));
+  const upd = g => j => (j ? { ...j, seconds: g.seconds, stage: g.stage, step: g.step, total: g.total, eta: g.eta, post: g.post } : j);
+  api.ai.on?.('ai:gen', g => { if (state.paint) setJob('paint', upd(g)); if (state.sound) setJob('sound', upd(g)); });
   api.trellis.on?.('trellis:gen', g => setJob('model3d', j => (j ? { ...j, seconds: g.seconds } : j)));
 }
 export const fmtTime = (s) => `${Math.floor((s || 0) / 60)}:${String((s || 0) % 60).padStart(2, '0')}`;

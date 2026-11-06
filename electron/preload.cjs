@@ -23,6 +23,15 @@ contextBridge.exposeInMainWorld('ace', {
   setTdr: (s) => ipcRenderer.invoke('sys:setTdr', s),
   version: () => ipcRenderer.invoke('app:version'),
   checkUpdate: () => ipcRenderer.invoke('update:check'),
+  sounds: {
+    list: () => ipcRenderer.invoke('snd:list'),
+    save: (dataUrl, meta) => ipcRenderer.invoke('snd:save', dataUrl, meta),
+    update: (id, patch) => ipcRenderer.invoke('snd:update', id, patch),
+    load: (id) => ipcRenderer.invoke('snd:load', id),
+    remove: (id) => ipcRenderer.invoke('snd:delete', id),
+    exportFile: (id, name) => ipcRenderer.invoke('snd:export', id, name),
+    openDir: () => ipcRenderer.invoke('snd:openDir'),
+  },
   ai: {
     status: () => ipcRenderer.invoke('ai:status'),
     updates: () => ipcRenderer.invoke('ai:updates'),

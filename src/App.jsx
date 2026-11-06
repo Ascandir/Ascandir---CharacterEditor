@@ -9,6 +9,7 @@ import LevelUp from './views/LevelUp.jsx';
 import Sources from './views/Sources.jsx';
 import Settings from './views/Settings.jsx';
 import Designer from './views/Designer.jsx';
+import Sound from './views/Sound.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import CharList from './views/CharList.jsx';
 import { primaryGpu, AMD_DRIVER_URL } from './hardware.js';
@@ -198,7 +199,7 @@ export default function App() {
   );
 
   const ctx = { db, settings: charSettings, globalSettings: settings, saveSettings, ch, d, update, setView, showToast, createChar, openChar };
-  const tabs = [['sheet', t.tabSheet], ['designer', t.tabDesigner], ['sources', t.tabSources], ['settings', t.tabSettings]];
+  const tabs = [['sheet', t.tabSheet], ['designer', t.tabDesigner], ['sound', t.tabSound], ['sources', t.tabSources], ['settings', t.tabSettings]];
   return (
     <LangCtx.Provider value={{ lang, t }}>
       <DbCtx.Provider value={db}>
@@ -208,21 +209,21 @@ export default function App() {
           <nav className="nav">
             {tabs.map(([k, l]) => <button key={k} className={view === k || (k === 'sheet' && (view === 'wizard' || view === 'levelup')) ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}
           </nav>
-          {[['paint', t.jobPaint, 'painter'], ['model3d', t.jobModel3d, 'trellis']].map(([k, label, mode]) => jobs[k] && (
+          {[['paint', t.jobPaint, 'painter'], ['model3d', t.jobModel3d, 'trellis'], ['sound', t.jobSound, null]].map(([k, label, mode]) => jobs[k] && (
             <span key={k} className="jobchip" role="status">
               <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-              <button className="linklike" onClick={() => { setView('designer'); if (ch && ch.id === jobs[k].charId) update(c => { c.designerMode = mode; return c; }); }}>
+              <button className="linklike" onClick={() => { if (!mode) { setView('sound'); return; } setView('designer'); if (ch && ch.id === jobs[k].charId) update(c => { c.designerMode = mode; return c; }); }}>
                 {jobs[k].cancelling ? t.pCancelling : label} · {fmtTime(jobs[k].seconds)}
               </button>
-              {k === 'paint' && <span className={'jobbar' + (jobPct(jobs[k]) == null ? ' indet' : '')} title={jobPct(jobs[k]) == null ? t.progLoading : jobPct(jobs[k]) + ' %'}><i style={{ width: (jobPct(jobs[k]) ?? 30) + '%' }} /></span>}
-              {k === 'paint' && jobPct(jobs[k]) != null && <span style={{ minWidth: 30 }}>{jobPct(jobs[k])} %</span>}
+              {(k === 'paint' || k === 'sound') && <span className={'jobbar' + (jobPct(jobs[k]) == null ? ' indet' : '')} title={jobPct(jobs[k]) == null ? t.progLoading : jobPct(jobs[k]) + ' %'}><i style={{ width: (jobPct(jobs[k]) ?? 30) + '%' }} /></span>}
+              {(k === 'paint' || k === 'sound') && jobPct(jobs[k]) != null && <span style={{ minWidth: 30 }}>{jobPct(jobs[k])} %</span>}
               {!jobs[k].cancelling && <button className="jobx" aria-label={t.cancel} title={t.cancel} onClick={() => cancelJob(k)}>✕</button>}
             </span>
           ))}
-          {jobs.done && !jobs.paint && !jobs.model3d && (
+          {jobs.done && !jobs.paint && !jobs.model3d && !jobs.sound && (
             <span className={'jobchip ' + (jobs.done.ok ? 'ok' : 'bad')} role="status">
-              <button className="linklike" onClick={() => { setView('designer'); if (ch) update(c => { c.designerMode = jobs.done.kind === 'paint' ? 'painter' : 'trellis'; return c; }); dismissDone(); }}>
-                {jobs.done.ok ? '✓ ' + (jobs.done.kind === 'paint' ? t.jobPaintDone : t.jobModelDone) : '✕ ' + t.jobFailed}{jobs.done.ok && jobs.done.seconds ? ' · ' + fmtTime(jobs.done.seconds) : ''}
+              <button className="linklike" onClick={() => { if (jobs.done.kind === 'sound') { setView('sound'); dismissDone(); return; } setView('designer'); if (ch) update(c => { c.designerMode = jobs.done.kind === 'paint' ? 'painter' : 'trellis'; return c; }); dismissDone(); }}>
+                {jobs.done.ok ? '✓ ' + (jobs.done.kind === 'paint' ? t.jobPaintDone : jobs.done.kind === 'sound' ? t.jobSoundDone : t.jobModelDone) : '✕ ' + t.jobFailed}{jobs.done.ok && jobs.done.seconds ? ' · ' + fmtTime(jobs.done.seconds) : ''}
               </button>
               <button className="jobx" aria-label={t.close} title={t.close} onClick={dismissDone}>✕</button>
             </span>
@@ -262,6 +263,7 @@ export default function App() {
           {!offline && view === 'wizard' && <Wizard {...ctx} />}
           {!offline && view === 'levelup' && <LevelUp {...ctx} />}
           {view === 'designer' && <Designer {...ctx} />}
+          {view === 'sound' && <Sound {...ctx} />}
           {!offline && view === 'sources' && <Sources {...ctx} addHomebrew={addHomebrew} addHomebrewMany={addHomebrewMany} addOwnHomebrew={addOwnHomebrew} reload={() => loadAll(true)} hbLoaded={hb} />}
           {view === 'settings' && <Settings {...ctx} />}
           </ErrorBoundary>

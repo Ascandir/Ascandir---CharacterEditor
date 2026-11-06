@@ -27,6 +27,15 @@ const browser = {
   async saveImage(charId, dataUrl) { const k = 'm' + Date.now() + Math.random(); memImages[k] = dataUrl; return k; },
   async loadImage(charId, name) { return memImages[name]; },
   async deleteImage(charId, name) { delete memImages[name]; return true; },
+  sounds: {
+    _m: {}, _l: [],
+    async list() { return [...this._l]; },
+    async save(dataUrl, meta) { const id = 's' + Date.now() + Math.floor(Math.random() * 1000); const m = { ...meta, id, created: Date.now() }; this._m[id] = dataUrl; this._l.unshift(m); return m; },
+    async update(id, patch) { const m = this._l.find(x => x.id === id); Object.assign(m, patch); return m; },
+    async load(id) { return this._m[id]; },
+    async remove(id) { this._l = this._l.filter(x => x.id !== id); delete this._m[id]; return true; },
+    async exportFile() { return true; }, async openDir() {},
+  },
   ai: {
     async status() { return { supported: false, platform: 'browser', models: {}, setupDone: false, setupSkipped: true }; },
     async updates() { return { comfy: null, models: [] }; },

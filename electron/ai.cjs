@@ -57,6 +57,21 @@ const DEFAULT_CATALOG = {
       ],
     },
     {
+      id: 'ace-step-15', name: 'ACE-Step 1.5 Turbo', version: '1', recommended: false, minVramGB: 8, kind: 'music',
+      note: { de: 'Musik-Modell für ganze Stücke, mit Gesang oder rein instrumental (bis mehrere Minuten, MIT-Lizenz). Für Soundtracks und Lieder.', en: 'Music model for complete pieces, with vocals or instrumental (up to several minutes, MIT licence). For soundtracks and songs.' },
+      files: [
+        { url: 'https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files/resolve/main/checkpoints/ace_step_1.5_turbo_aio.safetensors', dest: 'models/checkpoints/ace_step_1.5_turbo_aio.safetensors', size: 9340000000 },
+      ],
+    },
+    {
+      id: 'stable-audio', name: 'Stable Audio Open 1.0', version: '1', recommended: false, minVramGB: 6, kind: 'sfx',
+      note: { de: 'Soundeffekt-Modell: Geräusche, Ambiente, kurze Klänge bis 47 Sekunden (z. B. Schwerthieb, Feuerball, Taverne). Stability AI Community-Lizenz (privat frei).', en: 'Sound effect model: noises, ambience, short sounds up to 47 seconds (e.g. sword hit, fireball, tavern). Stability AI Community licence (free for personal use).' },
+      files: [
+        { url: 'https://huggingface.co/Comfy-Org/stable-audio-open-1.0_repackaged/resolve/main/stable-audio-open-1.0.safetensors', dest: 'models/checkpoints/stable-audio-open-1.0.safetensors', size: 4520000000 },
+        { url: 'https://huggingface.co/ComfyUI-Wiki/t5-base/resolve/main/t5-base.safetensors', dest: 'models/text_encoders/t5-base.safetensors', size: 850300000 },
+      ],
+    },
+    {
       id: 'upscale', name: 'Real-ESRGAN x4', version: '1', recommended: true, minVramGB: 2, kind: 'upscale',
       note: { de: 'Hochskalierer für 2K/4K-Bilder', en: 'Upscaler for 2K/4K pictures' },
       files: [
@@ -292,12 +307,14 @@ let logFile = null;
 // progress of the running picture, read from ComfyUI's tqdm bars ("12/30 [00:40<01:00, ...]")
 let gen = null; // { phase: 'load' | 'sample' | 'post', step, total, firstAt, lastAt }
 function trackSteps(t) {
-  if (!gen || gen.phase === 'post') return;
+  if (!gen) return;
   let m, last = null; const re = /(\d+)\/(\d+) \[/g;
   while ((m = re.exec(t))) last = m;
   if (!last) return;
   const step = Number(last[1]), total = Number(last[2]);
   if (!total) return;
+  // music: the song planner (language model) shows its own progress bar before the sampler starts
+  if (gen.phase === 'post') { if (!(gen.audio && step < total)) return; gen.phase = 'load'; }
   if (gen.phase === 'load') { gen.phase = 'sample'; gen.firstAt = Date.now(); gen.firstStep = step; }
   gen.step = step; gen.total = total; gen.lastAt = Date.now();
   if (step >= total) gen.phase = 'post';
@@ -457,6 +474,42 @@ function qwenWorkflow({ prompt, negative = '', seed, width = 1024, height = 1024
   return w;
 }
 
+// ---------- audio ----------
+const ACE_KEYS = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B'].flatMap(r => [r + ' major', r + ' minor']);
+const ACE_LANGS = ['en', 'de', 'fr', 'es', 'it', 'ja', 'ko', 'zh', 'ru', 'pt', 'nl', 'pl', 'sv', 'la', 'unknown'];
+// ACE-Step 1.5 (official ComfyUI template "audio_ace_step_1_5_checkpoint")
+function musicWorkflow({ tags, lyrics = '', vocals = false, seed, seconds = 90, bpm = 120, key = 'C minor', timesig = '4', language = 'en', batch = 1, steps = 8 }) {
+  const lyr = vocals && String(lyrics).trim() ? String(lyrics) : '[Instrumental]';
+  const tg = vocals ? String(tags) : String(tags) + (/instrumental/i.test(tags) ? '' : ', instrumental, no vocals');
+  const dur = Math.max(5, Math.min(600, Number(seconds) || 90));
+  return {
+    1: { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: 'ace_step_1.5_turbo_aio.safetensors' } },
+    2: { class_type: 'ModelSamplingAuraFlow', inputs: { model: ['1', 0], shift: 3 } },
+    3: { class_type: 'TextEncodeAceStepAudio1.5', inputs: { clip: ['1', 1], tags: tg, lyrics: lyr, seed, bpm: Math.max(30, Math.min(300, Math.round(Number(bpm) || 120))), duration: dur,
+      timesignature: ['2', '3', '4', '6'].includes(String(timesig)) ? String(timesig) : '4', language: ACE_LANGS.includes(language) ? language : 'en',
+      keyscale: ACE_KEYS.includes(key) ? key : 'C minor', generate_audio_codes: true, cfg_scale: 2, temperature: 0.85, top_p: 0.9, top_k: 0, min_p: 0 } },
+    4: { class_type: 'ConditioningZeroOut', inputs: { conditioning: ['3', 0] } },
+    5: { class_type: 'EmptyAceStep1.5LatentAudio', inputs: { seconds: dur, batch_size: batch } },
+    6: { class_type: 'KSampler', inputs: { model: ['2', 0], positive: ['3', 0], negative: ['4', 0], latent_image: ['5', 0], seed, steps, cfg: 1, sampler_name: 'euler', scheduler: 'simple', denoise: 1 } },
+    7: { class_type: 'VAEDecodeAudio', inputs: { samples: ['6', 0], vae: ['1', 2] } },
+    9: { class_type: 'SaveAudioMP3', inputs: { audio: ['7', 0], filename_prefix: 'ascandir/music', quality: 'V0' } },
+  };
+}
+// Stable Audio Open 1.0 (official template "audio_stable_audio_example")
+function sfxWorkflow({ prompt, negative = '', seed, seconds = 6, batch = 1, steps = 50, cfg = 5 }) {
+  const dur = Math.max(0.5, Math.min(47, Number(seconds) || 6));
+  return {
+    1: { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: 'stable-audio-open-1.0.safetensors' } },
+    2: { class_type: 'CLIPLoader', inputs: { clip_name: 't5-base.safetensors', type: 'stable_audio', device: 'default' } },
+    3: { class_type: 'CLIPTextEncode', inputs: { clip: ['2', 0], text: prompt } },
+    4: { class_type: 'CLIPTextEncode', inputs: { clip: ['2', 0], text: negative || 'low quality, distorted, noise, music, speech' } },
+    5: { class_type: 'EmptyLatentAudio', inputs: { seconds: dur, batch_size: batch } },
+    6: { class_type: 'KSampler', inputs: { model: ['1', 0], positive: ['3', 0], negative: ['4', 0], latent_image: ['5', 0], seed, steps, cfg, sampler_name: 'dpmpp_3m_sde_gpu', scheduler: 'exponential', denoise: 1 } },
+    7: { class_type: 'VAEDecodeAudio', inputs: { samples: ['6', 0], vae: ['1', 2] } },
+    9: { class_type: 'SaveAudioMP3', inputs: { audio: ['7', 0], filename_prefix: 'ascandir/sfx', quality: 'V0' } },
+  };
+}
+
 async function uploadImage(dataUrl, name) {
   const b64 = String(dataUrl).split(',')[1];
   const form = new FormData();
@@ -521,12 +574,15 @@ async function generateInner(params) {
     else if (cm.type === 'zimage') Object.assign(params, { model: 'zimage', unet: cm.file }, st);
     else if (cm.type === 'zimage-lora') Object.assign(params, { model: 'zimage', lora: cm.file, loraStrength: cm.strength ?? 0.8 });
   }
-  const want = params.model === 'qwen' ? (params.turbo ? 'qwenturbo' : 'qwen') : params.model === 'checkpoint' ? 'ckpt:' + params.ckpt : params.unet ? 'z:' + params.unet : 'zimage';
+  const isAudio = params.model === 'music' || params.model === 'sfx';
+  const want = isAudio ? params.model : params.model === 'qwen' ? (params.turbo ? 'qwenturbo' : 'qwen') : params.model === 'checkpoint' ? 'ckpt:' + params.ckpt : params.unet ? 'z:' + params.unet : 'zimage';
   if (lastModel && lastModel !== want) await freeComfy();
   lastModel = want;
   const t0 = Date.now();
   let workflow;
-  if (params.model === 'checkpoint') {
+  if (params.model === 'music') workflow = musicWorkflow(params);
+  else if (params.model === 'sfx') workflow = sfxWorkflow(params);
+  else if (params.model === 'checkpoint') {
     let initImage = null;
     if (params.initImage) initImage = await uploadImage(params.initImage, 'ascandir_init.png');
     workflow = checkpointWorkflow({ ...params, initImage });
@@ -544,12 +600,12 @@ async function generateInner(params) {
   const body = await r.json().catch(() => ({}));
   if (!r.ok || !body.prompt_id) {
     const txt = JSON.stringify(body.error || body.node_errors || body);
-    if (/TextEncodeQwenImage21|QwenImage21Cache|ManualSigmas/.test(txt) && /not found|does not exist|invalid_prompt/i.test(txt)) throw new Error('COMFY_TOO_OLD');
+    if (/TextEncodeQwenImage21|QwenImage21Cache|ManualSigmas|AceStep1\.5|SaveAudioMP3|EmptyLatentAudio|VAEDecodeAudio/.test(txt) && /not found|does not exist|invalid_prompt/i.test(txt)) throw new Error('COMFY_TOO_OLD');
     throw new Error('ComfyUI: ' + txt.slice(0, 500));
   }
   const id = body.prompt_id;
   currentPrompt = id; cancelRequested = false;
-  gen = { phase: 'load', step: 0, total: 0 };
+  gen = { phase: 'load', step: 0, total: 0, audio: isAudio };
   for (;;) {
     await new Promise(res => setTimeout(res, 1000));
     if (cancelRequested) { await cancelGenerate(); currentPrompt = null; throw new Error('CANCELLED'); }
@@ -562,16 +618,18 @@ async function generateInner(params) {
     const entry = h[id];
     if (!entry) continue;
     if (entry.status?.status_str === 'error') throw new Error('ComfyUI error: ' + JSON.stringify(entry.status.messages || '').slice(-600));
-    const imgs = Object.values(entry.outputs || {}).flatMap(o => o.images || []);
-    if (!imgs.length) { if (entry.status?.completed) throw new Error('No image produced'); continue; }
+    const imgs = Object.values(entry.outputs || {}).flatMap(o => (isAudio ? o.audio : o.images) || []);
+    if (!imgs.length) { if (entry.status?.completed) throw new Error(isAudio ? 'No audio produced' : 'No image produced'); continue; }
     const out = [];
     for (const im of imgs) {
       const q = new URLSearchParams({ filename: im.filename, subfolder: im.subfolder || '', type: im.type || 'output' });
       const buf = Buffer.from(await (await comfyFetch(`http://127.0.0.1:${port}/view?${q}`, undefined, 'view')).arrayBuffer());
-      out.push('data:image/png;base64,' + buf.toString('base64'));
+      out.push((isAudio ? 'data:audio/mpeg;base64,' : 'data:image/png;base64,') + buf.toString('base64'));
+      // the copy in ComfyUI's output folder is not needed (the app keeps its own)
+      if (isAudio) { try { const r = await findComfyRoot((await readCfg()).dir); if (r) await fsp.rm(path.join(r, 'ComfyUI', 'output', im.subfolder || '', im.filename), { force: true }); } catch { /* ignore */ } }
     }
     touch();
-    return { images: out, seconds: Math.round((Date.now() - t0) / 1000) };
+    return isAudio ? { audios: out, seconds: Math.round((Date.now() - t0) / 1000) } : { images: out, seconds: Math.round((Date.now() - t0) / 1000) };
   }
 }
 
@@ -749,4 +807,4 @@ function register(mainWindowGetter) {
   app.on('before-quit', () => { stop(); });
 }
 
-module.exports = { register, zImageWorkflow, qwenWorkflow, checkpointWorkflow, directUrl, DEFAULT_CATALOG, download, extract, readAiCfg: readCfg, writeAiCfg: writeCfg, stopComfy: stop, stopIfIdle: () => (generating ? false : stop()), _test: { install, generate, download, extract, addCustomModel, removeModel, status } };
+module.exports = { register, musicWorkflow, sfxWorkflow, zImageWorkflow, qwenWorkflow, checkpointWorkflow, directUrl, DEFAULT_CATALOG, download, extract, readAiCfg: readCfg, writeAiCfg: writeCfg, stopComfy: stop, stopIfIdle: () => (generating ? false : stop()), _test: { install, generate, download, extract, addCustomModel, removeModel, status } };

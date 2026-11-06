@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.0
+- Neuer Bereich **Sounds & Musik** (oben in der Leiste):
+  - **Musik** mit ACE-Step 1.5 (ganze Stücke bis 5 Minuten), wahlweise **instrumental** oder **mit Gesang** (Liedtext, Sprache, Tempo, Tonart, Takt).
+  - **Soundeffekte** mit Stable Audio Open 1.0 (Geräusche, Ambiente, kurze Effekte bis 47 Sekunden).
+  - Zwei getrennte Modelle, jeweils das passendere für den Bereich. Sie lassen sich direkt im Bereich laden (9,3 GB bzw. 5,4 GB).
+  - **KI-Berater** für Sounds: du beschreibst, was du brauchst, Strata baut daraus Stil, Liedtext, Tempo und Tonart und übernimmt sie mit einem Klick in den Generator.
+  - Bibliothek mit Abspielen, Umbenennen, „Als MP3 speichern“ (z. B. für Foundry) und „Einstellungen übernehmen“.
+- Bild und Sound laufen nacheinander über dieselbe lokale KI; während eines Auftrags wartet der andere.
+
 ## 0.11.9
 - Level-Up: Wählst du beim Attributswerterhöhung (z. B. Stufe 4) ein Talent, erscheinen dessen eigene Auswahlen (Attribut +1, Fertigkeiten, Zauber usw.) jetzt direkt auf der Stufe im Level-Up-Fenster. Vorher fehlten sie dort.
 - Das Talent „Ability Score Improvement“ steht nicht mehr doppelt in der Talentliste – dafür gibt es die Knöpfe +2 und +1/+1.

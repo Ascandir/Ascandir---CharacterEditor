@@ -148,6 +148,42 @@ ipcMain.handle('img:save', async (_e, charId, dataUrl) => {
 ipcMain.handle('img:load', async (_e, charId, name) => 'data:image/png;base64,' + (await fsp.readFile(path.join(imgDir(charId), safeName(name)))).toString('base64'));
 ipcMain.handle('img:delete', async (_e, charId, name) => { await fsp.rm(path.join(imgDir(charId), safeName(name)), { force: true }); return true; });
 
+// generated sounds and music (one library for all characters): <id>.mp3 + <id>.json
+const sndDir = () => path.join(userDir(), 'sounds');
+const sndId = (id) => String(id).replace(/[^a-z0-9]/gi, '').slice(0, 40);
+ipcMain.handle('snd:list', async () => {
+  const out = [];
+  try {
+    for (const f of await fsp.readdir(sndDir())) {
+      if (!f.endsWith('.json')) continue;
+      try { const m = JSON.parse(await fsp.readFile(path.join(sndDir(), f), 'utf8')); if (fs.existsSync(path.join(sndDir(), m.id + '.mp3'))) out.push(m); } catch { /* broken entry */ }
+    }
+  } catch { /* no folder yet */ }
+  return out.sort((a, b) => (b.created || 0) - (a.created || 0));
+});
+ipcMain.handle('snd:save', async (_e, dataUrl, meta) => {
+  await fsp.mkdir(sndDir(), { recursive: true });
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  await fsp.writeFile(path.join(sndDir(), id + '.mp3'), Buffer.from(String(dataUrl).split(',')[1], 'base64'));
+  const m = { ...(meta || {}), id, created: Date.now() };
+  await fsp.writeFile(path.join(sndDir(), id + '.json'), JSON.stringify(m, null, 2), 'utf8');
+  return m;
+});
+ipcMain.handle('snd:update', async (_e, id, patch) => {
+  const f = path.join(sndDir(), sndId(id) + '.json');
+  const m = { ...JSON.parse(await fsp.readFile(f, 'utf8')), ...(patch || {}), id: sndId(id) };
+  await fsp.writeFile(f, JSON.stringify(m, null, 2), 'utf8'); return m;
+});
+ipcMain.handle('snd:load', async (_e, id) => 'data:audio/mpeg;base64,' + (await fsp.readFile(path.join(sndDir(), sndId(id) + '.mp3'))).toString('base64'));
+ipcMain.handle('snd:delete', async (_e, id) => { for (const x of ['.mp3', '.json']) await fsp.rm(path.join(sndDir(), sndId(id) + x), { force: true }); return true; });
+ipcMain.handle('snd:export', async (e, id, name) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  const r = await dialog.showSaveDialog(win, { defaultPath: (safeName(name || 'sound') || 'sound') + '.mp3', filters: [{ name: 'MP3', extensions: ['mp3'] }] });
+  if (r.canceled || !r.filePath) return false;
+  await fsp.copyFile(path.join(sndDir(), sndId(id) + '.mp3'), r.filePath); return true;
+});
+ipcMain.handle('snd:openDir', async () => { await fsp.mkdir(sndDir(), { recursive: true }); shell.openPath(sndDir()); return true; });
+
 ipcMain.handle('settings:get', async () => {
   try { return JSON.parse(await fsp.readFile(settingsFile(), 'utf8')); } catch { return {}; }
 });

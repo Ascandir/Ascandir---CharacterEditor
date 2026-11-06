@@ -202,7 +202,7 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings, a
         <div className="chatbubble"><Markdown text={m.content} /></div>
         {blocks.settings && (
           <div className="row" style={{ gap: 8, marginTop: 6 }}>
-            <button className="btn sm primary" onClick={() => applySettings(blocks.settings)}>{t.advApply}</button>
+            <button className="btn sm primary" onClick={() => applySettings(blocks.settings)}>{adapter?.applyLabel || t.advApply}</button>
           </div>
         )}
         {blocks.prompt && (
@@ -281,12 +281,13 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings, a
         {trimmed > 0 && <div className="muted small">{t.advTrimmed(trimmed)}</div>}
         {err && <div className="banner" style={{ margin: 0, borderColor: '#6a3a33', background: '#2a1714' }}><span className="small">{err}</span></div>}
         <div className="row small wrap" style={{ gap: 10 }}>
-          <label className="row" style={{ gap: 6 }}>{t.advResult}
+          {!adapter?.noMode && <label className="row" style={{ gap: 6 }}>{t.advResult}
             <select value={advMode} onChange={e => setAdv('mode', e.target.value)} aria-label={t.advResult}>
               <option value="sliders">{t.advResultSliders}</option>
               <option value="prompt">{t.advResultPrompt}</option>
-            </select></label>
-          <span className="muted">{t.advModel}: <b>{(MODEL_INFO[curModel] || MODEL_INFO.zimage).name}</b></span>
+            </select></label>}
+          {adapter?.extra}
+          <span className="muted">{t.advModel}: <b>{adapter?.modelName || (MODEL_INFO[curModel] || MODEL_INFO.zimage).name}</b></span>
           {!adapter && <label className="row" style={{ gap: 6 }}>{t.advStyle}
             <select value={advStyle} onChange={e => setAdv('style', e.target.value)} aria-label={t.advStyle}>
               <option value="painter">{t.advStylePainter}</option>
@@ -299,7 +300,7 @@ export default function Advisor({ ch, d, update, globalSettings, saveSettings, a
           onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }} />
         <div className="row small" style={{ gap: 10 }}>
           {!adapter && <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={withSheet} onChange={e => setWithSheet(e.target.checked)} />{t.advWithSheet}</label>}
-          <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={withImage} disabled={adapter ? !adapter.hasImage : !ch.selectedPainting} onChange={e => setWithImage(e.target.checked)} />{t.advWithImage}</label>
+          {!adapter?.noImage && <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={withImage} disabled={adapter ? !adapter.hasImage : !ch.selectedPainting} onChange={e => setWithImage(e.target.checked)} />{t.advWithImage}</label>}
           <span className="grow" />
           {busy ? <button className="btn" onClick={() => api.llm.stop()}>{t.advStop}</button>
             : <button className="btn primary" disabled={!input.trim() || (conn && !conn.ok && !canAuto)} onClick={send}>{t.advSend}</button>}

@@ -112,6 +112,49 @@
       ]
     },
     {
+      "id": "ace-step-15",
+      "name": "ACE-Step 1.5 Turbo",
+      "version": "1",
+      "recommended": false,
+      "minVramGB": 8,
+      "kind": "music",
+      "note": {
+        "de": "Musik-Modell für ganze Stücke, mit Gesang oder rein instrumental (bis mehrere Minuten, MIT-Lizenz). Für Soundtracks und Lieder.",
+        "en": "Music model for complete pieces, with vocals or instrumental (up to several minutes, MIT licence). For soundtracks and songs."
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Comfy-Org/ace_step_1.5_ComfyUI_files/resolve/main/checkpoints/ace_step_1.5_turbo_aio.safetensors",
+          "dest": "models/checkpoints/ace_step_1.5_turbo_aio.safetensors",
+          "size": 9340000000
+        }
+      ]
+    },
+    {
+      "id": "stable-audio",
+      "name": "Stable Audio Open 1.0",
+      "version": "1",
+      "recommended": false,
+      "minVramGB": 6,
+      "kind": "sfx",
+      "note": {
+        "de": "Soundeffekt-Modell: Geräusche, Ambiente, kurze Klänge bis 47 Sekunden (z. B. Schwerthieb, Feuerball, Taverne). Stability AI Community-Lizenz (privat frei).",
+        "en": "Sound effect model: noises, ambience, short sounds up to 47 seconds (e.g. sword hit, fireball, tavern). Stability AI Community licence (free for personal use)."
+      },
+      "files": [
+        {
+          "url": "https://huggingface.co/Comfy-Org/stable-audio-open-1.0_repackaged/resolve/main/stable-audio-open-1.0.safetensors",
+          "dest": "models/checkpoints/stable-audio-open-1.0.safetensors",
+          "size": 4520000000
+        },
+        {
+          "url": "https://huggingface.co/ComfyUI-Wiki/t5-base/resolve/main/t5-base.safetensors",
+          "dest": "models/text_encoders/t5-base.safetensors",
+          "size": 850300000
+        }
+      ]
+    },
+    {
       "id": "upscale",
       "name": "Real-ESRGAN x4",
       "version": "1",

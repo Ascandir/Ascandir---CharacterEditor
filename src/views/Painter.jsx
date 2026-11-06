@@ -58,7 +58,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   const setTk = (k, v) => update(c => { c.appearance = { ...(c.appearance || {}), [k]: v }; return c; });
   const [st, setSt] = useState(null);
   const [busy, setBusy] = useJob('paint'); // {mode, seconds, charId}
-  const lastDone = useJobs().done;
+  const allJobs = useJobs(); const lastDone = allJobs.done;
   const [err, setErr] = useState(null);
   const [cache, setCache] = useState({});
   const count = 1; // always one picture per run
@@ -148,6 +148,7 @@ export default function Painter({ ch, d, update, globalSettings, saveSettings })
   const [ramWarn, setRamWarn] = useState(null); // {mode, freeGB, strata}
   const generate = async (mode, skipRamCheck = false) => {
     if (busy) return;
+    if (allJobs.sound) { setErr(t.sndBusyOther); return; }
     const relMode = mode === 'edit' && !!selImg;
     if (relMode && !editList.length) { setErr(t.pRelNothing); return; }
     // edit: the picture keeps its own aspect ratio (about 1 megapixel)
