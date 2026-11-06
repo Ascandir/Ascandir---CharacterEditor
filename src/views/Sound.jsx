@@ -47,6 +47,7 @@ After the block explain in 1-2 short sentences (in the user's language) what you
 
 function SoundItem({ s, t, onRemove, onUse, onRename }) {
   const [src, setSrc] = useState(null);
+  useEffect(() => () => { if (src?.startsWith('blob:')) URL.revokeObjectURL(src); }, [src]);
   const [name, setName] = useState(s.title || '');
   useEffect(() => setName(s.title || ''), [s.title]);
   return (
@@ -57,7 +58,11 @@ function SoundItem({ s, t, onRemove, onUse, onRename }) {
         <span className="muted small">{fmtTime(Math.round(s.seconds || 0))}</span>
       </div>
       {src ? <audio controls autoPlay src={src} style={{ width: '100%' }} />
-        : <button className="btn sm" onClick={async () => setSrc(await api.sounds.load(s.id))}>▶ {t.sndPlay}</button>}
+        : <button className="btn sm" onClick={async () => {
+          const d = await api.sounds.load(s.id);
+          // long tracks are large: play them from a blob instead of a huge data URL
+          try { setSrc(URL.createObjectURL(await (await fetch(d)).blob())); } catch { setSrc(d); }
+        }}>▶ {t.sndPlay}</button>}
       <div className="muted small" style={{ whiteSpace: 'pre-wrap', maxHeight: 48, overflow: 'hidden' }}>{s.kind === 'sfx' ? s.prompt : s.tags}</div>
       <div className="row" style={{ gap: 6 }}>
         <button className="btn sm" onClick={() => api.sounds.exportFile(s.id, s.title || s.kind)}>{t.sndExport}</button>

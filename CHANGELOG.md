@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.12.2
+- Sounds & Musik: Der Player in der Bibliothek spielt erzeugte Sounds jetzt ab (die Sicherheitseinstellung des Programms hatte Audio blockiert). Lange Stücke werden speicherschonend abgespielt.
+
 ## 0.12.1
 - Sounds & Musik: Musikstücke können jetzt bis zu **10 Minuten** lang sein (vorher 5). Mehr unterstützt das Musikmodell ACE-Step 1.5 nicht; auch der KI-Berater darf jetzt bis 10 Minuten planen.
 
