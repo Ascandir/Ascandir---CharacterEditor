@@ -11,7 +11,7 @@ import Advisor from './Advisor.jsx';
 
 export const SND_DEFAULT = {
   mode: 'gen', kind: 'music',
-  sfx: { prompt: '', seconds: 6, count: 2, title: '' },
+  sfx: { prompt: '', negative: '', seconds: 6, count: 2, title: '' },
   music: { tags: '', lyrics: '', vocals: false, seconds: 90, bpm: 100, key: 'D minor', timesig: '4', language: 'de', count: 1, title: '' },
   messages: [],
 };
@@ -25,11 +25,12 @@ function soundSystem(lang, kind) {
 The user makes sounds for Dungeons & Dragons sessions (spells, weapons, monsters, ambience, foley). Talk with the user in ${talk}.
 Ask at most 2 short questions at a time (what exactly makes the sound, material, size, distance, room or outdoor, mood, loop or single hit, length) and make concrete suggestions.
 Whenever you have enough information or the user asks for it, output one fenced code block that starts with \`\`\`settings and contains only JSON:
-{"kind":"sfx","title":"short name in the user's language","prompt":"English prompt","seconds":number 1-47}
+{"kind":"sfx","title":"short name in the user's language","prompt":"English prompt","negative":"English list of what must not be heard, or empty","seconds":number 1-47}
 Rules for the English prompt:
 - One or two plain sentences describing only the sound itself: the source and action, materials, character of the sound (sharp, deep, crackling, metallic ...), distance and room (close-up, large stone hall, open field), and recording quality (e.g. "high quality foley recording, clean, no background noise").
 - Stable Audio Open does not understand fantasy names: describe what you would hear instead (a "fireball" is "a roaring burst of fire with a deep whoosh and crackling flames").
 - No music, no speech, no words that should be spoken (the model cannot speak).
+- "negative": comma separated things to avoid that the user mentioned or that would spoil this sound (e.g. "music, voices, reverb, wind noise"). Empty if nothing special.
 - Short hits: 1-4 seconds. Ambience and loops: 20-47 seconds.
 After the block explain in 1-2 short sentences (in the user's language) what you set.`;
   return `You are a composer who writes prompts for the local AI music model "ACE-Step 1.5" (text to music, instrumental or with vocals, up to several minutes).
@@ -123,13 +124,13 @@ export default function Sound(props) {
       if (lc.stopBeforePaint !== false) { try { await api.strata.stop({ cmd: lc.cmd }); } catch { /* not running */ } }
       const seed = Math.floor(Math.random() * 2 ** 31);
       const params = kind === 'sfx'
-        ? { model: 'sfx', prompt: p.prompt.trim(), seconds: p.seconds, batch: p.count, seed }
+        ? { model: 'sfx', prompt: p.prompt.trim(), negative: (p.negative || '').trim(), seconds: p.seconds, batch: p.count, seed }
         : { model: 'music', tags: p.tags.trim(), lyrics: p.lyrics, vocals: !!p.vocals, seconds: p.seconds, bpm: p.bpm, key: p.key, timesig: p.timesig, language: p.language, batch: p.count, seed };
       const r = await api.ai.generate(params);
       const base = (p.title || '').trim() || (kind === 'sfx' ? p.prompt : p.tags).split(/[,.]/)[0].slice(0, 40);
       for (const [i, a] of (r.audios || []).entries()) {
         await api.sounds.save(a, { kind, title: base + ((r.audios.length > 1) ? ' ' + (i + 1) : ''), seconds: p.seconds, vocals: kind === 'music' && !!p.vocals,
-          prompt: p.prompt, tags: p.tags, lyrics: kind === 'music' && p.vocals ? p.lyrics : '', bpm: p.bpm, key: p.key, timesig: p.timesig, language: p.language, seed });
+          prompt: p.prompt, negative: kind === 'sfx' ? p.negative || '' : '', tags: p.tags, lyrics: kind === 'music' && p.vocals ? p.lyrics : '', bpm: p.bpm, key: p.key, timesig: p.timesig, language: p.language, seed });
       }
       ok = true;
     } catch (e) {
@@ -142,7 +143,7 @@ export default function Sound(props) {
 
   const reuse = (s) => {
     setSnd(c => ({ ...c, mode: 'gen', kind: s.kind, [s.kind]: s.kind === 'sfx'
-      ? { ...SND_DEFAULT.sfx, ...(c.sfx || {}), prompt: s.prompt || '', seconds: s.seconds || 6, title: s.title || '' }
+      ? { ...SND_DEFAULT.sfx, ...(c.sfx || {}), prompt: s.prompt || '', negative: s.negative || '', seconds: s.seconds || 6, title: s.title || '' }
       : { ...SND_DEFAULT.music, ...(c.music || {}), tags: s.tags || '', lyrics: s.lyrics || '', vocals: !!s.vocals, seconds: s.seconds || 90, bpm: s.bpm || 100, key: s.key || 'D minor', timesig: s.timesig || '4', language: s.language || 'de', title: s.title || '' } }));
     window.scrollTo?.(0, 0);
   };
@@ -166,7 +167,7 @@ export default function Sound(props) {
       const num = (v, lo, hi, d) => (typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : d);
       if (s.kind === 'sfx' || (!s.kind && kind === 'sfx')) {
         const o = { ...SND_DEFAULT.sfx, ...(c.sfx || {}) };
-        return { ...c, mode: 'gen', kind: 'sfx', sfx: { ...o, prompt: typeof s.prompt === 'string' ? s.prompt : o.prompt, seconds: num(s.seconds, 1, 47, o.seconds), title: typeof s.title === 'string' ? s.title : o.title } };
+        return { ...c, mode: 'gen', kind: 'sfx', sfx: { ...o, prompt: typeof s.prompt === 'string' ? s.prompt : o.prompt, negative: typeof s.negative === 'string' ? s.negative : o.negative, seconds: num(s.seconds, 1, 47, o.seconds), title: typeof s.title === 'string' ? s.title : o.title } };
       }
       const o = { ...SND_DEFAULT.music, ...(c.music || {}) };
       const vocals = typeof s.vocals === 'boolean' ? s.vocals : o.vocals;
@@ -219,6 +220,8 @@ export default function Sound(props) {
               <>
                 <label className="col small" style={{ gap: 4 }}><span className="muted">{t.sndSfxPrompt}</span>
                   <BigText rows={4} value={cur.prompt} placeholder={t.sndSfxPh} onChange={e => setPart('sfx', 'prompt', e.target.value)} /></label>
+                <label className="col small" style={{ gap: 4 }}><span className="muted">{t.sndNeg}</span>
+                  <BigText rows={2} value={cur.negative || ''} placeholder={t.sndNegPh} onChange={e => setPart('sfx', 'negative', e.target.value)} /></label>
                 <div className="row wrap" style={{ gap: 14 }}>
                   <label className="row small" style={{ gap: 8 }}>{t.sndLen}
                     <input type="range" min="1" max="47" value={cur.seconds} onChange={e => setPart('sfx', 'seconds', Number(e.target.value))} />

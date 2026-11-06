@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.12.3
+- Soundeffekte: neues Feld **Negativ-Prompt** – was im Geräusch nicht zu hören sein soll (z. B. „music, voices, reverb“). Der KI-Berater füllt es bei Bedarf mit aus.
+
 ## 0.12.2
 - Sounds & Musik: Der Player in der Bibliothek spielt erzeugte Sounds jetzt ab (die Sicherheitseinstellung des Programms hatte Audio blockiert). Lange Stücke werden speicherschonend abgespielt.
 

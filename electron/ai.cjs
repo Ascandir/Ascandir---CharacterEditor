@@ -502,7 +502,7 @@ function sfxWorkflow({ prompt, negative = '', seed, seconds = 6, batch = 1, step
     1: { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: 'stable-audio-open-1.0.safetensors' } },
     2: { class_type: 'CLIPLoader', inputs: { clip_name: 't5-base.safetensors', type: 'stable_audio', device: 'default' } },
     3: { class_type: 'CLIPTextEncode', inputs: { clip: ['2', 0], text: prompt } },
-    4: { class_type: 'CLIPTextEncode', inputs: { clip: ['2', 0], text: negative || 'low quality, distorted, noise, music, speech' } },
+    4: { class_type: 'CLIPTextEncode', inputs: { clip: ['2', 0], text: String(negative).trim() ? String(negative).trim() + ', low quality, distorted' : 'low quality, distorted, noise, music, speech' } },
     5: { class_type: 'EmptyLatentAudio', inputs: { seconds: dur, batch_size: batch } },
     6: { class_type: 'KSampler', inputs: { model: ['1', 0], positive: ['3', 0], negative: ['4', 0], latent_image: ['5', 0], seed, steps, cfg, sampler_name: 'dpmpp_3m_sde_gpu', scheduler: 'exponential', denoise: 1 } },
     7: { class_type: 'VAEDecodeAudio', inputs: { samples: ['6', 0], vae: ['1', 2] } },
